@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  passwordHash String     @map("password_hash")
+  role         String     // TRAINER | TEACHER
+  realName     String?    @map("real_name")
+  status       String     @default("ACTIVE") // ACTIVE | DISABLED
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  createdTeachers Teacher[] @relation("TrainerToTeacher")
+  conversations   Conversation[]
+  favoriteScripts TeacherFavorite[]
+
+  @@map("users")
+}
+
+model Teacher {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdBy Int      @map("created_by")
+  trainer   User     @relation("TrainerToTeacher", fields: [createdBy], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("teachers")
+}
+
+model Scenario {
+  id                Int      @id @default(autoincrement())
+  title             String
+  category          String
+  parentProfile     String   @map("parent_profile")
+  initialMessage    String   @map("initial_message")
+  difficulty        String
+  status            String   @default("ACTIVE")
+  recommendedScripts String?  @map("recommended_scripts")
+  createdBy         Int      @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+
+  @@map("scenarios")
+}
+
+model Script {
+  id         Int      @id @default(autoincrement())
+  category   String
+  title      String
+  content    String
+  keyPoints  String   @map("key_points")
+  status     String   @default("ACTIVE")
+  createdBy  Int      @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  favoritedBy TeacherFavorite[]
+
+  @@map("scripts")
+}
+
+model TeacherFavorite {
+  id        Int      @id @default(autoincrement())
+  teacherId Int      @map("teacher_id")
+  teacher   User     @relation(fields: [teacherId], references: [id])
+  scriptId  Int      @map("script_id")
+  script    Script   @relation(fields: [scriptId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([teacherId, scriptId])
+  @@map("teacher_favorites")
+}
+
+model Conversation {
+  id         Int      @id @default(autoincrement())
+  teacherId  Int      @map("teacher_id")
+  teacher    User     @relation(fields: [teacherId], references: [id])
+  scenarioId Int      @map("scenario_id")
+  scenario   Scenario @relation(fields: [scenarioId], references: [id])
+  status     String   @default("ACTIVE")
+  finalScore Int?     @map("final_score")
+  aiReview   String?  @map("ai_review")
+  startedAt  DateTime @default(now()) @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  messageType    String       @default("TEXT") @map("message_type")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("messages")
+}

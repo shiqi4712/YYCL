@@ -18,6 +18,7 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   createdTeachers Teacher[] @relation("TrainerToTeacher")
+  teacher         Teacher?
   conversations   Conversation[]
   favoriteScripts TeacherFavorite[]
 

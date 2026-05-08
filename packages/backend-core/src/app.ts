@@ -1,6 +1,7 @@
+import './env'
+
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 
 import { errorHandler } from './middlewares/errorHandler'
 import authRoutes from './routes/auth.routes'
@@ -9,8 +10,6 @@ import scenarioRoutes from './routes/scenario.routes'
 import scriptRoutes from './routes/script.routes'
 import statsRoutes from './routes/stats.routes'
 import conversationRoutes from './routes/conversation.routes'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3001

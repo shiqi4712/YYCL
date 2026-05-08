@@ -15,17 +15,20 @@ export async function getTeacherHistory(teacherId: number, page: number, pageSiz
 }
 
 export async function getTeacherOverview(teacherId: number) {
-  const conversations = await prisma.conversation.findMany({
-    where: { teacherId, finalScore: { not: null } }
-  })
-  const totalCount = await prisma.conversation.count({ where: { teacherId } })
+  const [totalCount, conversations] = await Promise.all([
+    prisma.conversation.count({ where: { teacherId } }),
+    prisma.conversation.findMany({
+      where: { teacherId, finalScore: { not: null } },
+      include: { scenario: { select: { category: true } } }
+    })
+  ])
   const scores = conversations.map(c => c.finalScore || 0)
   const coveredScenarios = new Set(conversations.map(c => c.scenarioId)).size
 
   const categoryBreakdown: Record<string, number> = {}
   for (const c of conversations) {
-    const cat = c.scenarioId // simplified; ideally join scenario
-    categoryBreakdown[String(cat)] = (categoryBreakdown[String(cat)] || 0) + 1
+    const cat = c.scenario?.category || 'UNKNOWN'
+    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1
   }
 
   return {

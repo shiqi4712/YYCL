@@ -3,7 +3,8 @@ import * as conversationService from '../services/conversation.service'
 
 export async function createSession(req: Request, res: Response) {
   const { scenarioId } = req.body
-  const result = await conversationService.createSession(scenarioId)
+  const teacherId = (req as any).user.id
+  const result = await conversationService.createSession(scenarioId, teacherId)
   res.json({ code: 0, data: result })
 }
 

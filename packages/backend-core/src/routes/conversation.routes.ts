@@ -1,13 +1,14 @@
 import { Router } from 'express'
 import { authenticate } from '../middlewares/auth'
 import { prisma } from '../middlewares/prisma'
+import { asyncHandler } from '../utils/asyncHandler'
 
 const router = Router()
 
 router.use(authenticate)
 
 // Create conversation (called by AI service or frontend)
-router.post('/sessions', async (req, res) => {
+router.post('/sessions', asyncHandler(async (req, res) => {
   const { scenarioId, initialMessage } = req.body
   const teacherId = (req as any).user.id
   const conv = await prisma.conversation.create({
@@ -26,10 +27,10 @@ router.post('/sessions', async (req, res) => {
     }
   })
   res.json({ code: 0, data: { id: conv.id, initialMessage } })
-})
+}))
 
 // Get conversation with messages
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const conv = await prisma.conversation.findUnique({
     where: { id },
@@ -40,20 +41,20 @@ router.get('/:id', async (req, res) => {
   })
   if (!conv) return res.status(404).json({ code: 404, message: '对话不存在' })
   res.json({ code: 0, data: conv })
-})
+}))
 
 // Save message
-router.post('/:id/message', async (req, res) => {
+router.post('/:id/message', asyncHandler(async (req, res) => {
   const conversationId = Number(req.params.id)
   const { role, content } = req.body
   const msg = await prisma.message.create({
     data: { conversationId, role, content, messageType: 'TEXT' }
   })
   res.json({ code: 0, data: msg })
-})
+}))
 
 // End conversation
-router.post('/:id/end', async (req, res) => {
+router.post('/:id/end', asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const { finalScore, aiReview } = req.body
   const conv = await prisma.conversation.update({
@@ -66,6 +67,6 @@ router.post('/:id/end', async (req, res) => {
     }
   })
   res.json({ code: 0, data: conv })
-})
+}))
 
 export default router

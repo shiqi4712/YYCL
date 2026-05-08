@@ -1,11 +1,10 @@
+import './env'
+
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 
 import teacherStatsRoutes from './routes/teacher-stats.routes'
 import teamReportRoutes from './routes/team-report.routes'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3003

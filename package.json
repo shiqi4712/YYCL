@@ -2,6 +2,7 @@
   "name": "yycl-training-system",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@11.11.0",
   "workspaces": [
     "packages/*"
   ],

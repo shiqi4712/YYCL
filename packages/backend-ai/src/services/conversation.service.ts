@@ -105,7 +105,10 @@ export async function sendMessage(sessionId: number, content: string) {
     { role: 'system' as const, content: systemPrompt },
     ...conv.messages.map((m) => ({
       role: m.role === 'TEACHER' ? ('user' as const) : ('assistant' as const),
-      content: m.content,
+      content:
+        m.role === 'TEACHER' && m.content.trim() === '(+物料)'
+          ? '[教师发送了与当前场景相关的课程资料/优惠活动/学员案例等话术物料，你已收到并查看]'
+          : m.content,
     })),
   ]
 

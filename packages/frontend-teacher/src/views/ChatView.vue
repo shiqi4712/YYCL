@@ -103,6 +103,18 @@ async function sendText() {
   const text = inputText.value.trim()
   if (!text || aiLoading.value) return
   inputText.value = ''
+
+  const teacherMsg: Message = {
+    id: Date.now(),
+    conversationId,
+    role: 'TEACHER',
+    content: text,
+    messageType: 'TEXT',
+    createdAt: new Date().toISOString(),
+  }
+  messages.value.push(teacherMsg)
+  scrollBottom()
+
   aiLoading.value = true
   try {
     const msg = await sendMessage(conversationId, text)

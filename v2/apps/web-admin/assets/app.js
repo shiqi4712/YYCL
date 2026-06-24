@@ -38,6 +38,7 @@
     scenarioImportTopicSelect: document.getElementById('adminScenarioImportTopicSelect'),
     scenarioImportStatus: document.getElementById('adminScenarioImportStatus'),
     scenarioImportResults: document.getElementById('adminScenarioImportResults'),
+    downloadScenarioTemplateButton: document.getElementById('adminDownloadScenarioTemplateButton'),
     scenarioBulkDeleteButton: document.getElementById('adminBulkDeleteScenariosButton'),
     scenarioBulkDeleteStatus: document.getElementById('adminScenarioBulkDeleteStatus'),
     scenarioBulkDeleteResults: document.getElementById('adminScenarioBulkDeleteResults'),
@@ -335,6 +336,79 @@
     return map[normalized] || 'ACTIVE';
   }
 
+  function parseCsvLine(line) {
+    const columns = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const nextChar = line[index + 1];
+
+      if (char === '"' && inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        columns.push(current.trim());
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    if (inQuotes) {
+      throw new Error('CSV 内容存在未闭合的英文双引号，请检查模板内容。');
+    }
+
+    columns.push(current.trim());
+    return columns;
+  }
+
+  function parseScenarioImportColumns(line) {
+    return line.includes('\t') ? line.split('\t').map((column) => column.trim()) : parseCsvLine(line);
+  }
+
+  function csvCell(value) {
+    return `"${String(value).replace(/"/g, '""')}"`;
+  }
+
+  function downloadCsv(filename, rows) {
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadScenarioTemplate() {
+    downloadCsv('异议场景导入模板.csv', [
+      ['场景名称', '场景描述', '家长画像', '开场话术', '难度', '状态', '异议步骤'],
+      [
+        '价格敏感型家长',
+        '家长认可课程方向，但会连续提出价格、对比和决策顾虑。',
+        '李妈妈',
+        '老师，今天体验课孩子玩得挺开心的，但正式课是不是有点贵？',
+        '标准',
+        '启用',
+        '价格偏高|你们课程太贵了|先共情，再说明课程价值；还想比较|我再看看别家|帮助家长明确比较标准',
+      ],
+    ]);
+  }
+
   function parseScenarioImportRows(value) {
     return String(value || '')
       .split(/\r?\n/)
@@ -342,7 +416,7 @@
       .filter(Boolean)
       .filter((line) => !/^场景名称[\s,，\t]+场景描述[\s,，\t]+/.test(line))
       .map((line, index) => {
-        const columns = (line.includes('\t') ? line.split('\t') : line.split(',')).map((column) => column.trim());
+        const columns = parseScenarioImportColumns(line);
 
         if (columns.length !== 7) {
           throw new Error(`第 ${index + 1} 行格式不正确，请使用 7 列：场景名称、场景描述、家长画像、开场话术、难度、状态、异议步骤`);
@@ -940,6 +1014,7 @@
     nodes.topicForm.addEventListener('submit', handleSaveTopic);
     nodes.scenarioForm.addEventListener('submit', handleSaveScenario);
     nodes.scenarioImportForm.addEventListener('submit', handleImportScenarios);
+    nodes.downloadScenarioTemplateButton.addEventListener('click', handleDownloadScenarioTemplate);
     nodes.scenarioBulkDeleteButton.addEventListener('click', handleBulkDeleteScenarios);
     nodes.topicResetButton.addEventListener('click', resetTopicForm);
     nodes.scenarioResetButton.addEventListener('click', resetScenarioForm);

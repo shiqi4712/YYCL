@@ -136,6 +136,13 @@ h3 {
   color: var(--text-soft);
 }
 
+.helper-text {
+  margin-top: -8px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .auth-screen {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 420px);
@@ -419,10 +426,17 @@ select:focus {
   grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
 }
 
+.account-actions {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
 .activity-list,
 .teacher-list,
 .topic-studio,
-.step-editor-list {
+.step-editor-list,
+.import-result-list {
   display: grid;
   gap: 14px;
 }
@@ -431,7 +445,8 @@ select:focus {
 .teacher-card,
 .topic-card,
 .scenario-card,
-.step-editor-card {
+.step-editor-card,
+.import-result-card {
   padding: 20px;
 }
 
@@ -439,7 +454,8 @@ select:focus {
 .teacher-card h3,
 .topic-card h3,
 .scenario-card h3,
-.step-editor-card h3 {
+.step-editor-card h3,
+.import-result-card h3 {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -449,10 +465,21 @@ select:focus {
 .teacher-card p,
 .topic-card p,
 .scenario-card p,
-.step-editor-card p {
+.step-editor-card p,
+.import-result-card p {
   margin-top: 8px;
   color: var(--text-soft);
   line-height: 1.8;
+}
+
+.import-result-list {
+  margin-top: 4px;
+}
+
+.import-result-card {
+  border-radius: 20px;
+  background: var(--surface-muted);
+  box-shadow: var(--shadow-soft);
 }
 
 .row-actions,

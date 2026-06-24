@@ -88,37 +88,62 @@
                 <div class="teacher-list" id="adminTeacherList"></div>
               </article>
 
-              <article class="shell-card section-card">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Create Account</p>
-                    <h2>新增账号</h2>
+              <div class="account-actions">
+                <article class="shell-card section-card">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Create Account</p>
+                      <h2>新增账号</h2>
+                    </div>
                   </div>
-                </div>
-                <form class="form-stack" id="adminTeacherForm">
-                  <label>
-                    <span>账号</span>
-                    <input name="username" placeholder="teacher02" />
-                  </label>
-                  <label>
-                    <span>姓名</span>
-                    <input name="displayName" placeholder="体验课老师 B / 张诗琪" />
-                  </label>
-                  <label>
-                    <span>账号角色</span>
-                    <select name="role">
-                      <option value="TEACHER">教师</option>
-                      <option value="TRAINER">管理员</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>初始密码</span>
-                    <input name="password" type="password" placeholder="123456" />
-                  </label>
-                  <button class="primary-btn" type="submit">创建账号</button>
-                  <p class="status-text" id="adminTeacherStatus"></p>
-                </form>
-              </article>
+                  <form class="form-stack" id="adminTeacherForm">
+                    <label>
+                      <span>账号</span>
+                      <input name="username" placeholder="teacher02" />
+                    </label>
+                    <label>
+                      <span>姓名</span>
+                      <input name="displayName" placeholder="体验课老师 B / 张诗琪" />
+                    </label>
+                    <label>
+                      <span>账号角色</span>
+                      <select name="role">
+                        <option value="TEACHER">教师</option>
+                        <option value="TRAINER">管理员</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>初始密码</span>
+                      <input name="password" type="password" placeholder="123456" />
+                    </label>
+                    <button class="primary-btn" type="submit">创建账号</button>
+                    <p class="status-text" id="adminTeacherStatus"></p>
+                  </form>
+                </article>
+
+                <article class="shell-card section-card">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Batch Import</p>
+                      <h2>批量导入教师</h2>
+                    </div>
+                  </div>
+                  <form class="form-stack" id="adminTeacherImportForm">
+                    <label>
+                      <span>导入内容</span>
+                      <textarea
+                        name="users"
+                        rows="8"
+                        placeholder="每行一个教师：账号,姓名,初始密码&#10;teacher02,体验课老师B,123456&#10;teacher03,体验课老师C,123456"
+                      ></textarea>
+                    </label>
+                    <p class="helper-text">支持英文逗号、中文逗号或从 Excel 复制的三列内容；批量导入只会创建教师账号。</p>
+                    <button class="primary-btn" type="submit">导入教师账号</button>
+                    <p class="status-text" id="adminTeacherImportStatus"></p>
+                    <div class="import-result-list" id="adminTeacherImportResults"></div>
+                  </form>
+                </article>
+              </div>
             </div>
           </section>
 

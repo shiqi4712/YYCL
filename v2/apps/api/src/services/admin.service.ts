@@ -14,6 +14,10 @@ const userCreateSchema = z.object({
   role: roleSchema.default('TEACHER'),
 })
 
+const teacherBulkImportSchema = z.object({
+  users: z.array(userCreateSchema.omit({ role: true })).min(1).max(200),
+})
+
 const topicCreateSchema = z.object({
   title: z.string().min(1).max(60),
   description: z.string().min(1).max(300),
@@ -188,6 +192,76 @@ export async function createUser(payload: unknown) {
     displayName: user.displayName,
     isActive: user.isActive,
     createdAt: user.createdAt,
+  }
+}
+
+export async function importTeacherUsers(payload: unknown) {
+  const input = teacherBulkImportSchema.parse(payload)
+  const seenUsernames = new Set<string>()
+  const existingUsers = await prisma.user.findMany({
+    where: {
+      username: {
+        in: input.users.map((user) => user.username),
+      },
+    },
+    select: { username: true },
+  })
+  const existingUsernames = new Set<string>(
+    existingUsers.map((user: (typeof existingUsers)[number]) => user.username)
+  )
+  const results: Array<{
+    username: string
+    displayName: string
+    status: 'CREATED' | 'SKIPPED'
+    reason?: string
+  }> = []
+
+  for (const user of input.users) {
+    if (seenUsernames.has(user.username)) {
+      results.push({
+        username: user.username,
+        displayName: user.displayName,
+        status: 'SKIPPED',
+        reason: '导入内容中账号重复',
+      })
+      continue
+    }
+
+    seenUsernames.add(user.username)
+
+    if (existingUsernames.has(user.username)) {
+      results.push({
+        username: user.username,
+        displayName: user.displayName,
+        status: 'SKIPPED',
+        reason: '账号已存在',
+      })
+      continue
+    }
+
+    const passwordHash = await hashPassword(user.password)
+    await prisma.user.create({
+      data: {
+        username: user.username,
+        passwordHash,
+        role: 'TEACHER',
+        displayName: user.displayName,
+        isActive: true,
+      },
+    })
+
+    results.push({
+      username: user.username,
+      displayName: user.displayName,
+      status: 'CREATED',
+    })
+  }
+
+  return {
+    total: results.length,
+    created: results.filter((result) => result.status === 'CREATED').length,
+    skipped: results.filter((result) => result.status === 'SKIPPED').length,
+    results,
   }
 }
 

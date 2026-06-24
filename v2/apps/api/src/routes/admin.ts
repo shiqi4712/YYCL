@@ -11,6 +11,7 @@ import {
   deleteTopic,
   getCurrentUserProfile,
   getDashboardSummary,
+  importTeacherUsers,
   listTopicsForAdmin,
   listUsers,
   updateScenario,
@@ -55,6 +56,14 @@ router.get('/users', requireRole('TRAINER'), async (req, res, next) => {
 router.post('/users', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
     res.json(ok(await createUser(req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/users/import', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await importTeacherUsers(req.body)))
   } catch (error) {
     next(error)
   }

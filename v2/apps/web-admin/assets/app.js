@@ -22,6 +22,9 @@
     teacherList: document.getElementById('adminTeacherList'),
     teacherForm: document.getElementById('adminTeacherForm'),
     teacherStatus: document.getElementById('adminTeacherStatus'),
+    teacherImportForm: document.getElementById('adminTeacherImportForm'),
+    teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
+    teacherImportResults: document.getElementById('adminTeacherImportResults'),
     topicStudio: document.getElementById('adminTopicStudio'),
     topicForm: document.getElementById('adminTopicForm'),
     topicFormTitle: document.getElementById('topicFormTitle'),
@@ -248,6 +251,56 @@
         await Promise.all([loadUsers(), loadDashboard()]);
       });
     });
+  }
+
+  function parseTeacherImportRows(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !/^账号[\s,，\t]+姓名[\s,，\t]+/.test(line))
+      .map((line, index) => {
+        const columns = line
+          .split(/\t|,|，/)
+          .map((column) => column.trim())
+          .filter(Boolean);
+
+        if (columns.length !== 3) {
+          throw new Error(`第 ${index + 1} 行格式不正确，请使用：账号,姓名,初始密码`);
+        }
+
+        return {
+          username: columns[0],
+          displayName: columns[1],
+          password: columns[2],
+        };
+      });
+  }
+
+  function renderTeacherImportResults(results) {
+    if (!results.length) {
+      nodes.teacherImportResults.innerHTML = '';
+      return;
+    }
+
+    nodes.teacherImportResults.innerHTML = results
+      .map(
+        (result) => `
+          <article class="import-result-card">
+            <div class="row-actions">
+              <div>
+                <p class="eyebrow">${escapeHtml(result.status === 'CREATED' ? 'Created' : 'Skipped')}</p>
+                <h3>${escapeHtml(result.displayName || result.username)}</h3>
+                <p>账号：${escapeHtml(result.username)}</p>
+              </div>
+              <span class="${result.status === 'CREATED' ? 'chip-good' : 'chip-warn'}">
+                ${escapeHtml(result.status === 'CREATED' ? '已创建' : result.reason || '已跳过')}
+              </span>
+            </div>
+          </article>
+        `
+      )
+      .join('');
   }
 
   function renderTopicStudio() {
@@ -583,6 +636,34 @@
     }
   }
 
+  async function handleImportTeachers(event) {
+    event.preventDefault();
+    nodes.teacherImportStatus.textContent = '正在解析导入内容...';
+    nodes.teacherImportResults.innerHTML = '';
+
+    try {
+      const formData = new FormData(nodes.teacherImportForm);
+      const users = parseTeacherImportRows(formData.get('users'));
+
+      if (!users.length) {
+        throw new Error('请先粘贴需要导入的教师账号。');
+      }
+
+      nodes.teacherImportStatus.textContent = `正在导入 ${users.length} 个教师账号...`;
+      const result = await api('/api/admin/users/import', {
+        method: 'POST',
+        body: JSON.stringify({ users }),
+      });
+
+      nodes.teacherImportStatus.textContent = `导入完成：成功 ${result.created} 个，跳过 ${result.skipped} 个。`;
+      renderTeacherImportResults(result.results || []);
+      nodes.teacherImportForm.reset();
+      await Promise.all([loadUsers(), loadDashboard()]);
+    } catch (error) {
+      nodes.teacherImportStatus.textContent = error.message;
+    }
+  }
+
   async function handleSaveTopic(event) {
     event.preventDefault();
     nodes.topicStatus.textContent = '正在保存...';
@@ -655,6 +736,7 @@
   async function bootstrap() {
     nodes.loginForm.addEventListener('submit', handleLogin);
     nodes.teacherForm.addEventListener('submit', handleCreateUser);
+    nodes.teacherImportForm.addEventListener('submit', handleImportTeachers);
     nodes.topicForm.addEventListener('submit', handleSaveTopic);
     nodes.scenarioForm.addEventListener('submit', handleSaveScenario);
     nodes.topicResetButton.addEventListener('click', resetTopicForm);

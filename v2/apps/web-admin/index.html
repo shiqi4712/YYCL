@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YYCL V2 管理台</title>
+    <title>异议处理管理后台</title>
     <link rel="stylesheet" href="/assets/admin/styles.css" />
   </head>
   <body>
@@ -14,35 +14,20 @@
       <main class="admin-app">
         <section class="auth-screen shell-card" id="adminAuthScreen">
           <div class="auth-copy">
-            <p class="eyebrow">YYCL V2 Admin</p>
-            <h1>统一管理教师账号、训练主题、场景和多步异议链路。</h1>
-            <p class="lede">
-              管理端聚焦低成本部署与高频配置。你可以在一个界面内维护老师、主题、场景与步骤，并快速观察最近训练使用情况。
-            </p>
-            <div class="info-row">
-              <div class="glass-note">
-                <span>默认主管账号</span>
-                <strong>trainer01 / 123456</strong>
-              </div>
-              <div class="glass-note">
-                <span>教师端入口</span>
-                <strong>访问 / 进入教师训练台</strong>
-              </div>
-            </div>
+            <h1>异议处理管理后台</h1>
           </div>
 
-          <form class="auth-card" id="adminLoginForm">
+          <form class="auth-card" id="adminLoginForm" autocomplete="off">
             <div>
-              <p class="eyebrow">Sign In</p>
-              <h2>进入管理台</h2>
+              <h2>账号登录</h2>
             </div>
             <label>
               <span>账号</span>
-              <input name="username" placeholder="trainer01" value="trainer01" />
+              <input name="username" placeholder="请输入账号" autocomplete="off" autocapitalize="none" spellcheck="false" />
             </label>
             <label>
               <span>密码</span>
-              <input name="password" type="password" placeholder="123456" value="123456" />
+              <input name="password" type="password" placeholder="请输入密码" autocomplete="new-password" />
             </label>
             <button class="primary-btn" type="submit">登录管理台</button>
             <p class="status-text" id="adminLoginStatus"></p>
@@ -75,7 +60,7 @@
 
           <nav class="tab-bar glass-bar">
             <button class="tab-btn active" type="button" data-tab="dashboard">团队概览</button>
-            <button class="tab-btn" type="button" data-tab="teachers">教师账号</button>
+            <button class="tab-btn" type="button" data-tab="teachers">账号管理</button>
             <button class="tab-btn" type="button" data-tab="topics">主题与场景</button>
           </nav>
 
@@ -97,7 +82,7 @@
                 <div class="section-head">
                   <div>
                     <p class="eyebrow">Teachers</p>
-                    <h2>教师账号列表</h2>
+                    <h2>账号列表</h2>
                   </div>
                 </div>
                 <div class="teacher-list" id="adminTeacherList"></div>
@@ -106,8 +91,8 @@
               <article class="shell-card section-card">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">Create Teacher</p>
-                    <h2>新增教师</h2>
+                    <p class="eyebrow">Create Account</p>
+                    <h2>新增账号</h2>
                   </div>
                 </div>
                 <form class="form-stack" id="adminTeacherForm">
@@ -117,13 +102,20 @@
                   </label>
                   <label>
                     <span>姓名</span>
-                    <input name="displayName" placeholder="体验课老师 B" />
+                    <input name="displayName" placeholder="体验课老师 B / 张诗琪" />
+                  </label>
+                  <label>
+                    <span>账号角色</span>
+                    <select name="role">
+                      <option value="TEACHER">教师</option>
+                      <option value="TRAINER">管理员</option>
+                    </select>
                   </label>
                   <label>
                     <span>初始密码</span>
                     <input name="password" type="password" placeholder="123456" />
                   </label>
-                  <button class="primary-btn" type="submit">创建教师</button>
+                  <button class="primary-btn" type="submit">创建账号</button>
                   <p class="status-text" id="adminTeacherStatus"></p>
                 </form>
               </article>

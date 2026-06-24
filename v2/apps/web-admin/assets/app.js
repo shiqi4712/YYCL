@@ -71,6 +71,9 @@
   function toggleApp(isAuthed) {
     nodes.authScreen.classList.toggle('hidden', isAuthed);
     nodes.workspace.classList.toggle('hidden', !isAuthed);
+    if (!isAuthed) {
+      nodes.loginForm.reset();
+    }
   }
 
   async function api(path, options) {
@@ -197,7 +200,7 @@
 
   function renderTeachers() {
     if (!state.users.length) {
-      nodes.teacherList.innerHTML = renderEmptyState('当前还没有教师账号。');
+      nodes.teacherList.innerHTML = renderEmptyState('当前还没有账号。');
       return;
     }
 
@@ -557,7 +560,7 @@
     }
   }
 
-  async function handleCreateTeacher(event) {
+  async function handleCreateUser(event) {
     event.preventDefault();
     nodes.teacherStatus.textContent = '正在创建...';
     const formData = new FormData(nodes.teacherForm);
@@ -569,10 +572,11 @@
           username: String(formData.get('username') || ''),
           displayName: String(formData.get('displayName') || ''),
           password: String(formData.get('password') || ''),
+          role: String(formData.get('role') || 'TEACHER'),
         }),
       });
       nodes.teacherForm.reset();
-      nodes.teacherStatus.textContent = '教师账号创建成功。';
+      nodes.teacherStatus.textContent = '账号创建成功。';
       await Promise.all([loadUsers(), loadDashboard()]);
     } catch (error) {
       nodes.teacherStatus.textContent = error.message;
@@ -650,7 +654,7 @@
 
   async function bootstrap() {
     nodes.loginForm.addEventListener('submit', handleLogin);
-    nodes.teacherForm.addEventListener('submit', handleCreateTeacher);
+    nodes.teacherForm.addEventListener('submit', handleCreateUser);
     nodes.topicForm.addEventListener('submit', handleSaveTopic);
     nodes.scenarioForm.addEventListener('submit', handleSaveScenario);
     nodes.topicResetButton.addEventListener('click', resetTopicForm);

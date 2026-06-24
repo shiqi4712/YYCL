@@ -72,14 +72,14 @@ async function main() {
     where: { username: 'trainer01' },
     update: {
       passwordHash: trainerPassword,
-      displayName: '培训主管',
+      displayName: '张诗琪',
       role: 'TRAINER',
       isActive: true,
     },
     create: {
       username: 'trainer01',
       passwordHash: trainerPassword,
-      displayName: '培训主管',
+      displayName: '张诗琪',
       role: 'TRAINER',
       isActive: true,
     },

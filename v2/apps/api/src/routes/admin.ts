@@ -5,8 +5,8 @@ import { requireRole } from '../middleware/require-role'
 import type { AuthedRequest } from '../types'
 import {
   createScenario,
-  createTeacher,
   createTopic,
+  createUser,
   deleteScenario,
   deleteTopic,
   getCurrentUserProfile,
@@ -54,7 +54,7 @@ router.get('/users', requireRole('TRAINER'), async (req, res, next) => {
 
 router.post('/users', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await createTeacher(req.body)))
+    res.json(ok(await createUser(req.body)))
   } catch (error) {
     next(error)
   }

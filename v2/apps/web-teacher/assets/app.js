@@ -75,6 +75,9 @@
   function toggleApp(isAuthed) {
     nodes.authScreen.classList.toggle('hidden', isAuthed);
     nodes.workspace.classList.toggle('hidden', !isAuthed);
+    if (!isAuthed) {
+      nodes.loginForm.reset();
+    }
   }
 
   function setView(view) {

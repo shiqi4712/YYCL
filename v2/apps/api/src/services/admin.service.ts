@@ -7,10 +7,11 @@ const roleSchema = z.enum(['TRAINER', 'TEACHER'])
 const difficultySchema = z.enum(['BASIC', 'STANDARD', 'ADVANCED'])
 const statusSchema = z.enum(['ACTIVE', 'INACTIVE'])
 
-const teacherCreateSchema = z.object({
+const userCreateSchema = z.object({
   username: z.string().min(3).max(24),
   password: z.string().min(6).max(64),
   displayName: z.string().min(1).max(40),
+  role: roleSchema.default('TEACHER'),
 })
 
 const topicCreateSchema = z.object({
@@ -160,8 +161,8 @@ export async function listUsers(role?: string) {
   })
 }
 
-export async function createTeacher(payload: unknown) {
-  const input = teacherCreateSchema.parse(payload)
+export async function createUser(payload: unknown) {
+  const input = userCreateSchema.parse(payload)
   const existing = await prisma.user.findUnique({ where: { username: input.username } })
 
   if (existing) {
@@ -174,7 +175,7 @@ export async function createTeacher(payload: unknown) {
     data: {
       username: input.username,
       passwordHash,
-      role: 'TEACHER',
+      role: input.role,
       displayName: input.displayName,
       isActive: true,
     },

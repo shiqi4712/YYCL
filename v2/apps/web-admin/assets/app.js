@@ -167,9 +167,9 @@
 
     const items = [
       ['教师总数', state.dashboard.totalTeachers, '当前系统内可训练教师数量'],
-      ['训练主题', state.dashboard.totalTopics, '可供配置与复用的主题总量'],
-      ['训练场景', state.dashboard.totalScenarios, '所有主题下的场景数量'],
+      ['团队均分', state.dashboard.teamAverageScore ?? '--', '已生成点评教师的平均表现'],
       ['训练记录', state.dashboard.totalSessions, `近 7 天活跃教师 ${state.dashboard.activeTeachersLast7Days}`],
+      ['训练场景', state.dashboard.totalScenarios, `训练主题 ${state.dashboard.totalTopics}`],
     ];
 
     nodes.metrics.innerHTML = items
@@ -184,25 +184,51 @@
       )
       .join('');
 
-    const recentSessions = state.dashboard.recentSessions || [];
-    if (!recentSessions.length) {
-      nodes.recentSessions.innerHTML = renderEmptyState('最近还没有训练记录。');
+    const teacherStats = state.dashboard.teacherStats || [];
+    if (!teacherStats.length) {
+      nodes.recentSessions.innerHTML = renderEmptyState('当前还没有教师训练统计。');
       return;
     }
 
-    nodes.recentSessions.innerHTML = recentSessions
+    const maxPracticeCount = Math.max(...teacherStats.map((teacher) => teacher.practiceCount), 1);
+
+    nodes.recentSessions.innerHTML = teacherStats
       .map(
-        (session) => `
-          <article class="activity-card">
-            <p class="eyebrow">${escapeHtml(statusLabel(session.status))}</p>
-            <h3>${escapeHtml(session.teacherName)}</h3>
-            <p>训练场景：${escapeHtml(session.scenarioTitle)}</p>
-            <div class="row-actions">
+        (teacher) => `
+          <article class="activity-card teacher-stat-card">
+            <div class="teacher-stat-head">
+              <div>
+                <p class="eyebrow">Teacher</p>
+                <h3>${escapeHtml(teacher.displayName)}</h3>
+                <p>账号：${escapeHtml(teacher.username)}</p>
+              </div>
               <div class="chip-row">
-                <span class="chip">开始于 ${escapeHtml(formatDate(session.startedAt))}</span>
-                <span class="chip-warn">得分 ${escapeHtml(session.score ?? '--')}</span>
+                <span class="chip">练习 ${escapeHtml(teacher.practiceCount)} 次</span>
+                <span class="chip-warn">均分 ${escapeHtml(teacher.averageScore ?? '--')}</span>
+                <span class="chip-good">完成 ${escapeHtml(teacher.completedCount)} 次</span>
               </div>
             </div>
+            <div class="stat-bars">
+              <div>
+                <div class="stat-bar-label">
+                  <span>练习次数</span>
+                  <strong>${escapeHtml(teacher.practiceCount)} 次</strong>
+                </div>
+                <div class="stat-bar-track">
+                  <span style="width: ${Math.max(6, Math.round((teacher.practiceCount / maxPracticeCount) * 100))}%"></span>
+                </div>
+              </div>
+              <div>
+                <div class="stat-bar-label">
+                  <span>平均分</span>
+                  <strong>${escapeHtml(teacher.averageScore ?? '--')}</strong>
+                </div>
+                <div class="stat-bar-track score-track">
+                  <span style="width: ${typeof teacher.averageScore === 'number' ? teacher.averageScore : 0}%"></span>
+                </div>
+              </div>
+            </div>
+            <p>最近训练：${escapeHtml(teacher.lastTrainedAt ? formatDate(teacher.lastTrainedAt) : '暂无训练')}</p>
           </article>
         `
       )

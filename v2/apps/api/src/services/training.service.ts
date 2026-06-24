@@ -1,4 +1,4 @@
-import { buildDeepSeekReply, isDeepSeekEnabled } from '../lib/deepseek-ai'
+import { buildDeepSeekReply, buildDeepSeekReview, isDeepSeekEnabled } from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { HttpError } from '../utils/http-error'
@@ -10,6 +10,7 @@ const TRAINING_STATUS = {
 } as const
 
 const AI_THINKING_DELAY_MS = 10_000
+const MIN_TEACHER_MESSAGES_PER_OBJECTION = 5
 
 function mapMessageRole(role: string) {
   return role === 'AI' ? 'ai' : 'teacher'
@@ -30,6 +31,7 @@ async function buildParentReply(input: {
   nextObjection?: string
   isFinalStep: boolean
   resolved: boolean
+  canAdvance: boolean
   history: Array<{
     role: string
     content: string
@@ -111,17 +113,10 @@ export async function createSession(teacherId: string, scenarioId: string) {
   return {
     sessionId: session.id,
     status: session.status,
-    currentStepOrder: session.currentStepOrder,
     openingMessage: scenario.openingLine,
     scenario: {
       id: session.scenario.id,
       title: session.scenario.title,
-      steps: session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => ({
-        id: step.id,
-        order: step.order,
-        title: step.title,
-        objectionText: step.objectionText,
-      })),
     },
   }
 }
@@ -170,13 +165,6 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
       title: session.scenario.title,
       description: session.scenario.description,
       parentPersona: session.scenario.parentPersona,
-      steps: session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => ({
-        id: step.id,
-        order: step.order,
-        title: step.title,
-        objectionText: step.objectionText,
-        evaluationFocus: step.evaluationFocus,
-      })),
     },
     messages: session.messages.map((message: (typeof session.messages)[number]) => ({
       id: message.id,
@@ -234,12 +222,18 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
   })
 
   const resolved = detectResolved(content)
+  const currentStepTeacherMessageCount =
+    session.messages.filter(
+      (message: (typeof session.messages)[number]) =>
+        message.role === 'TEACHER' && message.stepOrder === currentStep.order
+    ).length + 1
+  const canAdvance = resolved && currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_PER_OBJECTION
   const nextStep = session.scenario.steps.find(
     (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
   )
 
-  const finalStatus = resolved && !nextStep ? TRAINING_STATUS.COMPLETED : TRAINING_STATUS.ACTIVE
-  const nextStepOrder = resolved && nextStep ? nextStep.order : currentStep.order
+  const finalStatus = canAdvance && !nextStep ? TRAINING_STATUS.COMPLETED : TRAINING_STATUS.ACTIVE
+  const nextStepOrder = canAdvance && nextStep ? nextStep.order : currentStep.order
 
   const reply = await buildParentReply({
     parentName: session.scenario.parentPersona,
@@ -256,6 +250,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     nextObjection: nextStep?.objectionText,
     isFinalStep: !nextStep,
     resolved,
+    canAdvance,
   })
 
   await prisma.trainingSession.update({
@@ -285,6 +280,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
       createdAt: aiMessage.createdAt,
     },
     resolvedCurrentStep: resolved,
+    canAdvance,
     currentStepOrder: nextStepOrder,
     status: finalStatus,
   }
@@ -318,6 +314,71 @@ export async function generateReview(sessionId: string, teacherId: string) {
   const teacherMessages = session.messages.filter(
     (message: (typeof session.messages)[number]) => message.role === 'TEACHER'
   )
+
+  if (isDeepSeekEnabled()) {
+    try {
+      const aiReview = await buildDeepSeekReview({
+        scenarioTitle: session.scenario.title,
+        scenarioDescription: session.scenario.description,
+        parentPersona: session.scenario.parentPersona,
+        steps: session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => ({
+          order: step.order,
+          title: step.title,
+          objectionText: step.objectionText,
+          evaluationFocus: step.evaluationFocus,
+        })),
+        messages: session.messages.map((message: (typeof session.messages)[number]) => ({
+          role: message.role,
+          content: message.content,
+          stepOrder: message.stepOrder,
+        })),
+      })
+
+      const review = await prisma.sessionReview.create({
+        data: {
+          sessionId,
+          overallScore: Number(aiReview.overallScore) || 0,
+          summary: String(aiReview.summary || '本次训练已完成结构化复盘。'),
+          strengths: String(aiReview.strengths || '能够完成基本沟通。'),
+          weaknesses: String(aiReview.weaknesses || '仍需加强异议拆解和推进。'),
+          nextAction: String(aiReview.nextAction || '建议继续练习完整异议处理节奏。'),
+          tagsJson: JSON.stringify(Array.isArray(aiReview.tags) ? aiReview.tags : []),
+          stepReviews: {
+            create: session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => {
+              const item = Array.isArray(aiReview.steps)
+                ? aiReview.steps.find((reviewStep: { stepOrder?: number }) => Number(reviewStep.stepOrder) === step.order)
+                : null
+
+              return {
+                stepId: step.id,
+                stepOrder: step.order,
+                stepTitle: step.title,
+                score: Number(item?.score) || 0,
+                verdict: String(item?.verdict || '本轮对该异议处理证据不足。'),
+                strengths: String(item?.strengths || '有尝试回应家长顾虑。'),
+                issue: String(item?.issue || '回应还不够具体。'),
+                recommendation: String(item?.recommendation || '建议补充孩子收益、案例证据和下一步安排。'),
+              }
+            }),
+          },
+        },
+      })
+
+      await prisma.trainingSession.update({
+        where: { id: sessionId },
+        data: {
+          totalScore: review.overallScore,
+          summary: review.summary,
+          status: TRAINING_STATUS.COMPLETED,
+          endedAt: session.endedAt ?? new Date(),
+        },
+      })
+
+      return getSessionDetail(sessionId, teacherId).then((detail) => detail.review)
+    } catch (error) {
+      console.error('DeepSeek review failed, fallback to mock:', error)
+    }
+  }
 
   const stepReviews = session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => {
     const messages = teacherMessages.filter(

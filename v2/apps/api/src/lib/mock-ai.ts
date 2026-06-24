@@ -6,6 +6,7 @@ interface MockAiInput {
   nextObjection?: string
   isFinalStep: boolean
   resolved: boolean
+  canAdvance?: boolean
 }
 
 const resolveKeywords = [
@@ -30,7 +31,7 @@ export function detectResolved(message: string) {
 export function buildMockReply(input: MockAiInput) {
   const prefix = `${input.parentName}：`
 
-  if (!input.resolved) {
+  if (!input.resolved || !input.canAdvance) {
     return `${prefix}我还是没有完全打消顾虑。现在我最在意的还是“${input.currentObjection}”。你能不能再讲具体一点，尤其是和孩子实际收获、后续安排有关的部分？`
   }
 

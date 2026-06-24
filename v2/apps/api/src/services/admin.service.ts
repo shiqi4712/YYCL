@@ -628,23 +628,27 @@ export async function deleteScenarios(payload: unknown) {
 }
 
 export async function getDashboardSummary() {
-  const [totalTeachers, totalTopics, totalScenarios, totalSessions, latestSessions] = await Promise.all([
+  const [totalTeachers, totalTopics, totalScenarios, totalSessions, teacherUsers] = await Promise.all([
     prisma.user.count({ where: { role: 'TEACHER' } }),
     prisma.trainingTopic.count(),
     prisma.trainingScenario.count(),
     prisma.trainingSession.count(),
-    prisma.trainingSession.findMany({
-      orderBy: { startedAt: 'desc' },
-      take: 8,
+    prisma.user.findMany({
+      where: { role: 'TEACHER' },
+      orderBy: { createdAt: 'desc' },
       include: {
-        teacher: {
-          select: { displayName: true, username: true },
-        },
-        scenario: {
-          select: { title: true },
-        },
-        review: {
-          select: { overallScore: true },
+        sessions: {
+          orderBy: { startedAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            totalScore: true,
+            startedAt: true,
+            endedAt: true,
+            review: {
+              select: { overallScore: true },
+            },
+          },
         },
       },
     }),
@@ -659,19 +663,53 @@ export async function getDashboardSummary() {
     },
   })
 
+  const teacherStats = teacherUsers.map((teacher: (typeof teacherUsers)[number]) => {
+    const scoredSessions = teacher.sessions.filter(
+      (session: (typeof teacher.sessions)[number]) =>
+        typeof session.review?.overallScore === 'number' || typeof session.totalScore === 'number'
+    )
+    const completedSessions = teacher.sessions.filter(
+      (session: (typeof teacher.sessions)[number]) => session.status === 'COMPLETED'
+    )
+    const averageScore = scoredSessions.length
+      ? Math.round(
+          scoredSessions.reduce(
+            (sum: number, session: (typeof scoredSessions)[number]) =>
+              sum + (session.review?.overallScore ?? session.totalScore ?? 0),
+            0
+          ) / scoredSessions.length
+        )
+      : null
+
+    return {
+      id: teacher.id,
+      username: teacher.username,
+      displayName: teacher.displayName || teacher.username,
+      practiceCount: teacher.sessions.length,
+      completedCount: completedSessions.length,
+      averageScore,
+      lastTrainedAt: teacher.sessions[0]?.startedAt ?? null,
+    }
+  })
+
+  const teamAverageScore = (() => {
+    const scored = teacherStats.filter(
+      (teacher: (typeof teacherStats)[number]) => typeof teacher.averageScore === 'number'
+    )
+    if (!scored.length) return null
+    return Math.round(
+      scored.reduce((sum: number, teacher: (typeof scored)[number]) => sum + (teacher.averageScore ?? 0), 0) /
+        scored.length
+    )
+  })()
+
   return {
     totalTeachers,
     totalTopics,
     totalScenarios,
     totalSessions,
+    teamAverageScore,
     activeTeachersLast7Days: activeTeachers.length,
-    recentSessions: latestSessions.map((session: (typeof latestSessions)[number]) => ({
-      id: session.id,
-      status: session.status,
-      startedAt: session.startedAt,
-      teacherName: session.teacher.displayName || session.teacher.username,
-      scenarioTitle: session.scenario.title,
-      score: session.review?.overallScore ?? session.totalScore ?? null,
-    })),
+    teacherStats,
   }
 }

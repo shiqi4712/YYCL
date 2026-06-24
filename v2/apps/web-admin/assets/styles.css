@@ -472,6 +472,57 @@ select:focus {
   line-height: 1.8;
 }
 
+.teacher-stat-card {
+  display: grid;
+  gap: 16px;
+}
+
+.teacher-stat-head,
+.stat-bar-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stat-bars {
+  display: grid;
+  gap: 12px;
+}
+
+.stat-bar-label {
+  margin-bottom: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.stat-bar-label strong {
+  color: var(--text);
+}
+
+.stat-bar-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.1);
+}
+
+.stat-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(10, 132, 255, 0.76), rgba(10, 132, 255, 0.28));
+}
+
+.score-track {
+  background: rgba(22, 163, 74, 0.1);
+}
+
+.score-track span {
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.76), rgba(22, 163, 74, 0.26));
+}
+
 .import-result-list {
   margin-top: 4px;
 }

@@ -27,9 +27,7 @@
     scenarioPreviewPanel: document.getElementById('teacherScenarioPreviewPanel'),
     scenarioTitle: document.getElementById('teacherScenarioTitle'),
     scenarioMeta: document.getElementById('teacherScenarioMeta'),
-    scenarioSteps: document.getElementById('teacherScenarioSteps'),
     trainingScenarioMeta: document.getElementById('teacherTrainingScenarioMeta'),
-    trainingScenarioSteps: document.getElementById('teacherTrainingScenarioSteps'),
     startSessionButton: document.getElementById('teacherStartSessionButton'),
     sessionTitle: document.getElementById('teacherSessionTitle'),
     sessionStatus: document.getElementById('teacherSessionStatus'),
@@ -69,7 +67,7 @@
       <article class="message ${escapeHtml(message.role)}${message.pending ? ' pending-message' : ''}">
         <div class="message-meta">
           <span>${message.role === 'teacher' ? '教师' : 'AI 家长'}</span>
-          <span>${message.pending ? '家长回复中' : `Step ${escapeHtml(message.stepOrder)}`}</span>
+          <span>${message.pending ? '家长回复中' : '沟通记录'}</span>
         </div>
         <div class="message-content">${escapeHtml(message.content)}</div>
       </article>
@@ -280,7 +278,7 @@
               <span class="tag-warn">得分 ${escapeHtml(session.reviewScore ?? '--')}</span>
             </div>
             <div class="history-actions">
-              <span class="status-text">当前步骤：第 ${escapeHtml(session.currentStepOrder)} 步</span>
+              <span class="status-text">沟通轮次：${escapeHtml(session.currentStepOrder)} 段</span>
               <button class="secondary-btn compact-btn" type="button" data-session-id="${escapeHtml(session.id)}">
                 打开训练模块
               </button>
@@ -313,35 +311,18 @@
         <p>${escapeHtml(scenario.parentPersona)}</p>
       </article>
       <article class="meta-card">
-        <p class="eyebrow">训练难度</p>
+        <p class="eyebrow">学生情况</p>
+        <p>${escapeHtml(scenario.description)}</p>
+      </article>
+      <article class="meta-card">
+        <p class="eyebrow">异议场景</p>
         <p>${escapeHtml(difficultyLabel(scenario.difficulty))}</p>
       </article>
       <article class="meta-card">
         <p class="eyebrow">开场话术</p>
         <p>${escapeHtml(scenario.openingLine)}</p>
       </article>
-      <article class="meta-card">
-        <p class="eyebrow">场景说明</p>
-        <p>${escapeHtml(scenario.description)}</p>
-      </article>
     `;
-
-    nodes.scenarioSteps.innerHTML = scenario.steps
-      .map(
-        (step) => `
-          <article class="step-card">
-            <div class="step-card-header">
-              <h3>${escapeHtml(step.title)}</h3>
-              <span class="step-badge">Step ${escapeHtml(step.order)}</span>
-            </div>
-            <p>${escapeHtml(step.objectionText)}</p>
-            <div class="tag-row">
-              <span class="tag">${escapeHtml(step.evaluationFocus)}</span>
-            </div>
-          </article>
-        `
-      )
-      .join('');
 
     nodes.startSessionButton.classList.remove('hidden');
   }
@@ -350,7 +331,6 @@
     const scenario = state.selectedScenario;
     if (!scenario) {
       nodes.trainingScenarioMeta.innerHTML = renderEmptyState('尚未选择场景。');
-      nodes.trainingScenarioSteps.innerHTML = '';
       return;
     }
 
@@ -360,64 +340,18 @@
         <p>${escapeHtml(scenario.parentPersona)}</p>
       </article>
       <article class="meta-card">
-        <p class="eyebrow">训练难度</p>
-        <p>${escapeHtml(difficultyLabel(scenario.difficulty))}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">开场话术</p>
-        <p>${escapeHtml(scenario.openingLine)}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">场景说明</p>
+        <p class="eyebrow">学生情况</p>
         <p>${escapeHtml(scenario.description)}</p>
       </article>
+      <article class="meta-card">
+        <p class="eyebrow">异议场景</p>
+        <p>${escapeHtml(scenario.title)}</p>
+      </article>
+      <article class="meta-card">
+        <p class="eyebrow">训练目标</p>
+        <p>像真实沟通一样持续回应家长顾虑，结束后系统会统一生成结构化复盘。</p>
+      </article>
     `;
-
-    nodes.trainingScenarioSteps.innerHTML = scenario.steps
-      .map(
-        (step) => `
-          <article class="step-card">
-            <div class="step-card-header">
-              <h3>${escapeHtml(step.title)}</h3>
-              <span class="step-badge">Step ${escapeHtml(step.order)}</span>
-            </div>
-            <p>${escapeHtml(step.objectionText)}</p>
-            <div class="tag-row">
-              <span class="tag">${escapeHtml(step.evaluationFocus)}</span>
-            </div>
-          </article>
-        `
-      )
-      .join('');
-  }
-
-  function renderStepProgress() {
-    const session = state.selectedSession;
-    if (!session) return;
-
-    nodes.trainingScenarioSteps.innerHTML = session.scenario.steps
-      .map((step) => {
-        let className = 'step-card';
-        if (step.order < session.currentStepOrder) {
-          className += ' done-step';
-        } else if (step.order === session.currentStepOrder && session.status === 'ACTIVE') {
-          className += ' active-step';
-        }
-
-        return `
-          <article class="${className}">
-            <div class="step-card-header">
-              <h3>${escapeHtml(step.title)}</h3>
-              <span class="step-badge">Step ${escapeHtml(step.order)}</span>
-            </div>
-            <p>${escapeHtml(step.objectionText)}</p>
-            <div class="tag-row">
-              <span class="tag">${escapeHtml(step.evaluationFocus)}</span>
-            </div>
-          </article>
-        `;
-      })
-      .join('');
   }
 
   function renderSession() {
@@ -438,8 +372,8 @@
         <p>${escapeHtml(statusLabel(session.status))}</p>
       </article>
       <article class="session-tile">
-        <p class="eyebrow">当前步骤</p>
-        <p>第 ${escapeHtml(session.currentStepOrder)} 步</p>
+        <p class="eyebrow">沟通轮次</p>
+        <p>${escapeHtml(session.messages.filter((message) => message.role === 'teacher').length)} 轮</p>
       </article>
       <article class="session-tile">
         <p class="eyebrow">开始时间</p>
@@ -459,7 +393,6 @@
       : '当前会话已结束，如需继续训练请返回场景大厅重新选择场景。';
     nodes.chatLog.scrollTop = nodes.chatLog.scrollHeight;
 
-    renderStepProgress();
   }
 
   function renderReview() {

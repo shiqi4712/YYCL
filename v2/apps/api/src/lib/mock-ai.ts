@@ -32,12 +32,12 @@ export function buildMockReply(input: MockAiInput) {
   const prefix = `${input.parentName}：`
 
   if (!input.resolved || !input.canAdvance) {
-    return `${prefix}我还是没有完全打消顾虑。现在我最在意的还是“${input.currentObjection}”。你能不能再讲具体一点，尤其是和孩子实际收获、后续安排有关的部分？`
+    return `${prefix}嗯，你说的这个方向我能理解。我不是完全不认可，就是还差一点确定感，主要还是担心“${input.currentObjection}”。如果放到我家孩子身上，具体会怎么安排、能看到什么变化？`
   }
 
   if (input.isFinalStep) {
-    return `${prefix}你这样讲我就放心多了。那我们就按你建议的下一步来，我愿意继续了解报名安排。`
+    return `${prefix}这样说我就比刚才踏实一些了。那我可以先按你说的继续了解，你把下一步报名和上课安排发我看看吧。`
   }
 
-  return `${prefix}你刚才的解释我基本听明白了，不过我还有一个顾虑：${input.nextObjection ?? '我还想再考虑一下。'}`
+  return `${prefix}你刚才这样解释，我大概明白了。不过我还有个点没想通，${input.nextObjection ?? '我可能还是想再考虑一下。'}这个你再跟我说说。`
 }

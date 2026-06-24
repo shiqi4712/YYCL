@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YYCL V2 管理台</title>
+    <link rel="stylesheet" href="/assets/admin/styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <div class="page-glow page-glow-a"></div>
+      <div class="page-glow page-glow-b"></div>
+
+      <main class="admin-app">
+        <section class="auth-screen shell-card" id="adminAuthScreen">
+          <div class="auth-copy">
+            <p class="eyebrow">YYCL V2 Admin</p>
+            <h1>统一管理教师账号、训练主题、场景和多步异议链路。</h1>
+            <p class="lede">
+              管理端聚焦低成本部署与高频配置。你可以在一个界面内维护老师、主题、场景与步骤，并快速观察最近训练使用情况。
+            </p>
+            <div class="info-row">
+              <div class="glass-note">
+                <span>默认主管账号</span>
+                <strong>trainer01 / 123456</strong>
+              </div>
+              <div class="glass-note">
+                <span>教师端入口</span>
+                <strong>访问 / 进入教师训练台</strong>
+              </div>
+            </div>
+          </div>
+
+          <form class="auth-card" id="adminLoginForm">
+            <div>
+              <p class="eyebrow">Sign In</p>
+              <h2>进入管理台</h2>
+            </div>
+            <label>
+              <span>账号</span>
+              <input name="username" placeholder="trainer01" value="trainer01" />
+            </label>
+            <label>
+              <span>密码</span>
+              <input name="password" type="password" placeholder="123456" value="123456" />
+            </label>
+            <button class="primary-btn" type="submit">登录管理台</button>
+            <p class="status-text" id="adminLoginStatus"></p>
+          </form>
+        </section>
+
+        <section class="workspace hidden" id="adminWorkspace">
+          <header class="topbar glass-bar">
+            <div>
+              <p class="eyebrow">Admin Console</p>
+              <h1>训练管理台</h1>
+            </div>
+            <div class="topbar-actions">
+              <div class="profile-chip" id="adminProfileChip"></div>
+              <button class="secondary-btn" id="adminRefreshButton" type="button">刷新全部</button>
+              <button class="secondary-btn" id="adminLogoutButton" type="button">退出登录</button>
+            </div>
+          </header>
+
+          <section class="hero-grid">
+            <article class="shell-card hero-card">
+              <p class="eyebrow">Overview</p>
+              <h2>轻量部署，集中配置，统一沉淀训练资产。</h2>
+              <p>
+                当前 V2 版本将后台、静态页面和 SQLite 数据库统一在单体 Node 服务中，适合部署到 2G / 4 核的 Ubuntu 24.04 服务器上。
+              </p>
+            </article>
+            <article class="shell-card metric-grid" id="adminMetrics"></article>
+          </section>
+
+          <nav class="tab-bar glass-bar">
+            <button class="tab-btn active" type="button" data-tab="dashboard">团队概览</button>
+            <button class="tab-btn" type="button" data-tab="teachers">教师账号</button>
+            <button class="tab-btn" type="button" data-tab="topics">主题与场景</button>
+          </nav>
+
+          <section class="tab-panel visible" id="adminTabDashboard">
+            <article class="shell-card section-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Recent Activity</p>
+                  <h2>最近训练记录</h2>
+                </div>
+              </div>
+              <div class="activity-list" id="adminRecentSessions"></div>
+            </article>
+          </section>
+
+          <section class="tab-panel" id="adminTabTeachers">
+            <div class="grid-2">
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Teachers</p>
+                    <h2>教师账号列表</h2>
+                  </div>
+                </div>
+                <div class="teacher-list" id="adminTeacherList"></div>
+              </article>
+
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Create Teacher</p>
+                    <h2>新增教师</h2>
+                  </div>
+                </div>
+                <form class="form-stack" id="adminTeacherForm">
+                  <label>
+                    <span>账号</span>
+                    <input name="username" placeholder="teacher02" />
+                  </label>
+                  <label>
+                    <span>姓名</span>
+                    <input name="displayName" placeholder="体验课老师 B" />
+                  </label>
+                  <label>
+                    <span>初始密码</span>
+                    <input name="password" type="password" placeholder="123456" />
+                  </label>
+                  <button class="primary-btn" type="submit">创建教师</button>
+                  <p class="status-text" id="adminTeacherStatus"></p>
+                </form>
+              </article>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="adminTabTopics">
+            <div class="grid-main">
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Topic Studio</p>
+                    <h2>主题与场景配置</h2>
+                  </div>
+                </div>
+                <div class="topic-studio" id="adminTopicStudio"></div>
+              </article>
+
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Topic Form</p>
+                    <h2 id="topicFormTitle">新增主题</h2>
+                  </div>
+                  <button class="secondary-btn compact-btn" id="adminTopicResetButton" type="button">
+                    重置主题
+                  </button>
+                </div>
+                <form class="form-stack" id="adminTopicForm">
+                  <input type="hidden" name="topicId" />
+                  <label>
+                    <span>主题名称</span>
+                    <input name="title" placeholder="体验课后转正异议课" />
+                  </label>
+                  <label>
+                    <span>主题描述</span>
+                    <textarea name="description" placeholder="描述该训练主题覆盖的核心场景与适用阶段"></textarea>
+                  </label>
+                  <label>
+                    <span>状态</span>
+                    <select name="status">
+                      <option value="ACTIVE">启用</option>
+                      <option value="INACTIVE">停用</option>
+                    </select>
+                  </label>
+                  <button class="primary-btn" type="submit">保存主题</button>
+                  <p class="status-text" id="adminTopicStatus"></p>
+                </form>
+
+                <div class="soft-divider"></div>
+
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Scenario Form</p>
+                    <h2 id="scenarioFormTitle">新增场景</h2>
+                  </div>
+                  <button class="secondary-btn compact-btn" id="adminScenarioResetButton" type="button">
+                    重置场景
+                  </button>
+                </div>
+                <form class="form-stack" id="adminScenarioForm">
+                  <input type="hidden" name="scenarioId" />
+                  <label>
+                    <span>所属主题</span>
+                    <select name="topicId" id="adminScenarioTopicSelect"></select>
+                  </label>
+                  <label>
+                    <span>场景名称</span>
+                    <input name="title" placeholder="价格敏感型家长" />
+                  </label>
+                  <label>
+                    <span>场景描述</span>
+                    <textarea name="description" placeholder="说明该场景主要训练什么"></textarea>
+                  </label>
+                  <label>
+                    <span>家长画像</span>
+                    <input name="parentPersona" placeholder="李妈妈，关注价格与短期效果" />
+                  </label>
+                  <label>
+                    <span>开场话术</span>
+                    <textarea name="openingLine" placeholder="老师，体验课还可以，但正式课是不是有点贵？"></textarea>
+                  </label>
+                  <div class="form-grid">
+                    <label>
+                      <span>难度</span>
+                      <select name="difficulty">
+                        <option value="BASIC">基础</option>
+                        <option value="STANDARD">标准</option>
+                        <option value="ADVANCED">进阶</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>状态</span>
+                      <select name="status">
+                        <option value="ACTIVE">启用</option>
+                        <option value="INACTIVE">停用</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="step-editor">
+                    <div class="section-head">
+                      <div>
+                        <p class="eyebrow">Objection Steps</p>
+                        <h3>异议步骤</h3>
+                      </div>
+                      <button class="secondary-btn compact-btn" id="adminAddStepButton" type="button">
+                        新增一步
+                      </button>
+                    </div>
+                    <div class="step-editor-list" id="adminStepEditorList"></div>
+                  </div>
+
+                  <button class="primary-btn" type="submit">保存场景</button>
+                  <p class="status-text" id="adminScenarioStatus"></p>
+                </form>
+              </article>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/assets/admin/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../apps/api/src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String            @id @default(cuid())
+  username     String            @unique
+  passwordHash String
+  role         String
+  displayName  String?
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  createdTopics     TrainingTopic[]    @relation("TopicCreator")
+  createdScenarios  TrainingScenario[] @relation("ScenarioCreator")
+  sessions          TrainingSession[]
+
+  @@map("users")
+}
+
+model TrainingTopic {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  status      String             @default("ACTIVE")
+  createdById String
+  createdBy   User               @relation("TopicCreator", fields: [createdById], references: [id])
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  scenarios   TrainingScenario[]
+
+  @@map("training_topics")
+}
+
+model TrainingScenario {
+  id            String            @id @default(cuid())
+  topicId        String
+  title          String
+  description    String
+  parentPersona  String
+  openingLine    String
+  difficulty     String
+  status         String           @default("ACTIVE")
+  createdById    String
+  createdBy      User             @relation("ScenarioCreator", fields: [createdById], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  topic          TrainingTopic    @relation(fields: [topicId], references: [id])
+  steps          ScenarioStep[]
+  sessions       TrainingSession[]
+
+  @@map("training_scenarios")
+}
+
+model ScenarioStep {
+  id               String             @id @default(cuid())
+  scenarioId       String
+  order            Int
+  title            String
+  objectionText    String
+  evaluationFocus  String
+  createdAt        DateTime           @default(now())
+
+  scenario         TrainingScenario   @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  reviewSteps      SessionReviewStep[]
+
+  @@unique([scenarioId, order])
+  @@map("scenario_steps")
+}
+
+model TrainingSession {
+  id               String             @id @default(cuid())
+  teacherId        String
+  scenarioId       String
+  status           String             @default("ACTIVE")
+  currentStepOrder Int                @default(1)
+  totalScore       Int?
+  summary          String?
+  startedAt        DateTime           @default(now())
+  endedAt          DateTime?
+  updatedAt        DateTime           @updatedAt
+
+  teacher          User               @relation(fields: [teacherId], references: [id])
+  scenario         TrainingScenario   @relation(fields: [scenarioId], references: [id])
+  messages         SessionMessage[]
+  review           SessionReview?
+
+  @@map("training_sessions")
+}
+
+model SessionMessage {
+  id         String        @id @default(cuid())
+  sessionId   String
+  role        String
+  content     String
+  stepOrder   Int
+  createdAt   DateTime      @default(now())
+
+  session     TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_messages")
+}
+
+model SessionReview {
+  id           String             @id @default(cuid())
+  sessionId     String             @unique
+  overallScore  Int
+  summary       String
+  strengths     String
+  weaknesses    String
+  nextAction    String
+  tagsJson      String
+  createdAt     DateTime           @default(now())
+
+  session       TrainingSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  stepReviews   SessionReviewStep[]
+
+  @@map("session_reviews")
+}
+
+model SessionReviewStep {
+  id             String          @id @default(cuid())
+  reviewId        String
+  stepId          String
+  stepOrder       Int
+  stepTitle       String
+  score           Int
+  verdict         String
+  strengths       String
+  issue           String
+  recommendation  String
+
+  review          SessionReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  step            ScenarioStep   @relation(fields: [stepId], references: [id])
+
+  @@map("session_review_steps")
+}

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YYCL V2 教师训练台</title>
+    <link rel="stylesheet" href="/assets/teacher/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="page-glow page-glow-a"></div>
+      <div class="page-glow page-glow-b"></div>
+
+      <main class="teacher-app">
+        <section class="auth-screen shell-card" id="teacherAuthScreen">
+          <div class="auth-copy">
+            <p class="eyebrow">YYCL V2 Teacher</p>
+            <h1>先选场景，再进入训练，让每次演练更聚焦。</h1>
+            <p class="lede">
+              教师端采用“两段式”流程：先在场景大厅浏览训练主题、挑选目标场景，再进入专属训练模块完成完整对话与复盘。
+            </p>
+            <div class="info-stack">
+              <div class="glass-note">
+                <span>默认教师账号</span>
+                <strong>teacher01 / 123456</strong>
+              </div>
+              <div class="glass-note">
+                <span>管理员入口</span>
+                <strong>访问 /admin 进入训练管理台</strong>
+              </div>
+            </div>
+          </div>
+
+          <form class="auth-card" id="teacherLoginForm">
+            <div>
+              <p class="eyebrow">Sign In</p>
+              <h2>登录教师训练台</h2>
+            </div>
+            <label>
+              <span>账号</span>
+              <input name="username" placeholder="teacher01" value="teacher01" />
+            </label>
+            <label>
+              <span>密码</span>
+              <input name="password" type="password" placeholder="123456" value="123456" />
+            </label>
+            <button class="primary-btn" type="submit">登录并进入场景大厅</button>
+            <p class="status-text" id="teacherLoginStatus"></p>
+          </form>
+        </section>
+
+        <section class="workspace hidden" id="teacherWorkspace">
+          <header class="topbar glass-bar">
+            <div>
+              <p class="eyebrow">Teacher Console</p>
+              <h1 id="teacherHeaderTitle">场景大厅</h1>
+            </div>
+            <div class="topbar-actions">
+              <div class="profile-chip" id="teacherProfileChip"></div>
+              <button class="secondary-btn" id="teacherRefreshButton" type="button">刷新数据</button>
+              <button class="secondary-btn hidden" id="teacherBackToLobbyButton" type="button">返回场景大厅</button>
+              <button class="secondary-btn" id="teacherLogoutButton" type="button">退出登录</button>
+            </div>
+          </header>
+
+          <section class="lobby-screen" id="teacherLobbyScreen">
+            <section class="hero-grid">
+              <article class="hero-card shell-card">
+                <p class="eyebrow">Scenario First</p>
+                <h2>老师先决定今天练哪一种异议，再进入对应训练舱。</h2>
+                <p>
+                  场景大厅按主题组织训练内容。你可以先查看家长画像、异议步骤和训练重点，确认目标后再正式进入训练模块，避免一登录就被对话流打断。
+                </p>
+              </article>
+              <article class="metric-grid shell-card" id="teacherMetrics"></article>
+            </section>
+
+            <section class="lobby-grid">
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Scenario Library</p>
+                    <h2>训练主题与场景</h2>
+                  </div>
+                  <button class="secondary-btn compact-btn" id="teacherReloadTopicsButton" type="button">
+                    重新加载
+                  </button>
+                </div>
+                <div class="topic-list" id="teacherTopicList"></div>
+              </article>
+
+              <aside class="lobby-side">
+                <article class="shell-card section-card hidden" id="teacherScenarioPreviewPanel">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Selected Scenario</p>
+                      <h2 id="teacherScenarioTitle">请选择场景</h2>
+                    </div>
+                    <button class="primary-btn compact-btn hidden" id="teacherStartSessionButton" type="button">
+                      进入训练模块
+                    </button>
+                  </div>
+                  <div class="scenario-meta" id="teacherScenarioMeta"></div>
+                  <div class="step-list" id="teacherScenarioSteps"></div>
+                </article>
+
+                <article class="shell-card section-card">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Recent Sessions</p>
+                      <h2>最近训练记录</h2>
+                    </div>
+                  </div>
+                  <div class="history-list" id="teacherHistoryList"></div>
+                </article>
+              </aside>
+            </section>
+          </section>
+
+          <section class="training-screen hidden" id="teacherTrainingScreen">
+            <section class="training-hero-grid">
+              <article class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Training Module</p>
+                    <h2 id="teacherSessionTitle">训练模块</h2>
+                  </div>
+                  <div class="inline-actions">
+                    <button class="secondary-btn compact-btn" id="teacherEndSessionButton" type="button">
+                      结束训练
+                    </button>
+                    <button class="primary-btn compact-btn" id="teacherReviewButton" type="button">
+                      生成点评
+                    </button>
+                  </div>
+                </div>
+
+                <div class="session-overview" id="teacherSessionStatus"></div>
+                <div class="chat-log" id="teacherChatLog"></div>
+
+                <form class="composer-card" id="teacherMessageForm">
+                  <textarea
+                    id="teacherMessageInput"
+                    placeholder="输入你的回复，例如：先承接家长顾虑，再给出具体价值解释，最后推动下一步确认。"
+                  ></textarea>
+                  <div class="composer-actions">
+                    <p class="status-text" id="teacherMessageStatus"></p>
+                    <button class="primary-btn" type="submit">发送回复</button>
+                  </div>
+                </form>
+              </article>
+
+              <aside class="training-side">
+                <article class="shell-card section-card" id="teacherScenarioPanel">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Scenario Guide</p>
+                      <h2>场景信息</h2>
+                    </div>
+                  </div>
+                  <div class="scenario-meta" id="teacherTrainingScenarioMeta"></div>
+                  <div class="step-list" id="teacherTrainingScenarioSteps"></div>
+                </article>
+
+                <article class="shell-card section-card hidden" id="teacherReviewPanel">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Review</p>
+                      <h2>结构化点评</h2>
+                    </div>
+                  </div>
+                  <div id="teacherReviewContent"></div>
+                </article>
+              </aside>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/assets/teacher/app.js"></script>
+  </body>
+</html>

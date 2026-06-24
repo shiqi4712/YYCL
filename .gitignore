@@ -25,6 +25,8 @@ Thumbs.db
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
 # Logs
 npm-debug.log*
@@ -32,6 +34,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log
 
 # Turbo
 .turbo
+
+# Local probes and generated manuals/screenshots
+probe-start.txt
+v2/manual-images/
+v2/*login.png
+v2/使用手册.md
+v2/prisma/backups/
+v2/apps/api/src/generated/prisma/

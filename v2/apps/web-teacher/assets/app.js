@@ -9,6 +9,7 @@
     selectedSession: null,
     activeReview: null,
     currentView: 'lobby',
+    sendingMessage: false,
   };
 
   const nodes = {
@@ -61,6 +62,27 @@
 
   function renderEmptyState(message) {
     return `<div class="empty-state">${escapeHtml(message)}</div>`;
+  }
+
+  function renderMessageBubble(message) {
+    return `
+      <article class="message ${escapeHtml(message.role)}${message.pending ? ' pending-message' : ''}">
+        <div class="message-meta">
+          <span>${message.role === 'teacher' ? '教师' : 'AI 家长'}</span>
+          <span>${message.pending ? '家长回复中' : `Step ${escapeHtml(message.stepOrder)}`}</span>
+        </div>
+        <div class="message-content">${escapeHtml(message.content)}</div>
+      </article>
+    `;
+  }
+
+  function appendChatMessage(message) {
+    if (nodes.chatLog.querySelector('.empty-state')) {
+      nodes.chatLog.innerHTML = '';
+    }
+
+    nodes.chatLog.insertAdjacentHTML('beforeend', renderMessageBubble(message));
+    nodes.chatLog.scrollTop = nodes.chatLog.scrollHeight;
   }
 
   function setToken(token) {
@@ -426,24 +448,12 @@
     `;
 
     nodes.chatLog.innerHTML = session.messages.length
-      ? session.messages
-          .map(
-            (message) => `
-              <article class="message ${escapeHtml(message.role)}">
-                <div class="message-meta">
-                  <span>${message.role === 'teacher' ? '教师' : 'AI 家长'}</span>
-                  <span>Step ${escapeHtml(message.stepOrder)}</span>
-                </div>
-                <div class="message-content">${escapeHtml(message.content)}</div>
-              </article>
-            `
-          )
-          .join('')
+      ? session.messages.map(renderMessageBubble).join('')
       : renderEmptyState('会话消息为空。');
 
     const isActive = session.status === 'ACTIVE';
-    nodes.messageInput.disabled = !isActive;
-    nodes.messageForm.querySelector('button[type="submit"]').disabled = !isActive;
+    nodes.messageInput.disabled = !isActive || state.sendingMessage;
+    nodes.messageForm.querySelector('button[type="submit"]').disabled = !isActive || state.sendingMessage;
     nodes.messageInput.placeholder = isActive
       ? '输入你的回复，例如：先承接家长顾虑，再给出具体价值解释，最后推动下一步确认。'
       : '当前会话已结束，如需继续训练请返回场景大厅重新选择场景。';
@@ -618,23 +628,51 @@
 
   async function handleSendMessage(event) {
     event.preventDefault();
-    if (!state.selectedSession) return;
+    if (!state.selectedSession || state.sendingMessage) return;
 
     const content = nodes.messageInput.value.trim();
     if (!content) return;
 
-    nodes.messageStatus.textContent = 'AI 正在思考，预计 10 秒左右回复...';
+    const sessionId = state.selectedSession.id;
+    const stepOrder = state.selectedSession.currentStepOrder;
+    const submitButton = nodes.messageForm.querySelector('button[type="submit"]');
+
+    state.sendingMessage = true;
+    nodes.messageInput.value = '';
+    nodes.messageInput.disabled = true;
+    submitButton.disabled = true;
+    appendChatMessage({ role: 'teacher', content, stepOrder });
+    appendChatMessage({
+      role: 'ai',
+      content: '家长回复中，预计 10 秒左右...',
+      stepOrder,
+      pending: true,
+    });
+    nodes.messageStatus.textContent = '家长回复中，预计 10 秒左右...';
+
     try {
-      await api(`/api/training/sessions/${state.selectedSession.id}/messages`, {
+      await api(`/api/training/sessions/${sessionId}/messages`, {
         method: 'POST',
         body: JSON.stringify({ content }),
       });
-      nodes.messageInput.value = '';
-      nodes.messageStatus.textContent = 'AI 已回复';
-      await loadSession(state.selectedSession.id);
+      nodes.messageStatus.textContent = '家长已回复';
+      await loadSession(sessionId);
       await loadHistory();
     } catch (error) {
       nodes.messageStatus.textContent = error.message;
+      nodes.chatLog.querySelector('.pending-message')?.remove();
+      appendChatMessage({
+        role: 'ai',
+        content: `发送失败：${error.message}`,
+        stepOrder,
+      });
+    } finally {
+      state.sendingMessage = false;
+      if (state.selectedSession?.status === 'ACTIVE') {
+        nodes.messageInput.disabled = false;
+        submitButton.disabled = false;
+        nodes.messageInput.focus();
+      }
     }
   }
 
@@ -685,6 +723,11 @@
     nodes.loginForm.addEventListener('submit', handleLogin);
     nodes.startSessionButton.addEventListener('click', handleStartSession);
     nodes.messageForm.addEventListener('submit', handleSendMessage);
+    nodes.messageInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      event.preventDefault();
+      nodes.messageForm.requestSubmit();
+    });
     nodes.reviewButton.addEventListener('click', handleReview);
     nodes.endSessionButton.addEventListener('click', handleEndSession);
     nodes.backToLobbyButton.addEventListener('click', () => {

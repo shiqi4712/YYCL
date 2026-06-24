@@ -26,4 +26,9 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'yycl-v2-dev-secret'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   appName: process.env.APP_NAME ?? 'YYCL V2 API',
+  aiProvider: process.env.AI_PROVIDER ?? 'mock',
+  deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? '',
+  deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+  deepseekModel: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
+  deepseekThinking: process.env.DEEPSEEK_THINKING ?? 'disabled',
 }

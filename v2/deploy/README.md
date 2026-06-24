@@ -87,6 +87,18 @@ APP_NAME="YYCL V2 API"
 DATABASE_URL="file:./dev.db"
 ```
 
+如需启用 DeepSeek V4 家长模拟，在同一个 `.env` 文件追加：
+
+```bash
+AI_PROVIDER="deepseek"
+DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+DEEPSEEK_MODEL="deepseek-v4-flash"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_THINKING="disabled"
+```
+
+如果希望质量优先，可将 `DEEPSEEK_MODEL` 改为 `deepseek-v4-pro`。未配置 Key 或接口异常时，系统会自动回退到本地模拟家长，避免训练中断。
+
 ## 常用命令
 
 ```bash

@@ -56,4 +56,12 @@ npm run dev
 
 ## 说明
 
-当前 AI 对话先使用 mock 规则引擎，便于本地联调与演示。后续可以把 `mock-ai.ts` 平滑替换为真实外部大模型调用。
+AI 对话默认使用 mock 规则引擎，便于本地联调与演示。生产环境可通过环境变量启用 DeepSeek V4：
+
+```bash
+AI_PROVIDER="deepseek"
+DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+DEEPSEEK_MODEL="deepseek-v4-flash"
+```
+
+未配置 Key 或接口异常时，系统会自动回退到 mock 规则引擎。

@@ -1,3 +1,4 @@
+import { buildDeepSeekReply, isDeepSeekEnabled } from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { HttpError } from '../utils/http-error'
@@ -16,6 +17,34 @@ function mapMessageRole(role: string) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function buildParentReply(input: {
+  parentName: string
+  scenarioTitle: string
+  scenarioDescription: string
+  parentPersona: string
+  teacherMessage: string
+  currentStepTitle: string
+  currentObjection: string
+  nextObjection?: string
+  isFinalStep: boolean
+  resolved: boolean
+  history: Array<{
+    role: string
+    content: string
+  }>
+}) {
+  if (isDeepSeekEnabled()) {
+    try {
+      return await buildDeepSeekReply(input)
+    } catch (error) {
+      console.error('DeepSeek reply failed, fallback to mock:', error)
+    }
+  }
+
+  await sleep(AI_THINKING_DELAY_MS)
+  return buildMockReply(input)
 }
 
 async function getOwnedSession(sessionId: string, teacherId: string) {
@@ -212,17 +241,22 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
   const finalStatus = resolved && !nextStep ? TRAINING_STATUS.COMPLETED : TRAINING_STATUS.ACTIVE
   const nextStepOrder = resolved && nextStep ? nextStep.order : currentStep.order
 
-  const reply = buildMockReply({
+  const reply = await buildParentReply({
     parentName: session.scenario.parentPersona,
+    scenarioTitle: session.scenario.title,
+    scenarioDescription: session.scenario.description,
+    parentPersona: session.scenario.parentPersona,
     teacherMessage: content,
+    history: session.messages.map((message: (typeof session.messages)[number]) => ({
+      role: message.role,
+      content: message.content,
+    })),
     currentStepTitle: currentStep.title,
     currentObjection: currentStep.objectionText,
     nextObjection: nextStep?.objectionText,
     isFinalStep: !nextStep,
     resolved,
   })
-
-  await sleep(AI_THINKING_DELAY_MS)
 
   await prisma.trainingSession.update({
     where: { id: sessionId },

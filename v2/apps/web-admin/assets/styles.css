@@ -492,6 +492,29 @@ select:focus {
   margin-top: 16px;
 }
 
+.scenario-select {
+  display: inline-flex;
+  grid-auto-flow: column;
+  grid-template-columns: auto auto;
+  gap: 8px;
+  align-items: center;
+  width: auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scenario-select input {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;

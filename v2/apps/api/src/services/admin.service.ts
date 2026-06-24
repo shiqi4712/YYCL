@@ -43,6 +43,15 @@ const scenarioCreateSchema = z.object({
   steps: z.array(scenarioStepSchema).min(1).max(12),
 })
 
+const scenarioBulkImportSchema = z.object({
+  topicId: z.string().min(1),
+  scenarios: z.array(scenarioCreateSchema.omit({ topicId: true })).min(1).max(100),
+})
+
+const scenarioBulkDeleteSchema = z.object({
+  scenarioIds: z.array(z.string().min(1)).min(1).max(100),
+})
+
 function sortSteps<T extends { order: number }>(steps: T[]) {
   return [...steps].sort((a, b) => a.order - b.order)
 }
@@ -416,6 +425,58 @@ export async function createScenario(createdById: string, payload: unknown) {
   }
 }
 
+export async function importScenarios(createdById: string, payload: unknown) {
+  const input = scenarioBulkImportSchema.parse(payload)
+  const topic = await prisma.trainingTopic.findUnique({ where: { id: input.topicId } })
+
+  if (!topic) {
+    throw new HttpError(404, 'Topic not found')
+  }
+
+  const results: Array<{
+    title: string
+    status: 'CREATED'
+    id: string
+  }> = []
+
+  await prisma.$transaction(async (tx: typeof prisma) => {
+    for (const item of input.scenarios) {
+      const scenario = await tx.trainingScenario.create({
+        data: {
+          topicId: input.topicId,
+          title: item.title,
+          description: item.description,
+          parentPersona: item.parentPersona,
+          openingLine: item.openingLine,
+          difficulty: item.difficulty,
+          status: item.status,
+          createdById,
+          steps: {
+            create: sortSteps(item.steps).map((step) => ({
+              order: step.order,
+              title: step.title,
+              objectionText: step.objectionText,
+              evaluationFocus: step.evaluationFocus,
+            })),
+          },
+        },
+      })
+
+      results.push({
+        title: scenario.title,
+        status: 'CREATED',
+        id: scenario.id,
+      })
+    }
+  })
+
+  return {
+    total: results.length,
+    created: results.length,
+    results,
+  }
+}
+
 export async function updateScenario(scenarioId: string, payload: unknown) {
   const input = scenarioCreateSchema.parse(payload)
   const existing = await prisma.trainingScenario.findUnique({
@@ -481,13 +542,89 @@ export async function updateScenario(scenarioId: string, payload: unknown) {
 }
 
 export async function deleteScenario(scenarioId: string) {
-  const scenario = await prisma.trainingScenario.findUnique({ where: { id: scenarioId } })
+  const scenario = await prisma.trainingScenario.findUnique({
+    where: { id: scenarioId },
+    include: {
+      sessions: {
+        select: { id: true },
+      },
+    },
+  })
   if (!scenario) {
     throw new HttpError(404, 'Scenario not found')
   }
 
+  if (scenario.sessions.length > 0) {
+    throw new HttpError(400, '已有训练记录，不能删除该场景')
+  }
+
   await prisma.trainingScenario.delete({ where: { id: scenarioId } })
   return { id: scenarioId }
+}
+
+export async function deleteScenarios(payload: unknown) {
+  const input = scenarioBulkDeleteSchema.parse(payload)
+  const scenarios = await prisma.trainingScenario.findMany({
+    where: { id: { in: input.scenarioIds } },
+    include: {
+      sessions: {
+        select: { id: true },
+      },
+    },
+  })
+  const scenarioMap = new Map<string, (typeof scenarios)[number]>(
+    scenarios.map((scenario: (typeof scenarios)[number]) => [scenario.id, scenario])
+  )
+  const results: Array<{
+    id: string
+    title?: string
+    status: 'DELETED' | 'SKIPPED'
+    reason?: string
+  }> = []
+  const deletableIds: string[] = []
+
+  for (const scenarioId of input.scenarioIds) {
+    const scenario = scenarioMap.get(scenarioId)
+
+    if (!scenario) {
+      results.push({
+        id: scenarioId,
+        status: 'SKIPPED',
+        reason: '场景不存在',
+      })
+      continue
+    }
+
+    if (scenario.sessions.length > 0) {
+      results.push({
+        id: scenario.id,
+        title: scenario.title,
+        status: 'SKIPPED',
+        reason: '已有训练记录，未删除',
+      })
+      continue
+    }
+
+    deletableIds.push(scenario.id)
+    results.push({
+      id: scenario.id,
+      title: scenario.title,
+      status: 'DELETED',
+    })
+  }
+
+  if (deletableIds.length > 0) {
+    await prisma.trainingScenario.deleteMany({
+      where: { id: { in: deletableIds } },
+    })
+  }
+
+  return {
+    total: results.length,
+    deleted: results.filter((result) => result.status === 'DELETED').length,
+    skipped: results.filter((result) => result.status === 'SKIPPED').length,
+    results,
+  }
 }
 
 export async function getDashboardSummary() {

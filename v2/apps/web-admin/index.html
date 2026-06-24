@@ -155,7 +155,12 @@
                     <p class="eyebrow">Topic Studio</p>
                     <h2>主题与场景配置</h2>
                   </div>
+                  <button class="secondary-btn compact-btn" id="adminBulkDeleteScenariosButton" type="button">
+                    删除选中场景
+                  </button>
                 </div>
+                <p class="status-text" id="adminScenarioBulkDeleteStatus"></p>
+                <div class="import-result-list" id="adminScenarioBulkDeleteResults"></div>
                 <div class="topic-studio" id="adminTopicStudio"></div>
               </article>
 
@@ -256,6 +261,35 @@
 
                   <button class="primary-btn" type="submit">保存场景</button>
                   <p class="status-text" id="adminScenarioStatus"></p>
+                </form>
+
+                <div class="soft-divider"></div>
+
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Scenario Import</p>
+                    <h2>批量导入场景</h2>
+                  </div>
+                </div>
+                <form class="form-stack" id="adminScenarioImportForm">
+                  <label>
+                    <span>所属主题</span>
+                    <select name="topicId" id="adminScenarioImportTopicSelect"></select>
+                  </label>
+                  <label>
+                    <span>导入内容</span>
+                    <textarea
+                      name="scenarios"
+                      rows="8"
+                      placeholder="场景名称	场景描述	家长画像	开场话术	难度	状态	异议步骤&#10;价格敏感型家长	家长认可课程但关注价格	李妈妈	老师，正式课是不是有点贵？	标准	启用	价格偏高|你们课程太贵了|先共情，再说明课程价值；还想比较|我再看看别家|帮助家长明确比较标准"
+                    ></textarea>
+                  </label>
+                  <p class="helper-text">
+                    建议从 Excel 复制 7 列内容；难度支持“基础/标准/进阶”，状态支持“启用/停用”。多条异议步骤用分号隔开，每条步骤用竖线分隔标题、异议内容和点评关注点。
+                  </p>
+                  <button class="primary-btn" type="submit">导入场景</button>
+                  <p class="status-text" id="adminScenarioImportStatus"></p>
+                  <div class="import-result-list" id="adminScenarioImportResults"></div>
                 </form>
               </article>
             </div>

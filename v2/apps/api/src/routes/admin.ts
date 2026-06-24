@@ -8,10 +8,12 @@ import {
   createTopic,
   createUser,
   deleteScenario,
+  deleteScenarios,
   deleteTopic,
   getCurrentUserProfile,
   getDashboardSummary,
   importTeacherUsers,
+  importScenarios,
   listTopicsForAdmin,
   listUsers,
   updateScenario,
@@ -118,6 +120,14 @@ router.post('/scenarios', requireRole('TRAINER'), async (req: AuthedRequest, res
   }
 })
 
+router.post('/scenarios/import', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await importScenarios(req.user!.id, req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.put('/scenarios/:scenarioId', requireRole('TRAINER'), async (req, res, next) => {
   try {
     res.json(ok(await updateScenario(req.params.scenarioId, req.body)))
@@ -129,6 +139,14 @@ router.put('/scenarios/:scenarioId', requireRole('TRAINER'), async (req, res, ne
 router.delete('/scenarios/:scenarioId', requireRole('TRAINER'), async (req, res, next) => {
   try {
     res.json(ok(await deleteScenario(req.params.scenarioId)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/scenarios/delete', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await deleteScenarios(req.body)))
   } catch (error) {
     next(error)
   }

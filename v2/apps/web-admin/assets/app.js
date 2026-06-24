@@ -34,6 +34,13 @@
     scenarioStatus: document.getElementById('adminScenarioStatus'),
     scenarioFormTitle: document.getElementById('scenarioFormTitle'),
     scenarioTopicSelect: document.getElementById('adminScenarioTopicSelect'),
+    scenarioImportForm: document.getElementById('adminScenarioImportForm'),
+    scenarioImportTopicSelect: document.getElementById('adminScenarioImportTopicSelect'),
+    scenarioImportStatus: document.getElementById('adminScenarioImportStatus'),
+    scenarioImportResults: document.getElementById('adminScenarioImportResults'),
+    scenarioBulkDeleteButton: document.getElementById('adminBulkDeleteScenariosButton'),
+    scenarioBulkDeleteStatus: document.getElementById('adminScenarioBulkDeleteStatus'),
+    scenarioBulkDeleteResults: document.getElementById('adminScenarioBulkDeleteResults'),
     stepEditorList: document.getElementById('adminStepEditorList'),
     addStepButton: document.getElementById('adminAddStepButton'),
     scenarioResetButton: document.getElementById('adminScenarioResetButton'),
@@ -303,6 +310,133 @@
       .join('');
   }
 
+  function mapDifficultyInput(value) {
+    const normalized = String(value || '').trim().toUpperCase();
+    const map = {
+      基础: 'BASIC',
+      BASIC: 'BASIC',
+      标准: 'STANDARD',
+      STANDARD: 'STANDARD',
+      进阶: 'ADVANCED',
+      高级: 'ADVANCED',
+      ADVANCED: 'ADVANCED',
+    };
+    return map[normalized] || 'STANDARD';
+  }
+
+  function mapStatusInput(value) {
+    const normalized = String(value || '').trim().toUpperCase();
+    const map = {
+      启用: 'ACTIVE',
+      ACTIVE: 'ACTIVE',
+      停用: 'INACTIVE',
+      INACTIVE: 'INACTIVE',
+    };
+    return map[normalized] || 'ACTIVE';
+  }
+
+  function parseScenarioImportRows(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !/^场景名称[\s,，\t]+场景描述[\s,，\t]+/.test(line))
+      .map((line, index) => {
+        const columns = (line.includes('\t') ? line.split('\t') : line.split(',')).map((column) => column.trim());
+
+        if (columns.length !== 7) {
+          throw new Error(`第 ${index + 1} 行格式不正确，请使用 7 列：场景名称、场景描述、家长画像、开场话术、难度、状态、异议步骤`);
+        }
+
+        const steps = columns[6]
+          .split(/;|；/)
+          .map((stepText) => stepText.trim())
+          .filter(Boolean)
+          .map((stepText, stepIndex) => {
+            const stepColumns = stepText.split('|').map((column) => column.trim());
+
+            if (stepColumns.length !== 3) {
+              throw new Error(`第 ${index + 1} 行第 ${stepIndex + 1} 个异议步骤格式不正确，请使用：步骤标题|异议内容|点评关注点`);
+            }
+
+            return {
+              order: stepIndex + 1,
+              title: stepColumns[0],
+              objectionText: stepColumns[1],
+              evaluationFocus: stepColumns[2],
+            };
+          });
+
+        if (!steps.length) {
+          throw new Error(`第 ${index + 1} 行至少需要 1 个异议步骤。`);
+        }
+
+        return {
+          title: columns[0],
+          description: columns[1],
+          parentPersona: columns[2],
+          openingLine: columns[3],
+          difficulty: mapDifficultyInput(columns[4]),
+          status: mapStatusInput(columns[5]),
+          steps,
+        };
+      });
+  }
+
+  function renderScenarioImportResults(results) {
+    if (!results.length) {
+      nodes.scenarioImportResults.innerHTML = '';
+      return;
+    }
+
+    nodes.scenarioImportResults.innerHTML = results
+      .map(
+        (result) => `
+          <article class="import-result-card">
+            <div class="row-actions">
+              <div>
+                <p class="eyebrow">Created</p>
+                <h3>${escapeHtml(result.title)}</h3>
+                <p>场景 ID：${escapeHtml(result.id)}</p>
+              </div>
+              <span class="chip-good">已创建</span>
+            </div>
+          </article>
+        `
+      )
+      .join('');
+  }
+
+  function getSelectedScenarioIds() {
+    return Array.from(nodes.topicStudio.querySelectorAll('[data-select-scenario]:checked')).map((input) =>
+      input.getAttribute('data-select-scenario')
+    );
+  }
+
+  function renderScenarioBulkDeleteResults(results) {
+    const deleted = results.filter((result) => result.status === 'DELETED').length;
+    const skipped = results.filter((result) => result.status === 'SKIPPED').length;
+    nodes.scenarioBulkDeleteStatus.textContent = `批量删除完成：删除 ${deleted} 个，跳过 ${skipped} 个。`;
+    nodes.scenarioBulkDeleteResults.innerHTML = results
+      .map(
+        (result) => `
+          <article class="import-result-card">
+            <div class="row-actions">
+              <div>
+                <p class="eyebrow">${escapeHtml(result.status === 'DELETED' ? 'Deleted' : 'Skipped')}</p>
+                <h3>${escapeHtml(result.title || result.id)}</h3>
+                <p>${escapeHtml(result.reason || '已删除')}</p>
+              </div>
+              <span class="${result.status === 'DELETED' ? 'chip-good' : 'chip-warn'}">
+                ${escapeHtml(result.status === 'DELETED' ? '已删除' : '已跳过')}
+              </span>
+            </div>
+          </article>
+        `
+      )
+      .join('');
+  }
+
   function renderTopicStudio() {
     if (!state.topics.length) {
       nodes.topicStudio.innerHTML = renderEmptyState('还没有主题，先在右侧创建一个主题。');
@@ -337,6 +471,10 @@
                   (scenario) => `
                     <article class="scenario-card">
                       <div class="scenario-actions">
+                        <label class="scenario-select">
+                          <input type="checkbox" data-select-scenario="${escapeHtml(scenario.id)}" />
+                          <span>选择</span>
+                        </label>
                         <div>
                           <p class="eyebrow">${escapeHtml(difficultyLabel(scenario.difficulty))} · ${escapeHtml(
                             statusLabel(scenario.status)
@@ -412,9 +550,11 @@
   }
 
   function refreshScenarioTopicSelect() {
-    nodes.scenarioTopicSelect.innerHTML = state.topics
+    const options = state.topics
       .map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.title)}</option>`)
       .join('');
+    nodes.scenarioTopicSelect.innerHTML = options;
+    nodes.scenarioImportTopicSelect.innerHTML = options;
   }
 
   function createStepEditorRow(step) {
@@ -733,12 +873,74 @@
     }
   }
 
+  async function handleImportScenarios(event) {
+    event.preventDefault();
+    nodes.scenarioImportStatus.textContent = '正在解析导入内容...';
+    nodes.scenarioImportResults.innerHTML = '';
+
+    try {
+      const formData = new FormData(nodes.scenarioImportForm);
+      const scenarios = parseScenarioImportRows(formData.get('scenarios'));
+      const topicId = String(formData.get('topicId') || '');
+
+      if (!topicId) {
+        throw new Error('请先选择所属主题。');
+      }
+
+      if (!scenarios.length) {
+        throw new Error('请先粘贴需要导入的场景。');
+      }
+
+      nodes.scenarioImportStatus.textContent = `正在导入 ${scenarios.length} 个场景...`;
+      const result = await api('/api/admin/scenarios/import', {
+        method: 'POST',
+        body: JSON.stringify({ topicId, scenarios }),
+      });
+
+      nodes.scenarioImportStatus.textContent = `导入完成：成功 ${result.created} 个场景。`;
+      renderScenarioImportResults(result.results || []);
+      nodes.scenarioImportForm.reset();
+      await Promise.all([loadTopics(), loadDashboard()]);
+    } catch (error) {
+      nodes.scenarioImportStatus.textContent = error.message;
+    }
+  }
+
+  async function handleBulkDeleteScenarios() {
+    const scenarioIds = getSelectedScenarioIds().filter(Boolean);
+    nodes.scenarioBulkDeleteResults.innerHTML = '';
+
+    if (!scenarioIds.length) {
+      nodes.scenarioBulkDeleteStatus.textContent = '请先勾选需要删除的场景。';
+      return;
+    }
+
+    if (!confirm(`确认删除选中的 ${scenarioIds.length} 个场景？已有训练记录的场景会自动跳过。`)) {
+      return;
+    }
+
+    nodes.scenarioBulkDeleteStatus.textContent = '正在批量删除场景...';
+
+    try {
+      const result = await api('/api/admin/scenarios/delete', {
+        method: 'POST',
+        body: JSON.stringify({ scenarioIds }),
+      });
+      renderScenarioBulkDeleteResults(result.results || []);
+      await Promise.all([loadTopics(), loadDashboard()]);
+    } catch (error) {
+      nodes.scenarioBulkDeleteStatus.textContent = error.message;
+    }
+  }
+
   async function bootstrap() {
     nodes.loginForm.addEventListener('submit', handleLogin);
     nodes.teacherForm.addEventListener('submit', handleCreateUser);
     nodes.teacherImportForm.addEventListener('submit', handleImportTeachers);
     nodes.topicForm.addEventListener('submit', handleSaveTopic);
     nodes.scenarioForm.addEventListener('submit', handleSaveScenario);
+    nodes.scenarioImportForm.addEventListener('submit', handleImportScenarios);
+    nodes.scenarioBulkDeleteButton.addEventListener('click', handleBulkDeleteScenarios);
     nodes.topicResetButton.addEventListener('click', resetTopicForm);
     nodes.scenarioResetButton.addEventListener('click', resetScenarioForm);
     nodes.addStepButton.addEventListener('click', () => {

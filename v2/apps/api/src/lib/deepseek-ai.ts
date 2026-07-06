@@ -40,6 +40,21 @@ interface DeepSeekReviewInput {
   }>
 }
 
+interface DeepSeekResolutionInput {
+  scenarioTitle: string
+  scenarioDescription: string
+  parentPersona: string
+  currentStepTitle: string
+  currentObjection: string
+  evaluationFocus: string
+  teacherMessages: string[]
+  messages: Array<{
+    role: string
+    content: string
+    stepOrder: number
+  }>
+}
+
 export function isDeepSeekEnabled() {
   return env.aiProvider.toLowerCase() === 'deepseek' && Boolean(env.deepseekApiKey)
 }
@@ -120,6 +135,72 @@ export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
   }
 
   return content.trim()
+}
+
+function buildResolutionPrompt(input: DeepSeekResolutionInput) {
+  return [
+    '请判断少儿编程体验课转化训练中，老师是否已经把当前这个家长异议处理到可以自然进入下一个异议。',
+    '只输出 JSON，不要 Markdown，不要解释。',
+    'JSON 字段必须包含：resolved, reason。',
+    'resolved 必须是 boolean；reason 用一句中文说明判断原因。',
+    '判定要严格：只有当老师已经承接家长情绪、回应核心担心、给出具体到孩子的方案或证据，并提出合理下一步时，才算 resolved=true。',
+    '如果老师只是表达理解、泛泛介绍课程价值、简单承诺效果、直接催报名、只反问家长，或者没有针对当前异议的根因，就必须 resolved=false。',
+    '不要因为老师话术很长就判定解决；必须看内容是否真正解决当前异议。',
+    `训练场景：${input.scenarioTitle}`,
+    `场景说明：${input.scenarioDescription}`,
+    `家长情况：${input.parentPersona}`,
+    `当前异议标题：${input.currentStepTitle}`,
+    `当前异议内容：${input.currentObjection}`,
+    `点评关注点：${input.evaluationFocus}`,
+    `当前异议下老师全部回复：${JSON.stringify(input.teacherMessages)}`,
+    `当前异议完整对话：${JSON.stringify(input.messages)}`,
+  ].join('\n')
+}
+
+export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput) {
+  const response = await fetch(`${env.deepseekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.deepseekApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: env.deepseekModel,
+      messages: [
+        {
+          role: 'system',
+          content: '你是严格的销售训练质检教练，只判断当前异议是否真的被解决，不负责安慰老师。',
+        },
+        {
+          role: 'user',
+          content: buildResolutionPrompt(input),
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+      response_format: { type: 'json_object' },
+      thinking: {
+        type: env.deepseekThinking,
+      },
+    }),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || `DeepSeek resolution failed: ${response.status}`)
+  }
+
+  const content = payload?.choices?.[0]?.message?.content
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('DeepSeek resolution response is empty')
+  }
+
+  const parsed = JSON.parse(content)
+  return {
+    resolved: parsed.resolved === true,
+    reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+  }
 }
 
 function buildReviewPrompt(input: DeepSeekReviewInput) {

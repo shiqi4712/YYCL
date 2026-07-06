@@ -1,4 +1,4 @@
-import { buildDeepSeekReply, buildDeepSeekReview, isDeepSeekEnabled } from '../lib/deepseek-ai'
+import { buildDeepSeekReply, buildDeepSeekReview, evaluateDeepSeekResolution, isDeepSeekEnabled } from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { HttpError } from '../utils/http-error'
@@ -47,6 +47,32 @@ async function buildParentReply(input: {
 
   await sleep(AI_THINKING_DELAY_MS)
   return buildMockReply(input)
+}
+
+async function evaluateObjectionResolved(input: {
+  scenarioTitle: string
+  scenarioDescription: string
+  parentPersona: string
+  currentStepTitle: string
+  currentObjection: string
+  evaluationFocus: string
+  teacherMessages: string[]
+  messages: Array<{
+    role: string
+    content: string
+    stepOrder: number
+  }>
+}) {
+  if (isDeepSeekEnabled()) {
+    try {
+      const result = await evaluateDeepSeekResolution(input)
+      return result.resolved
+    } catch (error) {
+      console.error('DeepSeek resolution failed, fallback to mock:', error)
+    }
+  }
+
+  return detectResolved(input.teacherMessages)
 }
 
 async function getOwnedSession(sessionId: string, teacherId: string) {
@@ -212,7 +238,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     throw new HttpError(500, '训练步骤异常')
   }
 
-  await prisma.sessionMessage.create({
+  const teacherMessage = await prisma.sessionMessage.create({
     data: {
       sessionId,
       role: 'TEACHER',
@@ -221,12 +247,38 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     },
   })
 
-  const resolved = detectResolved(content)
+  const currentStepMessages = [
+    ...session.messages
+      .filter((message: (typeof session.messages)[number]) => message.stepOrder === currentStep.order)
+      .map((message: (typeof session.messages)[number]) => ({
+        role: message.role,
+        content: message.content,
+        stepOrder: message.stepOrder,
+      })),
+    {
+      role: teacherMessage.role,
+      content: teacherMessage.content,
+      stepOrder: teacherMessage.stepOrder,
+    },
+  ]
+  const currentStepTeacherMessages = currentStepMessages
+    .filter((message) => message.role === 'TEACHER')
+    .map((message) => message.content)
   const currentStepTeacherMessageCount =
-    session.messages.filter(
-      (message: (typeof session.messages)[number]) =>
-        message.role === 'TEACHER' && message.stepOrder === currentStep.order
-    ).length + 1
+    currentStepTeacherMessages.length
+  const resolved =
+    currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_PER_OBJECTION
+      ? await evaluateObjectionResolved({
+          scenarioTitle: session.scenario.title,
+          scenarioDescription: session.scenario.description,
+          parentPersona: session.scenario.parentPersona,
+          currentStepTitle: currentStep.title,
+          currentObjection: currentStep.objectionText,
+          evaluationFocus: currentStep.evaluationFocus,
+          teacherMessages: currentStepTeacherMessages,
+          messages: currentStepMessages,
+        })
+      : false
   const canAdvance = resolved && currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_PER_OBJECTION
   const nextStep = session.scenario.steps.find(
     (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
@@ -241,10 +293,16 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     scenarioDescription: session.scenario.description,
     parentPersona: session.scenario.parentPersona,
     teacherMessage: content,
-    history: session.messages.map((message: (typeof session.messages)[number]) => ({
-      role: message.role,
-      content: message.content,
-    })),
+    history: [
+      ...session.messages.map((message: (typeof session.messages)[number]) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      {
+        role: teacherMessage.role,
+        content: teacherMessage.content,
+      },
+    ],
     currentStepTitle: currentStep.title,
     currentObjection: currentStep.objectionText,
     nextObjection: nextStep?.objectionText,
@@ -389,7 +447,7 @@ export async function generateReview(sessionId: string, teacherId: string) {
       (sum: number, message: (typeof messages)[number]) => sum + message.content.length,
       0
     )
-    const resolved = messages.some((message: (typeof messages)[number]) => detectResolved(message.content))
+    const resolved = detectResolved(messages.map((message: (typeof messages)[number]) => message.content))
     const score = resolved ? Math.min(92, 72 + Math.round(totalLength / 12)) : 58
 
     return {

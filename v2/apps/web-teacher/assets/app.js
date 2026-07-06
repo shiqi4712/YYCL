@@ -74,6 +74,15 @@
     `;
   }
 
+  function insertTextareaNewline(textarea) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    textarea.value = `${value.slice(0, start)}\n${value.slice(end)}`;
+    textarea.selectionStart = start + 1;
+    textarea.selectionEnd = start + 1;
+  }
+
   function appendChatMessage(message) {
     if (nodes.chatLog.querySelector('.empty-state')) {
       nodes.chatLog.innerHTML = '';
@@ -389,7 +398,7 @@
     nodes.messageInput.disabled = !isActive || state.sendingMessage;
     nodes.messageForm.querySelector('button[type="submit"]').disabled = !isActive || state.sendingMessage;
     nodes.messageInput.placeholder = isActive
-      ? '输入你的回复，例如：先承接家长顾虑，再给出具体价值解释，最后推动下一步确认。'
+      ? '输入你的回复，Enter 发送，Shift+Enter 换行。'
       : '当前会话已结束，如需继续训练请返回场景大厅重新选择场景。';
     nodes.chatLog.scrollTop = nodes.chatLog.scrollHeight;
 
@@ -657,8 +666,13 @@
     nodes.startSessionButton.addEventListener('click', handleStartSession);
     nodes.messageForm.addEventListener('submit', handleSendMessage);
     nodes.messageInput.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      if (event.key !== 'Enter' || event.isComposing) return;
       event.preventDefault();
+      if (event.shiftKey) {
+        insertTextareaNewline(nodes.messageInput);
+        return;
+      }
+
       nodes.messageForm.requestSubmit();
     });
     nodes.reviewButton.addEventListener('click', handleReview);

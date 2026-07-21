@@ -145,6 +145,13 @@
     return map[value] || value;
   }
 
+  function trainingModuleLabel(value) {
+    const map = {
+      PRE_CLASS: '课前训练',
+    };
+    return map[value] || value || '课前训练';
+  }
+
   function renderTabs() {
     const map = {
       dashboard: nodes.tabDashboard,
@@ -550,7 +557,7 @@
             <article class="topic-card">
               <div class="row-actions">
                 <div>
-                  <p class="eyebrow">${escapeHtml(statusLabel(topic.status))}</p>
+                  <p class="eyebrow">${escapeHtml(trainingModuleLabel(topic.trainingModule))} · ${escapeHtml(statusLabel(topic.status))}</p>
                   <h3>${escapeHtml(topic.title)}</h3>
                 </div>
                 <div class="chip-row">
@@ -651,7 +658,10 @@
 
   function refreshScenarioTopicSelect() {
     const options = state.topics
-      .map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.title)}</option>`)
+      .map(
+        (topic) =>
+          `<option value="${escapeHtml(topic.id)}">${escapeHtml(trainingModuleLabel(topic.trainingModule))} / ${escapeHtml(topic.title)}</option>`
+      )
       .join('');
     nodes.scenarioTopicSelect.innerHTML = options;
     nodes.scenarioImportTopicSelect.innerHTML = options;
@@ -736,6 +746,7 @@
     nodes.topicForm.querySelector('[name="topicId"]').value = '';
     nodes.topicFormTitle.textContent = '新增主题';
     nodes.topicStatus.textContent = '';
+    nodes.topicForm.querySelector('[name="trainingModule"]').value = 'PRE_CLASS';
     nodes.topicForm.querySelector('[name="status"]').value = 'ACTIVE';
   }
 
@@ -759,6 +770,7 @@
     state.editingTopicId = topic.id;
     nodes.topicFormTitle.textContent = `编辑主题 · ${topic.title}`;
     nodes.topicForm.querySelector('[name="topicId"]').value = topic.id;
+    nodes.topicForm.querySelector('[name="trainingModule"]').value = topic.trainingModule || 'PRE_CLASS';
     nodes.topicForm.querySelector('[name="title"]').value = topic.title;
     nodes.topicForm.querySelector('[name="description"]').value = topic.description;
     nodes.topicForm.querySelector('[name="status"]').value = topic.status;
@@ -909,6 +921,7 @@
     nodes.topicStatus.textContent = '正在保存...';
     const formData = new FormData(nodes.topicForm);
     const payload = {
+      trainingModule: String(formData.get('trainingModule') || 'PRE_CLASS'),
       title: String(formData.get('title') || ''),
       description: String(formData.get('description') || ''),
       status: String(formData.get('status') || 'ACTIVE'),

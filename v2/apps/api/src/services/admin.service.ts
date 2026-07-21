@@ -6,6 +6,7 @@ import { HttpError } from '../utils/http-error'
 const roleSchema = z.enum(['TRAINER', 'TEACHER'])
 const difficultySchema = z.enum(['BASIC', 'STANDARD', 'ADVANCED'])
 const statusSchema = z.enum(['ACTIVE', 'INACTIVE'])
+const trainingModuleSchema = z.enum(['PRE_CLASS'])
 
 const userCreateSchema = z.object({
   username: z.string().min(3).max(24),
@@ -19,6 +20,7 @@ const teacherBulkImportSchema = z.object({
 })
 
 const topicCreateSchema = z.object({
+  trainingModule: trainingModuleSchema.default('PRE_CLASS'),
   title: z.string().min(1).max(60),
   description: z.string().min(1).max(300),
   status: statusSchema.default('ACTIVE'),
@@ -58,6 +60,7 @@ function sortSteps<T extends { order: number }>(steps: T[]) {
 
 function mapTopic(topic: {
   id: string
+  trainingModule: string
   title: string
   description: string
   status: string
@@ -85,6 +88,7 @@ function mapTopic(topic: {
 }) {
   return {
     id: topic.id,
+    trainingModule: topic.trainingModule,
     title: topic.title,
     description: topic.description,
     status: topic.status,
@@ -315,6 +319,7 @@ export async function createTopic(createdById: string, payload: unknown) {
 
   const topic = await prisma.trainingTopic.create({
     data: {
+      trainingModule: input.trainingModule,
       title: input.title,
       description: input.description,
       status: input.status,
@@ -343,6 +348,7 @@ export async function updateTopic(topicId: string, payload: unknown) {
   const topic = await prisma.trainingTopic.update({
     where: { id: topicId },
     data: {
+      trainingModule: input.trainingModule,
       title: input.title,
       description: input.description,
       status: input.status,

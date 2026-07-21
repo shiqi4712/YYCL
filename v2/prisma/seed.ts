@@ -105,6 +105,7 @@ async function main() {
   const topic = await prisma.trainingTopic.upsert({
     where: { id: 'topic_trial_upgrade' },
     update: {
+      trainingModule: 'PRE_CLASS',
       title: '体验课后转正异议课',
       description: '聚焦体验课结束后的家长异议处理与报名推进。',
       createdById: trainer.id,
@@ -112,6 +113,7 @@ async function main() {
     },
     create: {
       id: 'topic_trial_upgrade',
+      trainingModule: 'PRE_CLASS',
       title: '体验课后转正异议课',
       description: '聚焦体验课结束后的家长异议处理与报名推进。',
       createdById: trainer.id,

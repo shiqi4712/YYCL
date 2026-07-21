@@ -427,6 +427,21 @@ select:focus {
   gap: 14px;
 }
 
+.topic-module-block {
+  display: grid;
+  gap: 14px;
+}
+
+.module-head {
+  padding: 4px 4px 0;
+}
+
+.module-head h3 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .topic-card h3,
 .history-card h3,
 .step-card h3,

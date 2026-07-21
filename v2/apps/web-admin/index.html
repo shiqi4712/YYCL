@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=0de1353" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260721-preclass" />
   </head>
   <body>
     <div class="admin-shell">
@@ -177,8 +177,14 @@
                 <form class="form-stack" id="adminTopicForm">
                   <input type="hidden" name="topicId" />
                   <label>
+                    <span>训练模块</span>
+                    <select name="trainingModule">
+                      <option value="PRE_CLASS">课前训练</option>
+                    </select>
+                  </label>
+                  <label>
                     <span>主题名称</span>
-                    <input name="title" placeholder="体验课后转正异议课" />
+                    <input name="title" placeholder="课前沟通 SOP 训练" />
                   </label>
                   <label>
                     <span>主题描述</span>
@@ -301,6 +307,6 @@
       </main>
     </div>
 
-    <script src="/assets/admin/app.js?v=0de1353"></script>
+    <script src="/assets/admin/app.js?v=20260721-preclass"></script>
   </body>
 </html>

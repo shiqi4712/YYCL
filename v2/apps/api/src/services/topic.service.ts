@@ -19,6 +19,7 @@ export async function listTopics() {
 
   return topics.map((topic: (typeof topics)[number]) => ({
     id: topic.id,
+    trainingModule: topic.trainingModule,
     title: topic.title,
     description: topic.description,
     scenarioCount: topic.scenarios.length,

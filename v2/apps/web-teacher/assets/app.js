@@ -176,6 +176,13 @@
     return map[value] || value;
   }
 
+  function trainingModuleLabel(value) {
+    const map = {
+      PRE_CLASS: '课前训练',
+    };
+    return map[value] || value || '课前训练';
+  }
+
   function renderMetrics() {
     const completed = state.sessions.filter((session) => session.status === 'COMPLETED').length;
     const scored = state.sessions.filter((session) => typeof session.reviewScore === 'number');
@@ -221,14 +228,22 @@
       return;
     }
 
-    nodes.topicList.innerHTML = state.topics
-      .map((topic) => {
+    const topicsByModule = state.topics.reduce((groups, topic) => {
+      const key = topic.trainingModule || 'PRE_CLASS';
+      groups[key] = groups[key] || [];
+      groups[key].push(topic);
+      return groups;
+    }, {});
+
+    nodes.topicList.innerHTML = Object.entries(topicsByModule)
+      .map(([moduleKey, topics]) => {
+        const topicCards = topics.map((topic) => {
         const scenarios = topic.scenarios || [];
         return `
           <article class="topic-card">
             <div class="topic-group">
               <div>
-                <p class="eyebrow">Topic</p>
+                <p class="eyebrow">${escapeHtml(trainingModuleLabel(topic.trainingModule))}</p>
                 <h3>${escapeHtml(topic.title)}</h3>
                 <p>${escapeHtml(topic.description)}</p>
               </div>
@@ -257,6 +272,17 @@
               </div>
             </div>
           </article>
+        `;
+        }).join('');
+
+        return `
+          <section class="topic-module-block">
+            <div class="module-head">
+              <p class="eyebrow">Training Module</p>
+              <h3>${escapeHtml(trainingModuleLabel(moduleKey))}</h3>
+            </div>
+            ${topicCards}
+          </section>
         `;
       })
       .join('');

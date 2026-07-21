@@ -16,8 +16,12 @@ npm run db:generate
 echo "==> Sync database schema"
 npx prisma db push --schema=../../prisma/schema.prisma --skip-generate
 
-echo "==> Refresh seed data"
-npm run db:seed
+if [ "${RUN_SEED:-0}" = "1" ]; then
+  echo "==> Refresh seed data"
+  npm run db:seed
+else
+  echo "==> Skip seed data refresh (set RUN_SEED=1 to enable)"
+fi
 
 echo "==> Rebuild API"
 npm run build

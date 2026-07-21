@@ -3,7 +3,7 @@
 YYCL V2 是基于现有业务重新收口的一版轻量化训练系统，目标是先跑通：
 
 - 单后端 API
-- SQLite + Prisma 持久化
+- MySQL + Prisma 持久化
 - 多异议步骤训练链路
 - 结构化点评
 - 后续可挂接教师端和管理端 Web
@@ -32,6 +32,8 @@ v2/
 在 `v2/apps/api` 目录执行：
 
 ```bash
+cp ../../prisma/.env.example ../../prisma/.env
+# 修改 ../../prisma/.env 中的 DATABASE_URL 为你的 MySQL 连接串
 npm run db:generate
 npm run db:push
 npm run db:seed

@@ -16,12 +16,11 @@ if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma
 }
 
-export async function enableSqlitePragmas() {
+export async function initializeDatabase() {
   try {
-    await prisma.$queryRawUnsafe('PRAGMA journal_mode=WAL;')
-    await prisma.$queryRawUnsafe('PRAGMA synchronous=NORMAL;')
-    await prisma.$queryRawUnsafe('PRAGMA busy_timeout=5000;')
+    await prisma.$connect()
   } catch (error) {
-    console.warn('SQLite PRAGMA initialization skipped:', error)
+    console.error('Database connection failed:', error)
+    throw error
   }
 }

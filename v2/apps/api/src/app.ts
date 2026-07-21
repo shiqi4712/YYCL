@@ -4,7 +4,7 @@ import cors from 'cors'
 import express from 'express'
 import path from 'node:path'
 import { env } from './env'
-import { enableSqlitePragmas } from './lib/prisma'
+import { initializeDatabase } from './lib/prisma'
 import { errorHandler } from './middleware/error'
 import adminRoutes from './routes/admin'
 import authRoutes from './routes/auth'
@@ -48,13 +48,13 @@ app.get('*', (req, res, next) => {
 
 app.use(errorHandler)
 
-enableSqlitePragmas()
+initializeDatabase()
   .then(() => {
     app.listen(env.port, () => {
       console.log(`${env.appName} listening on http://localhost:${env.port}`)
     })
   })
   .catch((error) => {
-    console.error('Failed to initialize database pragmas', error)
+    console.error('Failed to initialize database', error)
     process.exit(1)
   })

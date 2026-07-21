@@ -11,7 +11,7 @@ PM2_CONFIG="$PROJECT_ROOT/ecosystem.v2.config.js"
 
 echo "==> Install system dependencies"
 sudo apt-get update
-sudo apt-get install -y curl nginx
+sudo apt-get install -y curl nginx default-mysql-client
 
 if ! command -v node >/dev/null 2>&1 || ! node -v | grep -q '^v20\|^v22\|^v24'; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -

@@ -16,6 +16,7 @@ import { ok } from './utils/api'
 const app = express()
 const teacherAppDir = path.resolve(__dirname, '../../web-teacher')
 const adminAppDir = path.resolve(__dirname, '../../web-admin')
+const uploadDir = path.resolve(__dirname, '../uploads')
 
 app.use(cors())
 app.use(express.json())
@@ -32,6 +33,7 @@ app.use('/api/training', trainingRoutes)
 
 app.use('/assets/admin', express.static(path.join(adminAppDir, 'assets')))
 app.use('/assets/teacher', express.static(path.join(teacherAppDir, 'assets')))
+app.use('/uploads', express.static(uploadDir))
 app.use('/admin', express.static(adminAppDir))
 app.use('/', express.static(teacherAppDir))
 

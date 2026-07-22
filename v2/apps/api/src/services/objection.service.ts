@@ -5,6 +5,7 @@ import { HttpError } from '../utils/http-error'
 const sceneSchema = z.enum(['pre', 'mid', 'close'])
 const statusSchema = z.enum(['ACTIVE', 'INACTIVE'])
 const materialSchema = z.object({
+  type: z.enum(['LINK', 'IMAGE']).default('LINK'),
   title: z.string().min(1).max(80),
   url: z.string().min(1).max(1000),
   description: z.string().max(300).default(''),
@@ -103,6 +104,7 @@ function splitMaterials(value: string) {
     .map((item) => {
       const [title, url, description = ''] = item.split(/[|｜]/).map((cell) => cell.trim())
       return materialSchema.parse({
+        type: /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(url || title) ? 'IMAGE' : 'LINK',
         title: title || '配套物料',
         url: url || title,
         description,

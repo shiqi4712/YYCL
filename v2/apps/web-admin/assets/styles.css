@@ -81,6 +81,14 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .tag-good { color: var(--green); background: var(--green-soft); }
 .tag-warn { color: var(--orange); background: var(--orange-soft); }
 .tag-danger { color: var(--red); background: var(--red-soft); }
+.material-editor { display: grid; gap: 12px; padding: 14px; border-radius: 20px; background: var(--surface-soft); box-shadow: var(--shadow-soft); }
+.material-tabs { display: flex; gap: 10px; padding: 6px; border-radius: 18px; background: rgba(255,255,255,.78); }
+.material-grid { display: grid; gap: 10px; }
+.material-list { display: grid; gap: 10px; }
+.material-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.9); box-shadow: var(--shadow-soft); }
+.material-row h3 { font-size: 15px; font-weight: 650; color: var(--text); }
+.material-row p { margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.55; word-break: break-all; }
+.compact-empty { padding: 16px; font-size: 13px; }
 .status-text { min-height: 20px; color: var(--muted); font-size: 13px; }
 .primary-btn:hover, .secondary-btn:hover, .metric-card:hover, .scene-card:hover, .objection-card:hover, .account-card:hover { transform: translateY(-4px); box-shadow: 0 18px 34px rgba(15,23,42,.08); }
 .empty-state { padding: 24px; border-radius: 20px; background: var(--surface-soft); color: var(--muted); line-height: 1.8; }

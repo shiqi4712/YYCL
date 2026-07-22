@@ -245,7 +245,7 @@
                     (material) => `
                       <article class="material-card">
                         ${
-                          isImageUrl(material.url)
+                          material.type === 'IMAGE' || isImageUrl(material.url)
                             ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
                             : `<div class="material-file">物</div>`
                         }

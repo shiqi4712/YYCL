@@ -45,4 +45,5 @@ v2/manual-images/
 v2/*login.png
 v2/使用手册.md
 v2/prisma/backups/
+v2/apps/api/uploads/
 v2/apps/api/src/generated/prisma/

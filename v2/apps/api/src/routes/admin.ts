@@ -1,4 +1,7 @@
 import { Router } from 'express'
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 import multer from 'multer'
 import { z } from 'zod'
 import { extractSopTextFromFile, extractTextFromFile } from '../lib/document-parser'
@@ -39,6 +42,30 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024,
+  },
+})
+const materialUploadDir = path.resolve(__dirname, '../../uploads/materials')
+const imageMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+const materialUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => {
+      fs.mkdirSync(materialUploadDir, { recursive: true })
+      callback(null, materialUploadDir)
+    },
+    filename: (_req, file, callback) => {
+      const ext = path.extname(file.originalname).toLowerCase()
+      callback(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`)
+    },
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!imageMimeTypes.has(file.mimetype)) {
+      callback(new HttpError(400, '请上传 PNG、JPG、WEBP 或 GIF 图片'))
+      return
+    }
+    callback(null, true)
   },
 })
 
@@ -145,6 +172,30 @@ router.post('/objections/import', requireRole('TRAINER'), async (req: AuthedRequ
     next(error)
   }
 })
+
+router.post(
+  '/materials/upload',
+  requireRole('TRAINER'),
+  materialUpload.single('image'),
+  async (req: AuthedRequest, res, next) => {
+    try {
+      if (!req.file) {
+        throw new HttpError(400, '请上传图片物料')
+      }
+
+      res.json(
+        ok({
+          type: 'IMAGE',
+          title: req.body.title || path.parse(req.file.originalname).name || '图片物料',
+          url: `/uploads/materials/${req.file.filename}`,
+          description: req.body.description || '',
+        })
+      )
+    } catch (error) {
+      next(error)
+    }
+  }
+)
 
 router.post(
   '/objections/import/document',

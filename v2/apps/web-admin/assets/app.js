@@ -14,6 +14,8 @@
     objections: [],
     selectedObjectionId: '',
     users: [],
+    materials: [],
+    materialType: 'LINK',
   };
 
   const nodes = {
@@ -48,6 +50,14 @@
     accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
     teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
+    materialTypeButtons: Array.from(document.querySelectorAll('[data-material-type]')),
+    materialTitleInput: document.getElementById('adminMaterialTitleInput'),
+    materialUrlInput: document.getElementById('adminMaterialUrlInput'),
+    materialImageInput: document.getElementById('adminMaterialImageInput'),
+    materialDescriptionInput: document.getElementById('adminMaterialDescriptionInput'),
+    materialList: document.getElementById('adminMaterialList'),
+    addLinkMaterialButton: document.getElementById('adminAddLinkMaterialButton'),
+    uploadImageMaterialButton: document.getElementById('adminUploadImageMaterialButton'),
     logoutButton: document.getElementById('adminLogoutButton'),
   };
 
@@ -111,24 +121,83 @@
   }
 
   function parseMaterialsText(text) {
-    return String(text || '')
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [title, url, description = ''] = line.split(/[|｜]/).map((cell) => cell.trim());
-        return {
-          title: title || '配套物料',
-          url: url || title,
-          description,
-        };
-      });
+    const value = String(text || '').trim();
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return value
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [title, url, description = ''] = line.split(/[|｜]/).map((cell) => cell.trim());
+          return {
+            type: /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(url || title) ? 'IMAGE' : 'LINK',
+            title: title || '配套物料',
+            url: url || title,
+            description,
+          };
+        });
+    }
   }
 
-  function formatMaterialsText(materials) {
-    return (materials || [])
-      .map((material) => [material.title, material.url, material.description].filter(Boolean).join('|'))
-      .join('\n');
+  function syncMaterialsInput() {
+    nodes.objectionForm.materials.value = JSON.stringify(state.materials);
+  }
+
+  function renderMaterialEditor() {
+    syncMaterialsInput();
+    nodes.materialTypeButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.materialType === state.materialType);
+    });
+    nodes.materialUrlInput.classList.toggle('hidden', state.materialType !== 'LINK');
+    nodes.materialImageInput.classList.toggle('hidden', state.materialType !== 'IMAGE');
+    nodes.addLinkMaterialButton.classList.toggle('hidden', state.materialType !== 'LINK');
+    nodes.uploadImageMaterialButton.classList.toggle('hidden', state.materialType !== 'IMAGE');
+    nodes.materialList.innerHTML = state.materials.length
+      ? state.materials
+          .map(
+            (material, index) => `
+              <article class="material-row">
+                <div class="${material.type === 'IMAGE' ? 'tag-good' : 'tag'}">${material.type === 'IMAGE' ? '图片' : '链接'}</div>
+                <div>
+                  <h3>${escapeHtml(material.title)}</h3>
+                  <p>${escapeHtml(material.description || material.url)}</p>
+                </div>
+                <button class="secondary-btn compact-btn" type="button" data-remove-material="${index}">移除</button>
+              </article>
+            `
+          )
+          .join('')
+      : '<div class="empty-state compact-empty">暂无配套物料，可添加链接或上传图片。</div>';
+
+    nodes.materialList.querySelectorAll('[data-remove-material]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.materials.splice(Number(button.dataset.removeMaterial), 1);
+        renderMaterialEditor();
+      });
+    });
+  }
+
+  function resetMaterialDraft() {
+    nodes.materialTitleInput.value = '';
+    nodes.materialUrlInput.value = '';
+    nodes.materialImageInput.value = '';
+    nodes.materialDescriptionInput.value = '';
+  }
+
+  function validateObjectionPayload(payload) {
+    const missing = [];
+    if (!payload.title) missing.push('异议问题');
+    if (!payload.concern) missing.push('家长真实顾虑');
+    if (!payload.thinking.length) missing.push('解决思路');
+    if (!payload.scripts.length) missing.push('推荐话术');
+    if (!payload.avoid) missing.push('禁忌提醒');
+    if (missing.length) {
+      throw new Error(`请先补充：${missing.join('、')}`);
+    }
   }
 
   function downloadCsv(filename, rows) {
@@ -273,6 +342,8 @@
       nodes.editorStatus.className = 'tag-warn';
       nodes.toggleObjectionStatusButton.textContent = '下架';
       nodes.objectionForm.scene.value = state.scene;
+      state.materials = [];
+      renderMaterialEditor();
       return;
     }
     nodes.editorTitle.textContent = '编辑异议';
@@ -286,7 +357,8 @@
     nodes.objectionForm.concern.value = item.concern;
     nodes.objectionForm.thinking.value = (item.thinking || []).join('\n');
     nodes.objectionForm.scripts.value = (item.scripts || []).join('\n\n');
-    nodes.objectionForm.materials.value = formatMaterialsText(item.materials);
+    state.materials = [...(item.materials || [])];
+    renderMaterialEditor();
     nodes.objectionForm.avoid.value = item.avoid;
   }
 
@@ -407,6 +479,46 @@
     state.selectedObjectionId = '';
     fillObjectionForm(null);
   });
+  nodes.materialTypeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.materialType = button.dataset.materialType || 'LINK';
+      renderMaterialEditor();
+    });
+  });
+  nodes.addLinkMaterialButton.addEventListener('click', () => {
+    const title = nodes.materialTitleInput.value.trim();
+    const url = nodes.materialUrlInput.value.trim();
+    const description = nodes.materialDescriptionInput.value.trim();
+    if (!title || !url) {
+      nodes.objectionFormStatus.textContent = '请填写链接物料的名称和链接地址';
+      return;
+    }
+    state.materials.push({ type: 'LINK', title, url, description });
+    resetMaterialDraft();
+    nodes.objectionFormStatus.textContent = '';
+    renderMaterialEditor();
+  });
+  nodes.uploadImageMaterialButton.addEventListener('click', async () => {
+    const file = nodes.materialImageInput.files?.[0];
+    if (!file) {
+      nodes.objectionFormStatus.textContent = '请先选择本地图片';
+      return;
+    }
+    const formData = new FormData();
+    formData.set('image', file);
+    formData.set('title', nodes.materialTitleInput.value.trim() || file.name);
+    formData.set('description', nodes.materialDescriptionInput.value.trim());
+    nodes.objectionFormStatus.textContent = '正在上传图片物料...';
+    try {
+      const material = await uploadApi('/api/admin/materials/upload', formData);
+      state.materials.push(material);
+      resetMaterialDraft();
+      nodes.objectionFormStatus.textContent = '图片物料已上传';
+      renderMaterialEditor();
+    } catch (error) {
+      nodes.objectionFormStatus.textContent = error.message;
+    }
+  });
   nodes.toggleObjectionStatusButton.addEventListener('click', async () => {
     const item = selectedObjection();
     if (!item) return;
@@ -432,6 +544,7 @@
       status: selectedObjection()?.status || 'ACTIVE',
     };
     try {
+      validateObjectionPayload(payload);
       const saved = await api(id ? `/api/admin/objections/${id}` : '/api/admin/objections', {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify(payload),

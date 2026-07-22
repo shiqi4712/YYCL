@@ -4,6 +4,7 @@ interface DeepSeekReplyInput {
   parentName: string
   scenarioTitle: string
   scenarioDescription: string
+  sopContent?: string | null
   parentPersona: string
   currentStepTitle: string
   currentObjection: string
@@ -26,6 +27,7 @@ interface DeepSeekChatMessage {
 interface DeepSeekReviewInput {
   scenarioTitle: string
   scenarioDescription: string
+  sopContent?: string | null
   parentPersona: string
   steps: Array<{
     order: number
@@ -43,6 +45,7 @@ interface DeepSeekReviewInput {
 interface DeepSeekResolutionInput {
   scenarioTitle: string
   scenarioDescription: string
+  sopContent?: string | null
   parentPersona: string
   currentStepTitle: string
   currentObjection: string
@@ -81,6 +84,9 @@ function buildParentPrompt(input: DeepSeekReplyInput) {
     `家长情况：${input.parentPersona}`,
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
+    input.sopContent
+      ? `本训练主题 SOP：${input.sopContent}\n请根据 SOP 的沟通顺序、话术目标和关键检查点来扮演家长，但不要直接背诵 SOP，也不要向老师暴露评分标准。`
+      : '本训练主题暂未导入 SOP，请按当前场景和异议步骤进行模拟。',
     `当前核心顾虑：${input.currentStepTitle} - ${input.currentObjection}`,
     input.nextObjection ? `后续可能出现的顾虑：${input.nextObjection}` : '这是最后一个核心顾虑。',
     `系统初步判断老师是否解决当前顾虑：${input.resolved ? '基本解决' : '尚未充分解决'}`,
@@ -149,6 +155,9 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
     `家长情况：${input.parentPersona}`,
+    input.sopContent
+      ? `本训练主题 SOP：${input.sopContent}\n判断时必须参考 SOP 的关键动作和顺序，但不要要求老师逐字照搬。`
+      : '本训练主题暂未导入 SOP。',
     `当前异议标题：${input.currentStepTitle}`,
     `当前异议内容：${input.currentObjection}`,
     `点评关注点：${input.evaluationFocus}`,
@@ -213,6 +222,9 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
     `家长情况：${input.parentPersona}`,
+    input.sopContent
+      ? `本训练主题 SOP：${input.sopContent}\n复盘时需要结合 SOP 判断老师是否完成关键动作，不要求逐字照搬。`
+      : '本训练主题暂未导入 SOP。',
     `异议标准：${JSON.stringify(input.steps)}`,
     `完整对话：${JSON.stringify(input.messages)}`,
   ].join('\n')

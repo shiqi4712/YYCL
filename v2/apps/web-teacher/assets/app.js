@@ -1,95 +1,53 @@
 (function () {
   const storageKey = 'yycl_v2_teacher_token';
+  const scenes = [
+    { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
+    { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
+    { id: 'close', title: '结转促单', desc: '结转报名阶段，重点处理价格、犹豫、对比、决策人和付款节奏。', tone: '给证据，给下一步' },
+  ];
+
   const state = {
     token: localStorage.getItem(storageKey) || '',
     profile: null,
-    topics: [],
-    sessions: [],
-    selectedScenario: null,
-    selectedSession: null,
-    activeReview: null,
-    currentView: 'lobby',
-    sendingMessage: false,
+    view: 'portal',
+    selectedScene: '',
+    objections: [],
+    selectedObjectionId: '',
   };
 
   const nodes = {
     authScreen: document.getElementById('teacherAuthScreen'),
     workspace: document.getElementById('teacherWorkspace'),
     headerTitle: document.getElementById('teacherHeaderTitle'),
-    lobbyScreen: document.getElementById('teacherLobbyScreen'),
-    trainingScreen: document.getElementById('teacherTrainingScreen'),
+    hero: document.getElementById('teacherHero'),
     loginForm: document.getElementById('teacherLoginForm'),
     loginStatus: document.getElementById('teacherLoginStatus'),
     profileChip: document.getElementById('teacherProfileChip'),
-    metrics: document.getElementById('teacherMetrics'),
-    topicList: document.getElementById('teacherTopicList'),
-    historyList: document.getElementById('teacherHistoryList'),
-    scenarioPreviewPanel: document.getElementById('teacherScenarioPreviewPanel'),
-    scenarioTitle: document.getElementById('teacherScenarioTitle'),
-    scenarioMeta: document.getElementById('teacherScenarioMeta'),
-    trainingScenarioMeta: document.getElementById('teacherTrainingScenarioMeta'),
-    startSessionButton: document.getElementById('teacherStartSessionButton'),
-    sessionTitle: document.getElementById('teacherSessionTitle'),
-    sessionStatus: document.getElementById('teacherSessionStatus'),
-    chatLog: document.getElementById('teacherChatLog'),
-    messageForm: document.getElementById('teacherMessageForm'),
-    messageInput: document.getElementById('teacherMessageInput'),
-    messageStatus: document.getElementById('teacherMessageStatus'),
-    reviewButton: document.getElementById('teacherReviewButton'),
-    endSessionButton: document.getElementById('teacherEndSessionButton'),
-    reviewPanel: document.getElementById('teacherReviewPanel'),
-    reviewContent: document.getElementById('teacherReviewContent'),
-    logoutButton: document.getElementById('teacherLogoutButton'),
+    portalView: document.getElementById('portalView'),
+    repositoryHomeView: document.getElementById('repositoryHomeView'),
+    repositoryDetailView: document.getElementById('repositoryDetailView'),
+    trainingView: document.getElementById('trainingView'),
+    sceneList: document.getElementById('teacherSceneList'),
+    objectionTitle: document.getElementById('teacherObjectionTitle'),
+    searchInput: document.getElementById('teacherSearchInput'),
+    resultCount: document.getElementById('teacherResultCount'),
+    objectionList: document.getElementById('teacherObjectionList'),
+    detailPanel: document.getElementById('teacherDetailPanel'),
+    backButton: document.getElementById('teacherBackButton'),
+    backToScenesButton: document.getElementById('teacherBackToScenesButton'),
     refreshButton: document.getElementById('teacherRefreshButton'),
-    reloadTopicsButton: document.getElementById('teacherReloadTopicsButton'),
-    backToLobbyButton: document.getElementById('teacherBackToLobbyButton'),
+    logoutButton: document.getElementById('teacherLogoutButton'),
   };
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      };
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
       return map[char];
     });
   }
 
   function renderEmptyState(message) {
     return `<div class="empty-state">${escapeHtml(message)}</div>`;
-  }
-
-  function renderMessageBubble(message) {
-    return `
-      <article class="message ${escapeHtml(message.role)}${message.pending ? ' pending-message' : ''}">
-        <div class="message-meta">
-          <span>${message.role === 'teacher' ? '教师' : 'AI 家长'}</span>
-          <span>${message.pending ? '家长回复中' : '沟通记录'}</span>
-        </div>
-        <div class="message-content">${escapeHtml(message.content)}</div>
-      </article>
-    `;
-  }
-
-  function insertTextareaNewline(textarea) {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
-    textarea.value = `${value.slice(0, start)}\n${value.slice(end)}`;
-    textarea.selectionStart = start + 1;
-    textarea.selectionEnd = start + 1;
-  }
-
-  function appendChatMessage(message) {
-    if (nodes.chatLog.querySelector('.empty-state')) {
-      nodes.chatLog.innerHTML = '';
-    }
-
-    nodes.chatLog.insertAdjacentHTML('beforeend', renderMessageBubble(message));
-    nodes.chatLog.scrollTop = nodes.chatLog.scrollHeight;
   }
 
   function setToken(token) {
@@ -107,15 +65,6 @@
     if (!isAuthed) {
       nodes.loginForm.reset();
     }
-  }
-
-  function setView(view) {
-    state.currentView = view;
-    const inTraining = view === 'training';
-    nodes.lobbyScreen.classList.toggle('hidden', inTraining);
-    nodes.trainingScreen.classList.toggle('hidden', !inTraining);
-    nodes.backToLobbyButton.classList.toggle('hidden', !inTraining);
-    nodes.headerTitle.textContent = inTraining ? '训练模块' : '场景大厅';
   }
 
   async function api(path, options) {
@@ -142,417 +91,187 @@
     return payload.data;
   }
 
-  function formatDate(value) {
-    if (!value) return '未结束';
-    const date = new Date(value);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-      date.getDate()
-    ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(
-      2,
-      '0'
-    )}`;
+  function sceneName(sceneId) {
+    return scenes.find((scene) => scene.id === sceneId)?.title || sceneId;
   }
 
-  function formatRole(role) {
-    return role === 'TRAINER' ? '培训主管' : '教师';
+  function selectedObjection() {
+    return state.objections.find((item) => item.id === state.selectedObjectionId) || null;
   }
 
-  function statusLabel(status) {
-    const map = {
-      ACTIVE: '进行中',
-      COMPLETED: '已完成',
-      ENDED: '已结束',
-      FAILED: '失败',
+  function setView(view) {
+    state.view = view;
+    nodes.portalView.classList.toggle('hidden', view !== 'portal');
+    nodes.repositoryHomeView.classList.toggle('hidden', view !== 'repository');
+    nodes.repositoryDetailView.classList.toggle('hidden', view !== 'repositoryDetail');
+    nodes.trainingView.classList.toggle('hidden', view !== 'training');
+    nodes.hero.classList.toggle('hidden', view === 'repositoryDetail');
+    nodes.backButton.classList.toggle('hidden', view === 'portal');
+    const titleMap = {
+      portal: '功能首页',
+      repository: '异议处理仓库',
+      repositoryDetail: sceneName(state.selectedScene),
+      training: '异议处理训练',
     };
-    return map[status] || status;
+    nodes.headerTitle.textContent = titleMap[view] || '功能首页';
   }
 
-  function difficultyLabel(value) {
-    const map = {
-      BASIC: '基础',
-      STANDARD: '标准',
-      ADVANCED: '进阶',
-    };
-    return map[value] || value;
+  function renderScenes() {
+    nodes.sceneList.innerHTML = scenes
+      .map(
+        (scene) => `
+          <button class="scene-card" type="button" data-scene="${escapeHtml(scene.id)}">
+            <p class="eyebrow">${escapeHtml(scene.tone)}</p>
+            <h3>${escapeHtml(scene.title)}</h3>
+            <p>${escapeHtml(scene.desc)}</p>
+            <div class="tag-row">
+              <span class="tag">进入场景</span>
+            </div>
+          </button>
+        `
+      )
+      .join('');
+
+    nodes.sceneList.querySelectorAll('[data-scene]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        state.selectedScene = button.getAttribute('data-scene') || 'pre';
+        state.searchKeyword = '';
+        nodes.searchInput.value = '';
+        await loadObjections();
+        setView('repositoryDetail');
+      });
+    });
   }
 
-  function trainingModuleLabel(value) {
-    const map = {
-      PRE_CLASS: '课前训练',
-    };
-    return map[value] || value || '课前训练';
+  async function loadObjections() {
+    if (!state.selectedScene) return;
+    const keyword = nodes.searchInput.value.trim();
+    const params = new URLSearchParams({ scene: state.selectedScene });
+    if (keyword) params.set('keyword', keyword);
+    state.objections = await api(`/api/objections?${params.toString()}`);
+    state.selectedObjectionId = state.objections[0]?.id || '';
+    renderObjections();
+    renderDetail();
   }
 
-  function renderMetrics() {
-    const completed = state.sessions.filter((session) => session.status === 'COMPLETED').length;
-    const scored = state.sessions.filter((session) => typeof session.reviewScore === 'number');
-    const averageScore =
-      scored.length > 0
-        ? Math.round(scored.reduce((sum, session) => sum + (session.reviewScore || 0), 0) / scored.length)
-        : '--';
+  function renderObjections() {
+    nodes.objectionTitle.textContent = `${sceneName(state.selectedScene)}异议问题`;
+    nodes.resultCount.textContent = `${state.objections.length} 条`;
 
-    const metrics = [
-      {
-        label: '累计训练',
-        value: state.sessions.length,
-        description: '所有训练记录都会保留，方便随时回看与复盘。',
-      },
-      {
-        label: '已完成',
-        value: completed,
-        description: '完整走完异议链路的会话次数。',
-      },
-      {
-        label: '平均分',
-        value: averageScore,
-        description: '已生成点评的训练平均表现。',
-      },
-    ];
+    if (!state.objections.length) {
+      nodes.objectionList.innerHTML = renderEmptyState('当前场景暂无上架异议，请联系管理员先录入内容。');
+      nodes.detailPanel.innerHTML = '';
+      return;
+    }
 
-    nodes.metrics.innerHTML = metrics
+    nodes.objectionList.innerHTML = state.objections
       .map(
         (item) => `
-          <article class="metric-card">
-            <p class="eyebrow">${escapeHtml(item.label)}</p>
-            <strong>${escapeHtml(item.value)}</strong>
-            <p>${escapeHtml(item.description)}</p>
-          </article>
-        `
-      )
-      .join('');
-  }
-
-  function renderTopics() {
-    if (!state.topics.length) {
-      nodes.topicList.innerHTML = renderEmptyState('当前还没有可用训练主题，请联系管理员先配置内容。');
-      return;
-    }
-
-    const topicsByModule = state.topics.reduce((groups, topic) => {
-      const key = topic.trainingModule || 'PRE_CLASS';
-      groups[key] = groups[key] || [];
-      groups[key].push(topic);
-      return groups;
-    }, {});
-
-    nodes.topicList.innerHTML = Object.entries(topicsByModule)
-      .map(([moduleKey, topics]) => {
-        const topicCards = topics.map((topic) => {
-        const scenarios = topic.scenarios || [];
-        return `
-          <article class="topic-card">
-            <div class="topic-group">
-              <div>
-                <p class="eyebrow">${escapeHtml(trainingModuleLabel(topic.trainingModule))}</p>
-                <h3>${escapeHtml(topic.title)}</h3>
-                <p>${escapeHtml(topic.description)}</p>
-              </div>
-              <div class="tag-row">
-                <span class="tag">场景 ${escapeHtml(topic.scenarioCount)}</span>
-                ${scenarios.map((scenario) => `<span class="tag-warn">${escapeHtml(scenario.title)}</span>`).join('')}
-              </div>
-              <div class="scenario-quick-list">
-                ${scenarios
-                  .map(
-                    (scenario) => `
-                      <button
-                        class="scenario-chip-btn ${state.selectedScenario && state.selectedScenario.id === scenario.id ? 'is-active' : ''}"
-                        type="button"
-                        data-scenario-id="${escapeHtml(scenario.id)}"
-                      >
-                        <div>
-                          <strong>${escapeHtml(scenario.title)}</strong>
-                          <span>${escapeHtml(scenario.description)}</span>
-                        </div>
-                        <span class="tag">${escapeHtml(difficultyLabel(scenario.difficulty))}</span>
-                      </button>
-                    `
-                  )
-                  .join('')}
-              </div>
-            </div>
-          </article>
-        `;
-        }).join('');
-
-        return `
-          <section class="topic-module-block">
-            <div class="module-head">
-              <p class="eyebrow">Training Module</p>
-              <h3>${escapeHtml(trainingModuleLabel(moduleKey))}</h3>
-            </div>
-            ${topicCards}
-          </section>
-        `;
-      })
-      .join('');
-
-    nodes.topicList.querySelectorAll('[data-scenario-id]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const scenarioId = button.getAttribute('data-scenario-id');
-        selectScenario(scenarioId);
-      });
-    });
-  }
-
-  function renderHistory() {
-    if (!state.sessions.length) {
-      nodes.historyList.innerHTML = renderEmptyState('还没有训练记录，先从左侧挑一个场景开始。');
-      return;
-    }
-
-    nodes.historyList.innerHTML = state.sessions
-      .map(
-        (session) => `
-          <article class="history-card">
-            <p class="eyebrow">${escapeHtml(statusLabel(session.status))}</p>
-            <h3>${escapeHtml(session.scenario.title)}</h3>
-            <p>${escapeHtml(session.summary || '本次训练暂未生成总结，可重新进入训练模块查看详情。')}</p>
+          <button class="objection-card ${item.id === state.selectedObjectionId ? 'active' : ''}" type="button" data-objection="${escapeHtml(item.id)}">
+            <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.concern)}</p>
             <div class="tag-row">
-              <span class="tag">开始 ${escapeHtml(formatDate(session.startedAt))}</span>
-              <span class="tag-warn">得分 ${escapeHtml(session.reviewScore ?? '--')}</span>
+              ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join('')}
             </div>
-            <div class="history-actions">
-              <span class="status-text">沟通轮次：${escapeHtml(session.currentStepOrder)} 段</span>
-              <button class="secondary-btn compact-btn" type="button" data-session-id="${escapeHtml(session.id)}">
-                打开训练模块
-              </button>
-            </div>
-          </article>
+          </button>
         `
       )
       .join('');
 
-    nodes.historyList.querySelectorAll('[data-session-id]').forEach((button) => {
+    nodes.objectionList.querySelectorAll('[data-objection]').forEach((button) => {
       button.addEventListener('click', () => {
-        const sessionId = button.getAttribute('data-session-id');
-        loadSession(sessionId);
+        state.selectedObjectionId = button.getAttribute('data-objection') || '';
+        renderObjections();
+        renderDetail();
       });
     });
   }
 
-  function renderPreviewScenario() {
-    const scenario = state.selectedScenario;
-    if (!scenario) {
-      nodes.scenarioPreviewPanel.classList.add('hidden');
-      return;
-    }
+  function renderDetail() {
+    const item = selectedObjection();
+    if (!item) return;
 
-    nodes.scenarioPreviewPanel.classList.remove('hidden');
-    nodes.scenarioTitle.textContent = scenario.title;
-    nodes.scenarioMeta.innerHTML = `
-      <article class="meta-card">
-        <p class="eyebrow">家长画像</p>
-        <p>${escapeHtml(scenario.parentPersona)}</p>
+    nodes.detailPanel.innerHTML = `
+      <article class="detail-hero">
+        <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+        <h2>${escapeHtml(item.title)}</h2>
+        <p>${escapeHtml(item.concern)}</p>
       </article>
-      <article class="meta-card">
-        <p class="eyebrow">学生情况</p>
-        <p>${escapeHtml(scenario.description)}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">异议场景</p>
-        <p>${escapeHtml(difficultyLabel(scenario.difficulty))}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">开场话术</p>
-        <p>${escapeHtml(scenario.openingLine)}</p>
-      </article>
-    `;
 
-    nodes.startSessionButton.classList.remove('hidden');
-  }
-
-  function renderTrainingScenario() {
-    const scenario = state.selectedScenario;
-    if (!scenario) {
-      nodes.trainingScenarioMeta.innerHTML = renderEmptyState('尚未选择场景。');
-      return;
-    }
-
-    nodes.trainingScenarioMeta.innerHTML = `
-      <article class="meta-card">
-        <p class="eyebrow">家长画像</p>
-        <p>${escapeHtml(scenario.parentPersona)}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">学生情况</p>
-        <p>${escapeHtml(scenario.description)}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">异议场景</p>
-        <p>${escapeHtml(scenario.title)}</p>
-      </article>
-      <article class="meta-card">
-        <p class="eyebrow">训练目标</p>
-        <p>像真实沟通一样持续回应家长顾虑，结束后系统会统一生成结构化复盘。</p>
-      </article>
-    `;
-  }
-
-  function renderSession() {
-    const session = state.selectedSession;
-    if (!session) {
-      nodes.sessionTitle.textContent = '训练模块';
-      nodes.sessionStatus.innerHTML = renderEmptyState('尚未进入训练模块。');
-      nodes.chatLog.innerHTML = renderEmptyState('开始一场训练后，这里会显示完整对话。');
-      nodes.messageInput.disabled = true;
-      nodes.messageForm.querySelector('button[type="submit"]').disabled = true;
-      return;
-    }
-
-    nodes.sessionTitle.textContent = session.scenario.title;
-    nodes.sessionStatus.innerHTML = `
-      <article class="session-tile">
-        <p class="eyebrow">状态</p>
-        <p>${escapeHtml(statusLabel(session.status))}</p>
-      </article>
-      <article class="session-tile">
-        <p class="eyebrow">沟通轮次</p>
-        <p>${escapeHtml(session.messages.filter((message) => message.role === 'teacher').length)} 轮</p>
-      </article>
-      <article class="session-tile">
-        <p class="eyebrow">开始时间</p>
-        <p>${escapeHtml(formatDate(session.startedAt))}</p>
-      </article>
-    `;
-
-    nodes.chatLog.innerHTML = session.messages.length
-      ? session.messages.map(renderMessageBubble).join('')
-      : renderEmptyState('会话消息为空。');
-
-    const isActive = session.status === 'ACTIVE';
-    nodes.messageInput.disabled = !isActive || state.sendingMessage;
-    nodes.messageForm.querySelector('button[type="submit"]').disabled = !isActive || state.sendingMessage;
-    nodes.messageInput.placeholder = isActive
-      ? '输入你的回复，Enter 发送，Shift+Enter 换行。'
-      : '当前会话已结束，如需继续训练请返回场景大厅重新选择场景。';
-    nodes.chatLog.scrollTop = nodes.chatLog.scrollHeight;
-
-  }
-
-  function renderReview() {
-    const review = state.activeReview;
-    if (!review) {
-      nodes.reviewPanel.classList.add('hidden');
-      return;
-    }
-
-    nodes.reviewPanel.classList.remove('hidden');
-    nodes.reviewContent.innerHTML = `
-      <div class="review-hero">
-        <article class="score-card">
-          <p class="eyebrow">Overall Score</p>
-          <strong>${escapeHtml(review.overallScore)}</strong>
-          <p class="status-text">综合表现</p>
-        </article>
-        <article class="review-card">
-          <p class="eyebrow">Summary</p>
-          <h3>本轮训练结论</h3>
-          <p>${escapeHtml(review.summary)}</p>
-          <div class="summary-tags">
-            ${(review.tags || []).map((tag) => `<span class="tag-warn">${escapeHtml(tag)}</span>`).join('')}
-          </div>
-        </article>
-      </div>
-      <div class="review-grid">
-        <article class="review-card">
-          <p class="eyebrow">Strengths</p>
-          <h3>做得好的地方</h3>
-          <p>${escapeHtml(review.strengths)}</p>
-        </article>
-        <article class="review-card">
-          <p class="eyebrow">Weaknesses</p>
-          <h3>仍需加强的地方</h3>
-          <p>${escapeHtml(review.weaknesses)}</p>
-        </article>
-      </div>
-      <article class="review-card" style="margin-top: 16px;">
-        <p class="eyebrow">Next Action</p>
-        <h3>下次训练建议</h3>
-        <p>${escapeHtml(review.nextAction)}</p>
-      </article>
-      <div class="review-step-list">
-        ${(review.steps || [])
+      <div class="flow-list">
+        ${(item.thinking || [])
           .map(
-            (step) => `
-              <article class="review-card">
-                <div class="review-step-head">
-                  <div>
-                    <p class="eyebrow">Step ${escapeHtml(step.stepOrder)}</p>
-                    <h3>${escapeHtml(step.stepTitle)}</h3>
-                  </div>
-                  <span class="review-step-score">${escapeHtml(step.score)}</span>
+            (step, index) => `
+              <article class="flow-card">
+                <span class="step-num">${index + 1}</span>
+                <div>
+                  <h3>${index === 0 ? '先接住' : index === 1 ? '再解释' : '给下一步'}</h3>
+                  <p>${escapeHtml(step)}</p>
                 </div>
-                <p><strong>结论：</strong>${escapeHtml(step.verdict)}</p>
-                <p><strong>优点：</strong>${escapeHtml(step.strengths)}</p>
-                <p><strong>问题：</strong>${escapeHtml(step.issue)}</p>
-                <p><strong>建议：</strong>${escapeHtml(step.recommendation)}</p>
               </article>
             `
           )
           .join('')}
       </div>
+
+      <div class="script-list">
+        ${(item.scripts || [])
+          .map(
+            (script, index) => `
+              <article class="script-card">
+                <h3>话术 ${index + 1}</h3>
+                <p>${escapeHtml(script)}</p>
+                <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}">复制话术</button>
+              </article>
+            `
+          )
+          .join('')}
+      </div>
+
+      <article class="script-card">
+        <h3>禁忌提醒</h3>
+        <p>${escapeHtml(item.avoid)}</p>
+        <span class="tag-danger">不要这样说</span>
+      </article>
     `;
-  }
 
-  function selectScenario(scenarioId) {
-    for (const topic of state.topics) {
-      const scenario = topic.scenarios.find((item) => item.id === scenarioId);
-      if (!scenario) continue;
-
-      state.selectedScenario = scenario;
-      state.selectedSession = null;
-      state.activeReview = null;
-      nodes.messageStatus.textContent = '';
-      renderTopics();
-      renderPreviewScenario();
-      renderTrainingScenario();
-      renderReview();
-      return;
-    }
+    nodes.detailPanel.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const text = button.getAttribute('data-copy') || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = '已复制';
+          window.setTimeout(() => {
+            button.textContent = '复制话术';
+          }, 1400);
+        } catch {
+          alert('当前浏览器不支持自动复制，请手动选中文本复制。');
+        }
+      });
+    });
   }
 
   async function loadProfile() {
     state.profile = await api('/api/auth/me');
-    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${formatRole(
-      state.profile.role
-    )}`;
+    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
+      state.profile.role === 'TRAINER' ? '管理员' : '老师'
+    }`;
   }
 
-  async function loadTopics() {
-    state.topics = await api('/api/topics');
-    renderTopics();
-    renderPreviewScenario();
-  }
-
-  async function loadHistory() {
-    state.sessions = await api('/api/training/sessions');
-    renderMetrics();
-    renderHistory();
-  }
-
-  async function loadSession(sessionId) {
-    const session = await api(`/api/training/sessions/${sessionId}`);
-    state.selectedSession = session;
-    state.selectedScenario = session.scenario;
-    state.activeReview = session.review;
-    renderTopics();
-    renderPreviewScenario();
-    renderTrainingScenario();
-    renderSession();
-    renderReview();
-    setView('training');
-  }
-
-  async function refreshWorkspace() {
-    await Promise.all([loadProfile(), loadTopics(), loadHistory()]);
+  async function refreshCurrentView() {
+    if (state.view === 'repositoryDetail') {
+      await loadObjections();
+    } else {
+      renderScenes();
+    }
   }
 
   async function handleLogin(event) {
     event.preventDefault();
     nodes.loginStatus.textContent = '正在登录...';
-
     const formData = new FormData(nodes.loginForm);
+
     try {
       const result = await api('/api/auth/login', {
         method: 'POST',
@@ -564,180 +283,67 @@
 
       setToken(result.token);
       toggleApp(true);
-      setView('lobby');
+      await loadProfile();
+      renderScenes();
+      setView('portal');
       nodes.loginStatus.textContent = '';
-      await refreshWorkspace();
     } catch (error) {
       nodes.loginStatus.textContent = error.message;
     }
   }
 
-  async function handleStartSession() {
-    if (!state.selectedScenario) return;
-
-    const originalText = nodes.startSessionButton.textContent;
-    nodes.startSessionButton.textContent = '正在进入...';
-    nodes.startSessionButton.disabled = true;
-
-    try {
-      const result = await api('/api/training/sessions', {
-        method: 'POST',
-        body: JSON.stringify({ scenarioId: state.selectedScenario.id }),
-      });
-      await loadSession(result.sessionId);
-      await loadHistory();
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      nodes.startSessionButton.textContent = originalText;
-      nodes.startSessionButton.disabled = false;
-    }
-  }
-
-  async function handleSendMessage(event) {
-    event.preventDefault();
-    if (!state.selectedSession || state.sendingMessage) return;
-
-    const content = nodes.messageInput.value.trim();
-    if (!content) return;
-
-    const sessionId = state.selectedSession.id;
-    const stepOrder = state.selectedSession.currentStepOrder;
-    const submitButton = nodes.messageForm.querySelector('button[type="submit"]');
-
-    state.sendingMessage = true;
-    nodes.messageInput.value = '';
-    nodes.messageInput.disabled = true;
-    submitButton.disabled = true;
-    appendChatMessage({ role: 'teacher', content, stepOrder });
-    appendChatMessage({
-      role: 'ai',
-      content: '家长回复中，预计 10 秒左右...',
-      stepOrder,
-      pending: true,
-    });
-    nodes.messageStatus.textContent = '家长回复中，预计 10 秒左右...';
-
-    try {
-      await api(`/api/training/sessions/${sessionId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-      });
-      nodes.messageStatus.textContent = '家长已回复';
-      await loadSession(sessionId);
-      await loadHistory();
-    } catch (error) {
-      nodes.messageStatus.textContent = error.message;
-      nodes.chatLog.querySelector('.pending-message')?.remove();
-      appendChatMessage({
-        role: 'ai',
-        content: `发送失败：${error.message}`,
-        stepOrder,
-      });
-    } finally {
-      state.sendingMessage = false;
-      if (state.selectedSession?.status === 'ACTIVE') {
-        nodes.messageInput.disabled = false;
-        submitButton.disabled = false;
-        nodes.messageInput.focus();
-      }
-    }
-  }
-
-  async function handleEndSession() {
-    if (!state.selectedSession) return;
-
-    const originalText = nodes.endSessionButton.textContent;
-    nodes.endSessionButton.textContent = '正在结束...';
-    nodes.endSessionButton.disabled = true;
-
-    try {
-      await api(`/api/training/sessions/${state.selectedSession.id}/end`, {
-        method: 'POST',
-      });
-      await loadSession(state.selectedSession.id);
-      await loadHistory();
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      nodes.endSessionButton.textContent = originalText;
-      nodes.endSessionButton.disabled = false;
-    }
-  }
-
-  async function handleReview() {
-    if (!state.selectedSession) return;
-
-    const originalText = nodes.reviewButton.textContent;
-    nodes.reviewButton.textContent = '生成中...';
-    nodes.reviewButton.disabled = true;
-
-    try {
-      state.activeReview = await api(`/api/training/sessions/${state.selectedSession.id}/review`, {
-        method: 'POST',
-      });
-      renderReview();
-      await loadHistory();
-      await loadSession(state.selectedSession.id);
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      nodes.reviewButton.textContent = originalText;
-      nodes.reviewButton.disabled = false;
-    }
-  }
-
   async function bootstrap() {
     nodes.loginForm.addEventListener('submit', handleLogin);
-    nodes.startSessionButton.addEventListener('click', handleStartSession);
-    nodes.messageForm.addEventListener('submit', handleSendMessage);
-    nodes.messageInput.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' || event.isComposing) return;
-      event.preventDefault();
-      if (event.shiftKey) {
-        insertTextareaNewline(nodes.messageInput);
-        return;
-      }
-
-      nodes.messageForm.requestSubmit();
-    });
-    nodes.reviewButton.addEventListener('click', handleReview);
-    nodes.endSessionButton.addEventListener('click', handleEndSession);
-    nodes.backToLobbyButton.addEventListener('click', () => {
-      setView('lobby');
-    });
     nodes.logoutButton.addEventListener('click', () => {
       setToken('');
       state.profile = null;
-      state.topics = [];
-      state.sessions = [];
-      state.selectedScenario = null;
-      state.selectedSession = null;
-      state.activeReview = null;
-      state.currentView = 'lobby';
-      nodes.loginStatus.textContent = '';
-      nodes.messageStatus.textContent = '';
+      state.objections = [];
+      state.selectedScene = '';
+      state.selectedObjectionId = '';
       toggleApp(false);
-      setView('lobby');
+      setView('portal');
     });
-    nodes.refreshButton.addEventListener('click', refreshWorkspace);
-    nodes.reloadTopicsButton.addEventListener('click', loadTopics);
+    nodes.refreshButton.addEventListener('click', refreshCurrentView);
+    nodes.backButton.addEventListener('click', () => {
+      if (state.view === 'repositoryDetail') {
+        setView('repository');
+        return;
+      }
+      setView('portal');
+    });
+    nodes.backToScenesButton.addEventListener('click', () => setView('repository'));
+    nodes.searchInput.addEventListener('input', () => {
+      window.clearTimeout(nodes.searchInput.timer);
+      nodes.searchInput.timer = window.setTimeout(loadObjections, 220);
+    });
+    document.querySelectorAll('[data-entry]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const entry = button.getAttribute('data-entry');
+        if (entry === 'repository') {
+          setView('repository');
+          renderScenes();
+          return;
+        }
+        setView('training');
+      });
+    });
 
     if (!state.token) {
       toggleApp(false);
-      setView('lobby');
+      setView('portal');
       return;
     }
 
     try {
       toggleApp(true);
-      setView('lobby');
-      await refreshWorkspace();
+      await loadProfile();
+      renderScenes();
+      setView('portal');
     } catch (error) {
       console.error(error);
       setToken('');
       toggleApp(false);
-      setView('lobby');
+      setView('portal');
     }
   }
 

@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>异议话术搜索 Demo</title>
+    <style>
+      :root {
+        --bg: #f5f5f7;
+        --surface: #ffffff;
+        --surface-soft: #fbfbfd;
+        --text: #111827;
+        --muted: #6b7280;
+        --faint: #9ca3af;
+        --line: rgba(148, 163, 184, 0.18);
+        --blue: #0a84ff;
+        --blue-soft: rgba(10, 132, 255, 0.11);
+        --green-soft: rgba(22, 163, 74, 0.12);
+        --green: #15803d;
+        --orange-soft: rgba(245, 158, 11, 0.14);
+        --orange: #b45309;
+        --red-soft: rgba(239, 68, 68, 0.1);
+        --red: #b91c1c;
+        --shadow: 0 18px 52px rgba(15, 23, 42, 0.07);
+        --shadow-soft: 0 2px 14px rgba(15, 23, 42, 0.05);
+        --radius-xl: 30px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 8% 8%, rgba(10, 132, 255, 0.12), transparent 28%),
+          radial-gradient(circle at 90% 14%, rgba(255, 255, 255, 0.94), transparent 24%),
+          linear-gradient(180deg, #f8f8fa 0%, #f5f5f7 52%, #f1f2f5 100%);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      p,
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+      }
+
+      .page {
+        width: min(1480px, calc(100vw - 36px));
+        margin: 0 auto;
+        padding: 24px 0 42px;
+      }
+
+      .glass-bar {
+        position: sticky;
+        top: 16px;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 18px 22px;
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        border-radius: 26px;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        color: #fff;
+        font-weight: 750;
+        background: linear-gradient(145deg, #0a84ff, #45a8ff);
+        box-shadow: 0 14px 26px rgba(10, 132, 255, 0.24);
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        color: var(--faint);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .brand h1 {
+        font-size: 26px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .view-switch {
+        display: flex;
+        gap: 10px;
+        padding: 6px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.74);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .switch-btn,
+      .btn,
+      .scene-card,
+      .objection-card,
+      .mini-card {
+        transition: all 300ms ease-in-out;
+      }
+
+      .switch-btn {
+        min-height: 40px;
+        padding: 0 16px;
+        border-radius: 14px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .switch-btn.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .hero {
+        margin-top: 20px;
+      }
+
+      .card {
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-copy {
+        min-height: 240px;
+        padding: 34px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .hero-copy::after {
+        content: "";
+        position: absolute;
+        right: -80px;
+        bottom: -90px;
+        width: 260px;
+        height: 260px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.16), transparent 68%);
+      }
+
+      .hero-copy h2 {
+        max-width: 780px;
+        font-size: clamp(40px, 5vw, 68px);
+        font-weight: 720;
+        line-height: 1.02;
+        letter-spacing: -0.06em;
+      }
+
+      .hero-copy p {
+        max-width: 720px;
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.8;
+      }
+
+      .mini-card {
+        padding: 20px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-soft);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .mini-card:hover,
+      .scene-card:hover,
+      .objection-card:hover,
+      .btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+      }
+
+      .mini-card strong {
+        display: block;
+        font-size: 28px;
+        letter-spacing: -0.04em;
+      }
+
+      .mini-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .portal-grid,
+      .teacher-layout,
+      .admin-layout {
+        display: grid;
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .teacher-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .portal-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .repository-content {
+        display: grid;
+        grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .scene-list.scene-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .admin-layout {
+        grid-template-columns: minmax(380px, 0.9fr) minmax(0, 1.1fr);
+      }
+
+      .section-card {
+        padding: 26px;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+
+      .section-head h2 {
+        font-size: 28px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .scene-list,
+      .objection-list,
+      .script-list,
+      .form-stack,
+      .thought-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .scene-card,
+      .objection-card {
+        width: 100%;
+        text-align: left;
+        padding: 18px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-soft);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .portal-card {
+        position: relative;
+        min-height: 340px;
+        padding: 30px;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        text-align: left;
+        transition: all 300ms ease-in-out;
+      }
+
+      .portal-card::after {
+        content: "";
+        position: absolute;
+        right: -82px;
+        bottom: -82px;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.16), transparent 68%);
+      }
+
+      .portal-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 22px 46px rgba(15, 23, 42, 0.09);
+      }
+
+      .portal-card h2 {
+        position: relative;
+        z-index: 1;
+        margin-top: 18px;
+        font-size: clamp(34px, 4vw, 52px);
+        line-height: 1.05;
+        letter-spacing: -0.06em;
+      }
+
+      .portal-card p {
+        position: relative;
+        z-index: 1;
+        max-width: 540px;
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.8;
+      }
+
+      .portal-card .tag-row {
+        position: relative;
+        z-index: 1;
+      }
+
+      .portal-icon {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 18px;
+        color: #fff;
+        font-size: 24px;
+        font-weight: 760;
+        background: linear-gradient(145deg, #0a84ff, #45a8ff);
+        box-shadow: 0 14px 26px rgba(10, 132, 255, 0.22);
+      }
+
+      .training-preview {
+        display: grid;
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .scene-card.active,
+      .objection-card.active {
+        background: linear-gradient(135deg, rgba(10, 132, 255, 0.13), rgba(255, 255, 255, 0.98));
+        box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.14), var(--shadow-soft);
+      }
+
+      .scene-card h3,
+      .objection-card h3 {
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: -0.03em;
+      }
+
+      .scene-card p,
+      .objection-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .search-box {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(209, 213, 219, 0.72);
+        border-radius: var(--radius-md);
+        color: var(--text);
+        outline: none;
+        background: #fff;
+        transition: all 300ms ease-in-out;
+      }
+
+      textarea {
+        min-height: 112px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: rgba(10, 132, 255, 0.42);
+        box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.1);
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .tag,
+      .tag-good,
+      .tag-warn,
+      .tag-danger {
+        display: inline-flex;
+        align-items: center;
+        min-height: 31px;
+        padding: 0 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .tag {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .tag-good {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .tag-warn {
+        color: var(--orange);
+        background: var(--orange-soft);
+      }
+
+      .tag-danger {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .detail-card {
+        display: grid;
+        gap: 18px;
+      }
+
+      .detail-hero {
+        padding: 22px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(10, 132, 255, 0.12), rgba(255, 255, 255, 0.98));
+      }
+
+      .detail-hero h2 {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.05em;
+      }
+
+      .detail-hero p {
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .thought-step,
+      .script-card {
+        padding: 18px;
+        border-radius: 20px;
+        background: var(--surface-soft);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .thought-step {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .step-num {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 14px;
+        color: var(--blue);
+        font-weight: 760;
+        background: var(--blue-soft);
+      }
+
+      .thought-step h3,
+      .script-card h3 {
+        font-size: 17px;
+      }
+
+      .thought-step p,
+      .script-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .script-card {
+        position: relative;
+        padding-right: 110px;
+      }
+
+      .btn {
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 15px;
+      }
+
+      .btn-primary {
+        color: #fff;
+        background: var(--blue);
+        box-shadow: 0 12px 24px rgba(10, 132, 255, 0.2);
+      }
+
+      .btn-soft {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 12px;
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .admin-table {
+        display: grid;
+        gap: 10px;
+      }
+
+      .admin-row {
+        display: grid;
+        grid-template-columns: minmax(160px, 1.1fr) 110px 88px 168px;
+        gap: 12px;
+        align-items: center;
+        padding: 16px;
+        border-radius: 18px;
+        background: var(--surface-soft);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .admin-row h3 {
+        font-size: 16px;
+      }
+
+      .admin-row p {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .row-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .toast {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 20;
+        padding: 14px 18px;
+        border-radius: 18px;
+        color: var(--blue);
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(16px);
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+        transition: all 260ms ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 1180px) {
+        .portal-grid,
+        .teacher-layout,
+        .admin-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .page {
+          width: calc(100vw - 20px);
+          padding-top: 12px;
+        }
+
+        .glass-bar,
+        .section-head,
+        .admin-row {
+          align-items: stretch;
+          grid-template-columns: 1fr;
+          flex-direction: column;
+        }
+
+        .hero-copy,
+        .section-card {
+          padding: 22px;
+        }
+
+        .hero-copy h2 {
+          font-size: 40px;
+        }
+
+        .script-card {
+          padding-right: 18px;
+        }
+
+        .copy-btn {
+          position: static;
+          margin-top: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="glass-bar">
+        <div class="brand">
+          <div class="brand-mark">异</div>
+          <div>
+            <p class="eyebrow">YYCL Knowledge Base</p>
+            <h1>异议处理训练仓</h1>
+          </div>
+        </div>
+        <div class="view-switch">
+          <button class="switch-btn active" type="button" data-view="portal">功能首页</button>
+          <button class="switch-btn" type="button" data-view="repository">异议处理仓库</button>
+          <button class="switch-btn" type="button" data-view="training">异议处理训练</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <article class="card hero-copy">
+          <p class="eyebrow">Objection Copilot</p>
+          <h2>异议处理管家</h2>
+          <p>
+            遇到家长犹豫时，老师可以按场景快速查询异议问题、处理思路和可参考话术。
+            内容由管理后台统一维护，确保一线沟通口径稳定、清晰、可复用。
+          </p>
+        </article>
+      </section>
+
+      <section class="portal-grid" id="portalView">
+        <button class="portal-card" type="button" data-entry="repository">
+          <div class="portal-icon">仓</div>
+          <p class="eyebrow">Repository</p>
+          <h2>异议处理仓库</h2>
+          <p>查询家长常见异议、真实顾虑、解决思路和可参考话术。适合老师课前准备、沟通过程中快速查找。</p>
+          <div class="tag-row">
+            <span class="tag">话术搜索</span>
+            <span class="tag-good">思路拆解</span>
+            <span class="tag-warn">禁忌提醒</span>
+          </div>
+        </button>
+
+        <button class="portal-card" type="button" data-entry="training">
+          <div class="portal-icon">练</div>
+          <p class="eyebrow">Training</p>
+          <h2>异议处理训练</h2>
+          <p>进入模拟训练，由系统按场景生成家长异议，老师进行多轮回复，结束后获得结构化复盘。</p>
+          <div class="tag-row">
+            <span class="tag">模拟家长</span>
+            <span class="tag-good">多轮练习</span>
+            <span class="tag-warn">训练复盘</span>
+          </div>
+        </button>
+      </section>
+
+      <section class="teacher-layout hidden" id="repositoryHomeView">
+        <aside class="card section-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Scenario</p>
+              <h2>选择场景</h2>
+            </div>
+            <span class="tag">先选场景</span>
+          </div>
+          <div class="scene-list scene-grid" id="sceneList"></div>
+        </aside>
+      </section>
+
+      <section class="hidden" id="sceneDetailView">
+        <div class="repository-content" id="repositoryContent">
+          <section class="card section-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Search</p>
+                <h2 id="objectionTitle">异议问题</h2>
+              </div>
+              <div class="row-actions">
+                <span class="tag" id="resultCount">0 条</span>
+                <button class="btn btn-soft" id="backToScenesButton" type="button">返回场景</button>
+              </div>
+            </div>
+            <div class="search-box">
+              <input id="searchInput" placeholder="搜索异议、家长顾虑、关键词，例如：没时间 / 价格 / 孩子坐不住" />
+            </div>
+            <div class="objection-list" id="objectionList"></div>
+          </section>
+
+          <section class="card section-card detail-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Playbook</p>
+                <h2>解决思路与话术</h2>
+              </div>
+            </div>
+            <div id="detailPanel"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="admin-layout hidden" id="trainingView">
+        <section class="card section-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Training Mode</p>
+              <h2>选择训练场景</h2>
+            </div>
+          </div>
+          <div class="scene-list">
+            <article class="scene-card active">
+              <p class="eyebrow">Step 1</p>
+              <h3>课前进线训练</h3>
+              <p>模拟家长刚咨询时的常见犹豫，如没时间、孩子坐不住、担心没效果。</p>
+              <div class="tag-row">
+                <span class="tag">可训练</span>
+              </div>
+            </article>
+            <article class="scene-card">
+              <p class="eyebrow">Step 2</p>
+              <h3>课中推进训练</h3>
+              <p>模拟体验课中和课后即时沟通，帮助老师解释孩子表现和课程价值。</p>
+              <div class="tag-row">
+                <span class="tag-warn">待接入</span>
+              </div>
+            </article>
+            <article class="scene-card">
+              <p class="eyebrow">Step 3</p>
+              <h3>结转促单训练</h3>
+              <p>模拟报名决策阶段的价格、对比、商量、拖延等异议处理。</p>
+              <div class="tag-row">
+                <span class="tag-warn">待接入</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="card section-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Preview</p>
+              <h2>训练功能预览</h2>
+            </div>
+            <span class="tag">Demo</span>
+          </div>
+          <div class="training-preview">
+            <article class="thought-step">
+              <div class="step-num">1</div>
+              <div>
+                <h3>老师选择训练场景</h3>
+                <p>从课前进线、课中推进、结转促单中选择一个训练方向。</p>
+              </div>
+            </article>
+            <article class="thought-step">
+              <div class="step-num">2</div>
+              <div>
+                <h3>AI 模拟家长异议</h3>
+                <p>系统根据场景随机或指定异议，生成更真实的家长表达。</p>
+              </div>
+            </article>
+            <article class="thought-step">
+              <div class="step-num">3</div>
+              <div>
+                <h3>结束后结构化复盘</h3>
+                <p>复盘老师是否接住情绪、拆解顾虑、给出证据和下一步动作。</p>
+              </div>
+            </article>
+            <button class="btn btn-primary" type="button">开始训练 Demo</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="admin-layout hidden" id="adminView">
+        <section class="card section-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Create</p>
+              <h2>录入异议</h2>
+            </div>
+          </div>
+          <form class="form-stack" id="adminForm">
+            <label>
+              <span>所属场景</span>
+              <select name="scene">
+                <option value="pre">课前进线</option>
+                <option value="mid">课中推进</option>
+                <option value="close">结转促单</option>
+              </select>
+            </label>
+            <label>
+              <span>异议问题</span>
+              <input name="title" placeholder="例如：家长说孩子坐不住，怕上课没效果" />
+            </label>
+            <label>
+              <span>家长真实顾虑</span>
+              <textarea name="concern" placeholder="写清楚家长表面说法背后的真实担心。"></textarea>
+            </label>
+            <label>
+              <span>解决思路</span>
+              <textarea name="thinking" placeholder="建议用 3 步：先接住情绪；再解释判断标准；最后给出下一步动作。"></textarea>
+            </label>
+            <label>
+              <span>推荐话术</span>
+              <textarea name="script" placeholder="写一段老师可直接参考的话术。"></textarea>
+            </label>
+            <button class="btn btn-primary" type="submit">新增并上架</button>
+          </form>
+        </section>
+
+        <section class="card section-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Manage</p>
+              <h2>异议库管理</h2>
+            </div>
+            <span class="tag" id="adminCount">0 条内容</span>
+          </div>
+          <div class="admin-table" id="adminTable"></div>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast">已复制</div>
+
+    <script>
+      const scenes = [
+        {
+          id: 'pre',
+          title: '课前进线',
+          desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。',
+          tone: '轻解释，重确认',
+        },
+        {
+          id: 'mid',
+          title: '课中推进',
+          desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。',
+          tone: '多观察，少催促',
+        },
+        {
+          id: 'close',
+          title: '结转促单',
+          desc: '结转报名阶段，重点处理价格、犹豫、对比、决策人和付款节奏。',
+          tone: '给证据，给下一步',
+        },
+      ];
+
+      let objections = [
+        {
+          id: 'o1',
+          scene: 'pre',
+          status: 'active',
+          title: '孩子坐不住，担心体验课没效果',
+          concern: '家长担心孩子专注力不足，体验课浪费时间，也担心老师无法控场。',
+          keywords: ['坐不住', '专注力', '没效果', '体验课'],
+          thinking: [
+            '先承认担心合理，不急着反驳，让家长感觉老师理解孩子状态。',
+            '解释体验课不是考孩子坐得久，而是观察兴趣点、互动方式和接受节奏。',
+            '给家长一个可验证标准：上课看孩子是否愿意跟、是否能完成一个小目标、课后是否愿意展示。',
+          ],
+          scripts: [
+            '您这个担心很正常，6 岁孩子本来就很难一直坐得很端正。明天这节体验课我不会只看他坐了多久，更会看他对哪个环节有兴趣、能不能跟着完成一个小作品。课后我也会跟您同步：他适合什么节奏、后面要怎么引导。',
+            '如果孩子中途注意力跑掉，也不是坏事，我们反而能看到他真实的课堂状态。老师会用短任务和互动问题把他拉回来，您重点观察他有没有愿意继续尝试，这个比单纯坐得住更重要。',
+          ],
+          avoid: '不要直接保证“肯定有效”，也不要说“孩子都这样”，容易让家长觉得被敷衍。',
+        },
+        {
+          id: 'o2',
+          scene: 'pre',
+          status: 'active',
+          title: '最近没时间，先不约体验课',
+          concern: '家长不是完全没兴趣，而是觉得安排麻烦，优先级还不够高。',
+          keywords: ['没时间', '预约', '改天', '忙'],
+          thinking: [
+            '先降低家长决策压力，不把预约说成大事。',
+            '把体验课包装成一次低成本了解孩子兴趣的机会。',
+            '给两个明确时间选项，减少家长继续拖延。',
+          ],
+          scripts: [
+            '理解，最近家长时间确实很碎。我们可以先不把它当成正式学习安排，就当用 40 分钟看看孩子对编程有没有兴趣。您看周六上午还是周日下午更轻松？我先帮您占一个位置，不合适也可以提前调整。',
+            '如果这周确实满，我建议也可以先定一个下周的时间。因为孩子兴趣这个东西，拖太久家长也容易忘，先占位会更稳一点。',
+          ],
+          avoid: '不要一直追问“什么时候有空”，要给具体选项。',
+        },
+        {
+          id: 'o3',
+          scene: 'mid',
+          status: 'active',
+          title: '家长觉得孩子只是玩得开心，没有学到东西',
+          concern: '家长看到了热闹，但没有看懂课程目标和能力收益。',
+          keywords: ['只是玩', '没学到', '热闹', '价值'],
+          thinking: [
+            '先认可孩子开心是好的开始，但马上把开心和学习目标连接起来。',
+            '用课堂观察证据解释孩子练到了什么能力。',
+            '引导家长看长期能力，而不是只看一节课知识点多少。',
+          ],
+          scripts: [
+            '您看到他玩得开心这一点其实很关键，因为兴趣是能持续学下去的前提。刚才他在做小动画时，不只是点来点去，他其实在理解顺序、条件和结果之间的关系。后续课程会把这种兴趣慢慢沉淀成逻辑表达能力。',
+            '今天这节课我重点观察到他愿意尝试，也能跟着老师调整步骤。这个阶段我们不会急着堆很多知识点，而是先让孩子建立“我能做出来”的信心。',
+          ],
+          avoid: '不要把课程价值讲得太抽象，必须结合孩子刚才的具体表现。',
+        },
+        {
+          id: 'o4',
+          scene: 'mid',
+          status: 'active',
+          title: '孩子中途卡住，家长担心太难',
+          concern: '家长担心课程难度超过孩子能力，后续跟不上。',
+          keywords: ['太难', '卡住', '跟不上', '挫败'],
+          thinking: [
+            '先解释卡住不代表不适合，而是学习边界出现了。',
+            '说明老师如何拆难度、给提示，而不是直接替孩子完成。',
+            '让家长知道后续会按孩子节奏调整。',
+          ],
+          scripts: [
+            '刚才卡住的地方我也注意到了，这反而是很有价值的观察点。孩子不是完全不会，而是在步骤变多时需要老师帮他拆一下。后续我们会把任务切小，让他每一步都有成就感，而不是一下子推太快。',
+            '编程课里遇到卡点很正常，关键看孩子愿不愿意在提示下再试一次。今天他后面能继续跟，就说明不是能力不够，而是需要更适合他的节奏。',
+          ],
+          avoid: '不要说“这个很简单”，这会否定孩子和家长的真实感受。',
+        },
+        {
+          id: 'o5',
+          scene: 'close',
+          status: 'active',
+          title: '价格有点贵，想再比较一下',
+          concern: '家长没有完全否定价值，但需要更多确定感来支撑付款。',
+          keywords: ['价格', '贵', '比较', '优惠'],
+          thinking: [
+            '先接住价格顾虑，不急着报优惠。',
+            '帮家长建立比较标准：老师反馈、课程体系、孩子持续性、课后服务。',
+            '给一个低压力下一步：确认班型、名额、适合方案。',
+          ],
+          scripts: [
+            '您比较一下是应该的，毕竟给孩子选课不是只看单价。我建议您重点看三件事：孩子今天是否愿意继续、老师能不能说清楚孩子的问题和优势、后续课程是不是有清晰成长路径。我们可以先把适合他的班型和阶段目标给您说明白，您再判断值不值得。',
+            '价格确实需要考虑，但如果只比便宜，很容易忽略孩子能不能持续学。今天从他的表现看，我更建议您比较“后面谁能持续带得动他”。',
+          ],
+          avoid: '不要一上来降价或催单，否则家长会把注意力全部放到价格上。',
+        },
+        {
+          id: 'o6',
+          scene: 'close',
+          status: 'active',
+          title: '要回去跟家里人商量',
+          concern: '可能是真的需要共同决策，也可能是家长还缺少成交理由。',
+          keywords: ['商量', '爸爸', '妈妈', '再说', '考虑'],
+          thinking: [
+            '先尊重家庭决策，不让家长有压力。',
+            '主动提供可转述的信息，帮助家长回去讲清楚价值。',
+            '约定明确反馈时间，避免无限期拖延。',
+          ],
+          scripts: [
+            '没问题，孩子学习这件事和家里人商量很正常。我建议您回去主要说三点：孩子今天愿意参与、在哪些环节表现不错、后续我们准备怎么带。这样家里人判断会更有依据。您看我今晚把孩子课堂反馈整理给您，明天中午我们再简单确认一下可以吗？',
+            '您可以先和家里人沟通，我这边也帮您把适合孩子的方案和今天表现发过去。这样不是单纯让家里人看价格，而是能看到孩子为什么适合继续。',
+          ],
+          avoid: '不要追问“您自己不能决定吗”，这会让家长不舒服。',
+        },
+      ];
+
+      let activeScene = 'pre';
+      let selectedScene = '';
+      let activeObjectionId = 'o1';
+      let activeView = 'portal';
+
+      const nodes = {
+        sceneList: document.getElementById('sceneList'),
+        repositoryContent: document.getElementById('repositoryContent'),
+        objectionList: document.getElementById('objectionList'),
+        detailPanel: document.getElementById('detailPanel'),
+        objectionTitle: document.getElementById('objectionTitle'),
+        searchInput: document.getElementById('searchInput'),
+        backToScenesButton: document.getElementById('backToScenesButton'),
+        resultCount: document.getElementById('resultCount'),
+        portalView: document.getElementById('portalView'),
+        repositoryHomeView: document.getElementById('repositoryHomeView'),
+        sceneDetailView: document.getElementById('sceneDetailView'),
+        trainingView: document.getElementById('trainingView'),
+        adminView: document.getElementById('adminView'),
+        adminForm: document.getElementById('adminForm'),
+        adminTable: document.getElementById('adminTable'),
+        adminCount: document.getElementById('adminCount'),
+        toast: document.getElementById('toast'),
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => {
+          const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+          return map[char];
+        });
+      }
+
+      function sceneName(sceneId) {
+        return scenes.find((scene) => scene.id === sceneId)?.title || sceneId;
+      }
+
+      function activeItems() {
+        if (!selectedScene) return [];
+        const keyword = nodes.searchInput.value.trim().toLowerCase();
+        return objections.filter((item) => {
+          if (item.scene !== activeScene || item.status !== 'active') return false;
+          if (!keyword) return true;
+          const haystack = [item.title, item.concern, item.avoid, ...(item.keywords || []), ...(item.scripts || [])]
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(keyword);
+        });
+      }
+
+      function renderScenes() {
+        nodes.sceneList.innerHTML = scenes
+          .map((scene) => {
+            const count = objections.filter((item) => item.scene === scene.id && item.status === 'active').length;
+            return `
+              <button class="scene-card ${scene.id === selectedScene ? 'active' : ''}" type="button" data-scene="${scene.id}">
+                <p class="eyebrow">${escapeHtml(scene.tone)}</p>
+                <h3>${escapeHtml(scene.title)}</h3>
+                <p>${escapeHtml(scene.desc)}</p>
+                <div class="tag-row">
+                  <span class="tag">${count} 条上架异议</span>
+                </div>
+              </button>
+            `;
+          })
+          .join('');
+
+        nodes.sceneList.querySelectorAll('[data-scene]').forEach((button) => {
+          button.addEventListener('click', () => {
+            selectedScene = button.dataset.scene;
+            activeScene = button.dataset.scene;
+            const first = activeItems()[0] || objections.find((item) => item.scene === activeScene);
+            activeObjectionId = first?.id || '';
+            activeView = 'sceneDetail';
+            renderAll();
+          });
+        });
+      }
+
+      function renderObjections() {
+        if (!selectedScene) {
+          nodes.resultCount.textContent = '0 条';
+          nodes.objectionList.innerHTML = '';
+          nodes.detailPanel.innerHTML = '';
+          return;
+        }
+
+        const items = activeItems();
+        nodes.objectionTitle.textContent = `${sceneName(activeScene)}异议问题`;
+        nodes.resultCount.textContent = `${items.length} 条`;
+
+        if (!items.length) {
+          nodes.objectionList.innerHTML = `
+            <article class="mini-card">
+              <p class="eyebrow">No Result</p>
+              <strong>暂无匹配异议</strong>
+              <p>可以换个关键词，或到后台新增这类家长问题。</p>
+            </article>
+          `;
+          nodes.detailPanel.innerHTML = '';
+          return;
+        }
+
+        if (!items.some((item) => item.id === activeObjectionId)) {
+          activeObjectionId = items[0].id;
+        }
+
+        nodes.objectionList.innerHTML = items
+          .map(
+            (item) => `
+              <button class="objection-card ${item.id === activeObjectionId ? 'active' : ''}" type="button" data-objection="${item.id}">
+                <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+                <h3>${escapeHtml(item.title)}</h3>
+                <p>${escapeHtml(item.concern)}</p>
+                <div class="tag-row">
+                  ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join('')}
+                </div>
+              </button>
+            `
+          )
+          .join('');
+
+        nodes.objectionList.querySelectorAll('[data-objection]').forEach((button) => {
+          button.addEventListener('click', () => {
+            activeObjectionId = button.dataset.objection;
+            renderAll();
+          });
+        });
+      }
+
+      function renderDetail() {
+        const item = objections.find((objection) => objection.id === activeObjectionId);
+        if (!item) {
+          nodes.detailPanel.innerHTML = '';
+          return;
+        }
+
+        nodes.detailPanel.innerHTML = `
+          <div class="detail-hero">
+            <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+            <h2>${escapeHtml(item.title)}</h2>
+            <p>${escapeHtml(item.concern)}</p>
+            <div class="tag-row">
+              <span class="tag-good">解决思路</span>
+              <span class="tag">话术可复制</span>
+              <span class="tag-warn">禁忌提醒</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Thinking</p>
+                <h2>解决思路</h2>
+              </div>
+            </div>
+            <div class="thought-list">
+              ${item.thinking
+                .map(
+                  (step, index) => `
+                    <article class="thought-step">
+                      <div class="step-num">${index + 1}</div>
+                      <div>
+                        <h3>${index === 0 ? '先接住' : index === 1 ? '再解释' : '给下一步'}</h3>
+                        <p>${escapeHtml(step)}</p>
+                      </div>
+                    </article>
+                  `
+                )
+                .join('')}
+            </div>
+          </div>
+
+          <div>
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Scripts</p>
+                <h2>推荐话术</h2>
+              </div>
+            </div>
+            <div class="script-list">
+              ${item.scripts
+                .map(
+                  (script, index) => `
+                    <article class="script-card">
+                      <h3>话术 ${index + 1}</h3>
+                      <p>${escapeHtml(script)}</p>
+                      <button class="copy-btn" type="button" data-copy="${escapeHtml(script)}">复制</button>
+                    </article>
+                  `
+                )
+                .join('')}
+            </div>
+          </div>
+
+          <article class="script-card">
+            <h3>禁忌提醒</h3>
+            <p>${escapeHtml(item.avoid)}</p>
+            <span class="tag-danger">不要这样说</span>
+          </article>
+        `;
+
+        nodes.detailPanel.querySelectorAll('[data-copy]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const text = button.getAttribute('data-copy');
+            try {
+              await navigator.clipboard.writeText(text);
+              showToast('话术已复制');
+            } catch {
+              showToast('当前浏览器不支持复制，可手动选中文本');
+            }
+          });
+        });
+      }
+
+      function renderAdmin() {
+        nodes.adminCount.textContent = `${objections.length} 条内容`;
+        nodes.adminTable.innerHTML = objections
+          .map(
+            (item) => `
+              <article class="admin-row">
+                <div>
+                  <h3>${escapeHtml(item.title)}</h3>
+                  <p>${escapeHtml(item.concern)}</p>
+                </div>
+                <span class="tag">${escapeHtml(sceneName(item.scene))}</span>
+                <span class="${item.status === 'active' ? 'tag-good' : 'tag-danger'}">
+                  ${item.status === 'active' ? '已上架' : '已下架'}
+                </span>
+                <div class="row-actions">
+                  <button class="btn btn-soft" type="button" data-toggle="${item.id}">
+                    ${item.status === 'active' ? '下架' : '上架'}
+                  </button>
+                </div>
+              </article>
+            `
+          )
+          .join('');
+
+        nodes.adminTable.querySelectorAll('[data-toggle]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const item = objections.find((objection) => objection.id === button.dataset.toggle);
+            if (!item) return;
+            item.status = item.status === 'active' ? 'inactive' : 'active';
+            showToast(item.status === 'active' ? '内容已上架' : '内容已下架');
+            renderAll();
+          });
+        });
+      }
+
+      function showToast(message) {
+        nodes.toast.textContent = message;
+        nodes.toast.classList.add('show');
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => nodes.toast.classList.remove('show'), 1600);
+      }
+
+      function syncViewVisibility() {
+        nodes.portalView.classList.toggle('hidden', activeView !== 'portal');
+        nodes.repositoryHomeView.classList.toggle('hidden', activeView !== 'repository');
+        nodes.sceneDetailView.classList.toggle('hidden', activeView !== 'sceneDetail');
+        nodes.trainingView.classList.toggle('hidden', activeView !== 'training');
+        nodes.adminView.classList.add('hidden');
+      }
+
+      function renderAll() {
+        renderScenes();
+        renderObjections();
+        renderDetail();
+        renderAdmin();
+        syncViewVisibility();
+      }
+
+      function switchView(view) {
+        activeView = view;
+        if (view === 'repository') {
+          selectedScene = '';
+          nodes.searchInput.value = '';
+        }
+        document.querySelectorAll('[data-view]').forEach((item) => {
+          const isRepositoryActive = view === 'sceneDetail' && item.dataset.view === 'repository';
+          item.classList.toggle('active', item.dataset.view === view || isRepositoryActive);
+        });
+        syncViewVisibility();
+      }
+
+      document.querySelectorAll('[data-view]').forEach((button) => {
+        button.addEventListener('click', () => {
+          switchView(button.dataset.view);
+        });
+      });
+
+      nodes.backToScenesButton.addEventListener('click', () => {
+        selectedScene = '';
+        activeObjectionId = '';
+        nodes.searchInput.value = '';
+        switchView('repository');
+        renderAll();
+      });
+
+      document.querySelectorAll('[data-entry]').forEach((button) => {
+        button.addEventListener('click', () => {
+          switchView(button.dataset.entry);
+        });
+      });
+
+      nodes.searchInput.addEventListener('input', renderAll);
+
+      nodes.adminForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(nodes.adminForm);
+        const title = String(formData.get('title') || '').trim();
+        const concern = String(formData.get('concern') || '').trim();
+        const thinking = String(formData.get('thinking') || '').trim();
+        const script = String(formData.get('script') || '').trim();
+
+        if (!title || !concern || !thinking || !script) {
+          showToast('请先填写完整内容');
+          return;
+        }
+
+        const item = {
+          id: `custom-${Date.now()}`,
+          scene: String(formData.get('scene') || 'pre'),
+          status: 'active',
+          title,
+          concern,
+          keywords: title.split(/[，,\s]+/).filter(Boolean).slice(0, 4),
+          thinking: thinking
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 3),
+          scripts: [script],
+          avoid: '后台暂未填写禁忌提醒，正式版建议设为必填项。',
+        };
+
+        while (item.thinking.length < 3) {
+          item.thinking.push('补充该异议的关键处理动作。');
+        }
+
+        objections = [item, ...objections];
+        activeScene = item.scene;
+        activeObjectionId = item.id;
+        nodes.adminForm.reset();
+        showToast('异议已新增并上架');
+        renderAll();
+      });
+
+      renderAll();
+    </script>
+  </body>
+</html>

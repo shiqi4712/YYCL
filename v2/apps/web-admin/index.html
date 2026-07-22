@@ -4,32 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260721-preclass" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260722-objection-repo" />
   </head>
   <body>
     <div class="admin-shell">
-      <div class="page-glow page-glow-a"></div>
-      <div class="page-glow page-glow-b"></div>
-
       <main class="admin-app">
         <section class="auth-screen shell-card" id="adminAuthScreen">
           <div class="auth-copy">
+            <p class="eyebrow">YYCL Admin</p>
             <h1>异议处理管理后台</h1>
           </div>
-
           <form class="auth-card" id="adminLoginForm" autocomplete="off">
-            <div>
-              <h2>账号登录</h2>
-            </div>
+            <h2>账号登录</h2>
             <label>
               <span>账号</span>
-              <input name="username" placeholder="请输入账号" autocomplete="off" autocapitalize="none" spellcheck="false" />
+              <input name="username" placeholder="请输入管理员账号" autocomplete="off" />
             </label>
             <label>
               <span>密码</span>
               <input name="password" type="password" placeholder="请输入密码" autocomplete="new-password" />
             </label>
-            <button class="primary-btn" type="submit">登录管理台</button>
+            <button class="primary-btn" type="submit">登录管理后台</button>
             <p class="status-text" id="adminLoginStatus"></p>
           </form>
         </section>
@@ -38,275 +33,213 @@
           <header class="topbar glass-bar">
             <div>
               <p class="eyebrow">Admin Console</p>
-              <h1>训练管理台</h1>
+              <h1>异议处理管理后台</h1>
             </div>
             <div class="topbar-actions">
+              <div class="module-switch">
+                <button class="module-btn active" type="button" data-module="content">异议内容管理</button>
+                <button class="module-btn" type="button" data-module="accounts">用户账号管理</button>
+              </div>
               <div class="profile-chip" id="adminProfileChip"></div>
-              <button class="secondary-btn" id="adminRefreshButton" type="button">刷新全部</button>
               <button class="secondary-btn" id="adminLogoutButton" type="button">退出登录</button>
             </div>
           </header>
 
-          <section class="hero-grid">
-            <article class="shell-card hero-card">
-              <p class="eyebrow">管理概览</p>
-              <h2>统一管理账号、训练主题与异议场景。</h2>
-              <p>
-                在这里维护管理员和教师账号，配置训练主题、场景与异议步骤，并查看团队近期训练情况。
-              </p>
-            </article>
-            <article class="shell-card metric-grid" id="adminMetrics"></article>
+          <section class="hero-card shell-card">
+            <p class="eyebrow">Content Operations</p>
+            <h2>统一维护异议、思路和话术。</h2>
+            <p>管理员按业务场景录入异议内容，已上架内容会进入老师端仓库；过期或质量不稳定的话术可随时下架。</p>
           </section>
 
-          <nav class="tab-bar glass-bar">
-            <button class="tab-btn active" type="button" data-tab="dashboard">团队概览</button>
-            <button class="tab-btn" type="button" data-tab="teachers">账号管理</button>
-            <button class="tab-btn" type="button" data-tab="topics">主题与场景</button>
-          </nav>
+          <section id="contentModule">
+            <section class="metric-grid" id="adminContentMetrics"></section>
 
-          <section class="tab-panel visible" id="adminTabDashboard">
-            <article class="shell-card section-card">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">Teacher Analytics</p>
-                  <h2>教师训练统计</h2>
-                </div>
-              </div>
-              <div class="activity-list" id="adminRecentSessions"></div>
-            </article>
-          </section>
-
-          <section class="tab-panel" id="adminTabTeachers">
-            <div class="grid-2">
-              <article class="shell-card section-card">
+            <section class="admin-layout">
+              <aside class="shell-card section-card">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">Teachers</p>
+                    <p class="eyebrow">Scenario</p>
+                    <h2>场景管理</h2>
+                  </div>
+                </div>
+                <div class="scene-list" id="adminSceneList"></div>
+              </aside>
+
+              <section class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Library</p>
+                    <h2 id="adminLibraryTitle">异议内容库</h2>
+                  </div>
+                  <button class="primary-btn compact-btn" id="adminNewObjectionButton" type="button">新增异议</button>
+                </div>
+                <div class="toolbar">
+                  <input id="adminObjectionSearchInput" placeholder="搜索异议、关键词、话术" />
+                  <select id="adminObjectionStatusFilter">
+                    <option value="all">全部状态</option>
+                    <option value="ACTIVE">已上架</option>
+                    <option value="INACTIVE">已下架</option>
+                  </select>
+                </div>
+                <div class="objection-list" id="adminObjectionList"></div>
+              </section>
+
+              <aside class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Editor</p>
+                    <h2 id="adminEditorTitle">编辑异议</h2>
+                  </div>
+                  <span class="tag-good" id="adminEditorStatus">已上架</span>
+                </div>
+                <form class="form-stack" id="adminObjectionForm">
+                  <input type="hidden" name="id" />
+                  <label>
+                    <span>所属场景</span>
+                    <select name="scene">
+                      <option value="pre">课前进线</option>
+                      <option value="mid">课中推进</option>
+                      <option value="close">结转促单</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>异议问题</span>
+                    <input name="title" placeholder="例如：价格有点贵，想再比较一下" />
+                  </label>
+                  <label>
+                    <span>关键词</span>
+                    <input name="keywords" placeholder="价格, 贵, 比较, 优惠" />
+                  </label>
+                  <label>
+                    <span>家长真实顾虑</span>
+                    <textarea name="concern"></textarea>
+                  </label>
+                  <label>
+                    <span>解决思路，每行一步</span>
+                    <textarea name="thinking"></textarea>
+                  </label>
+                  <label>
+                    <span>推荐话术，每段一条</span>
+                    <textarea name="scripts"></textarea>
+                  </label>
+                  <label>
+                    <span>禁忌提醒</span>
+                    <textarea name="avoid"></textarea>
+                  </label>
+                  <div class="row-actions">
+                    <button class="secondary-btn compact-btn" type="button" id="adminToggleObjectionStatusButton">下架</button>
+                    <button class="primary-btn compact-btn" type="submit">保存内容</button>
+                  </div>
+                  <p class="status-text" id="adminObjectionFormStatus"></p>
+                </form>
+              </aside>
+            </section>
+
+            <section class="import-panel">
+              <aside class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Document Import</p>
+                    <h2>上传文档导入异议</h2>
+                  </div>
+                </div>
+                <form class="form-stack" id="adminObjectionImportForm">
+                  <label>
+                    <span>默认归属场景</span>
+                    <select name="defaultScene">
+                      <option value="pre">课前进线</option>
+                      <option value="mid">课中推进</option>
+                      <option value="close">结转促单</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>选择导入文档</span>
+                    <input name="document" type="file" accept=".docx,.txt,.md,.csv" />
+                  </label>
+                  <button class="primary-btn" type="submit">上传并导入</button>
+                  <p class="status-text" id="adminObjectionImportStatus"></p>
+                </form>
+              </aside>
+              <section class="shell-card section-card">
+                <p class="eyebrow">Import Format</p>
+                <h2>导入格式说明</h2>
+                <p class="helper-text">CSV/文本文档每行一条：场景,异议问题,真实顾虑,关键词,解决思路,推荐话术,禁忌提醒,状态。思路和话术可用分号分隔多条。</p>
+                <button class="secondary-btn compact-btn" id="adminDownloadObjectionTemplateButton" type="button">下载 CSV 模板</button>
+              </section>
+            </section>
+          </section>
+
+          <section class="hidden" id="accountModule">
+            <section class="metric-grid" id="adminAccountMetrics"></section>
+            <section class="account-layout">
+              <section class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Users</p>
                     <h2>账号列表</h2>
                   </div>
                 </div>
-                <div class="teacher-list" id="adminTeacherList"></div>
-              </article>
-
-              <div class="account-actions">
-                <article class="shell-card section-card">
-                  <div class="section-head">
-                    <div>
-                      <p class="eyebrow">Create Account</p>
-                      <h2>新增账号</h2>
-                    </div>
-                  </div>
-                  <form class="form-stack" id="adminTeacherForm">
-                    <label>
-                      <span>账号</span>
-                      <input name="username" placeholder="teacher02" />
-                    </label>
-                    <label>
-                      <span>姓名</span>
-                      <input name="displayName" placeholder="体验课老师 B / 张诗琪" />
-                    </label>
-                    <label>
-                      <span>账号角色</span>
-                      <select name="role">
-                        <option value="TEACHER">教师</option>
-                        <option value="TRAINER">管理员</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>初始密码</span>
-                      <input name="password" type="password" placeholder="123456" />
-                    </label>
-                    <button class="primary-btn" type="submit">创建账号</button>
-                    <p class="status-text" id="adminTeacherStatus"></p>
-                  </form>
-                </article>
-
-                <article class="shell-card section-card">
-                  <div class="section-head">
-                    <div>
-                      <p class="eyebrow">Batch Import</p>
-                      <h2>批量导入教师</h2>
-                    </div>
-                  </div>
-                  <form class="form-stack" id="adminTeacherImportForm">
-                    <label>
-                      <span>导入内容</span>
-                      <textarea
-                        name="users"
-                        rows="8"
-                        placeholder="每行一个教师：账号,姓名,初始密码&#10;teacher02,体验课老师B,123456&#10;teacher03,体验课老师C,123456"
-                      ></textarea>
-                    </label>
-                    <p class="helper-text">支持英文逗号、中文逗号或从 Excel 复制的三列内容；批量导入只会创建教师账号。</p>
-                    <button class="primary-btn" type="submit">导入教师账号</button>
-                    <p class="status-text" id="adminTeacherImportStatus"></p>
-                    <div class="import-result-list" id="adminTeacherImportResults"></div>
-                  </form>
-                </article>
-              </div>
-            </div>
-          </section>
-
-          <section class="tab-panel" id="adminTabTopics">
-            <div class="grid-main">
-              <article class="shell-card section-card">
+                <div class="toolbar">
+                  <input id="adminAccountSearchInput" placeholder="搜索账号、姓名、角色" />
+                  <select id="adminRoleFilter">
+                    <option value="all">全部角色</option>
+                    <option value="TEACHER">老师</option>
+                    <option value="TRAINER">管理员</option>
+                  </select>
+                </div>
+                <div class="account-list" id="adminAccountList"></div>
+              </section>
+              <aside class="shell-card section-card">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">Topic Studio</p>
-                    <h2>主题与场景配置</h2>
+                    <p class="eyebrow">Account Form</p>
+                    <h2>新增账号</h2>
                   </div>
-                  <button class="secondary-btn compact-btn" id="adminBulkDeleteScenariosButton" type="button">
-                    删除选中场景
-                  </button>
                 </div>
-                <p class="status-text" id="adminScenarioBulkDeleteStatus"></p>
-                <div class="import-result-list" id="adminScenarioBulkDeleteResults"></div>
-                <div class="topic-studio" id="adminTopicStudio"></div>
-              </article>
-
-              <article class="shell-card section-card">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Topic Form</p>
-                    <h2 id="topicFormTitle">新增主题</h2>
-                  </div>
-                  <button class="secondary-btn compact-btn" id="adminTopicResetButton" type="button">
-                    重置主题
-                  </button>
-                </div>
-                <form class="form-stack" id="adminTopicForm">
-                  <input type="hidden" name="topicId" />
+                <form class="form-stack" id="adminAccountForm">
+                  <label><span>登录账号</span><input name="username" placeholder="teacher01" /></label>
+                  <label><span>姓名</span><input name="displayName" placeholder="张诗琪" /></label>
                   <label>
-                    <span>训练模块</span>
-                    <select name="trainingModule">
-                      <option value="PRE_CLASS">课前训练</option>
+                    <span>角色</span>
+                    <select name="role">
+                      <option value="TEACHER">老师</option>
+                      <option value="TRAINER">管理员</option>
                     </select>
                   </label>
-                  <label>
-                    <span>主题名称</span>
-                    <input name="title" placeholder="课前沟通 SOP 训练" />
-                  </label>
-                  <label>
-                    <span>主题描述</span>
-                    <textarea name="description" placeholder="描述该训练主题覆盖的核心场景与适用阶段"></textarea>
-                  </label>
-                  <label>
-                    <span>状态</span>
-                    <select name="status">
-                      <option value="ACTIVE">启用</option>
-                      <option value="INACTIVE">停用</option>
-                    </select>
-                  </label>
-                  <button class="primary-btn" type="submit">保存主题</button>
-                  <p class="status-text" id="adminTopicStatus"></p>
+                  <label><span>初始密码</span><input name="password" type="password" placeholder="至少 6 位" /></label>
+                  <button class="primary-btn" type="submit">创建账号</button>
+                  <p class="status-text" id="adminAccountStatus"></p>
                 </form>
+              </aside>
+            </section>
 
-                <div class="soft-divider"></div>
-
+            <section class="account-import-panel">
+              <aside class="shell-card section-card">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">Scenario Form</p>
-                    <h2 id="scenarioFormTitle">新增场景</h2>
+                    <p class="eyebrow">Teacher Import</p>
+                    <h2>批量导入老师账号</h2>
                   </div>
-                  <button class="secondary-btn compact-btn" id="adminScenarioResetButton" type="button">
-                    重置场景
-                  </button>
                 </div>
-                <form class="form-stack" id="adminScenarioForm">
-                  <input type="hidden" name="scenarioId" />
+                <form class="form-stack" id="adminTeacherImportForm">
                   <label>
-                    <span>所属主题</span>
-                    <select name="topicId" id="adminScenarioTopicSelect"></select>
+                    <span>账号清单</span>
+                    <textarea name="users" placeholder="每行一个老师：账号,姓名,初始密码&#10;teacher02,李老师,123456&#10;teacher03,王老师,123456"></textarea>
                   </label>
-                  <label>
-                    <span>场景名称</span>
-                    <input name="title" placeholder="价格敏感型家长" />
-                  </label>
-                  <label>
-                    <span>场景描述</span>
-                    <textarea name="description" placeholder="说明该场景主要训练什么"></textarea>
-                  </label>
-                  <label>
-                    <span>家长画像</span>
-                    <input name="parentPersona" placeholder="李妈妈，关注价格与短期效果" />
-                  </label>
-                  <label>
-                    <span>开场话术</span>
-                    <textarea name="openingLine" placeholder="老师，体验课还可以，但正式课是不是有点贵？"></textarea>
-                  </label>
-                  <div class="form-grid">
-                    <label>
-                      <span>难度</span>
-                      <select name="difficulty">
-                        <option value="BASIC">基础</option>
-                        <option value="STANDARD">标准</option>
-                        <option value="ADVANCED">进阶</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>状态</span>
-                      <select name="status">
-                        <option value="ACTIVE">启用</option>
-                        <option value="INACTIVE">停用</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div class="step-editor">
-                    <div class="section-head">
-                      <div>
-                        <p class="eyebrow">Objection Steps</p>
-                        <h3>异议步骤</h3>
-                      </div>
-                      <button class="secondary-btn compact-btn" id="adminAddStepButton" type="button">
-                        新增一步
-                      </button>
-                    </div>
-                    <div class="step-editor-list" id="adminStepEditorList"></div>
-                  </div>
-
-                  <button class="primary-btn" type="submit">保存场景</button>
-                  <p class="status-text" id="adminScenarioStatus"></p>
+                  <button class="primary-btn" type="submit">批量创建老师账号</button>
+                  <p class="status-text" id="adminTeacherImportStatus"></p>
                 </form>
-
-                <div class="soft-divider"></div>
-
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Scenario Import</p>
-                    <h2>批量导入场景</h2>
-                  </div>
-                  <button class="secondary-btn compact-btn" id="adminDownloadScenarioTemplateButton" type="button">
-                    下载 CSV 模板
-                  </button>
-                </div>
-                <form class="form-stack" id="adminScenarioImportForm">
-                  <label>
-                    <span>所属主题</span>
-                    <select name="topicId" id="adminScenarioImportTopicSelect"></select>
-                  </label>
-                  <label>
-                    <span>导入内容</span>
-                    <textarea
-                      name="scenarios"
-                      rows="8"
-                      placeholder="场景名称	场景描述	家长画像	开场话术	难度	状态	异议步骤&#10;价格敏感型家长	家长认可课程但关注价格	李妈妈	老师，正式课是不是有点贵？	标准	启用	价格偏高|你们课程太贵了|先共情，再说明课程价值；还想比较|我再看看别家|帮助家长明确比较标准"
-                    ></textarea>
-                  </label>
-                  <p class="helper-text">
-                    建议从 Excel 复制 7 列内容；难度支持“基础/标准/进阶”，状态支持“启用/停用”。多条异议步骤用分号隔开，每条步骤用竖线分隔标题、异议内容和点评关注点。
-                  </p>
-                  <button class="primary-btn" type="submit">导入场景</button>
-                  <p class="status-text" id="adminScenarioImportStatus"></p>
-                  <div class="import-result-list" id="adminScenarioImportResults"></div>
-                </form>
-              </article>
-            </div>
+              </aside>
+              <section class="shell-card section-card">
+                <p class="eyebrow">Import Format</p>
+                <h2>账号导入说明</h2>
+                <p class="helper-text">仅用于老师账号批量创建。每行格式为：登录账号,老师姓名,初始密码。已存在账号会自动跳过，避免覆盖正在使用的账号。</p>
+              </section>
+            </section>
           </section>
         </section>
       </main>
     </div>
-
-    <script src="/assets/admin/app.js?v=20260721-preclass"></script>
+    <script src="/assets/admin/app.js?v=20260722-objection-repo"></script>
   </body>
 </html>

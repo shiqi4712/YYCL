@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { hashPassword } from '../lib/auth'
+import { normalizeSopText } from '../lib/document-parser'
 import { prisma } from '../lib/prisma'
 import { HttpError } from '../utils/http-error'
 
@@ -23,7 +24,12 @@ const topicCreateSchema = z.object({
   trainingModule: trainingModuleSchema.default('PRE_CLASS'),
   title: z.string().min(1).max(60),
   description: z.string().min(1).max(300),
+  sopContent: z.string().max(50000).optional(),
   status: statusSchema.default('ACTIVE'),
+})
+
+const topicSopSchema = z.object({
+  sopContent: z.string().min(1).max(50000),
 })
 
 const scenarioStepSchema = z.object({
@@ -63,6 +69,7 @@ function mapTopic(topic: {
   trainingModule: string
   title: string
   description: string
+  sopContent: string | null
   status: string
   createdAt: Date
   updatedAt: Date
@@ -91,6 +98,7 @@ function mapTopic(topic: {
     trainingModule: topic.trainingModule,
     title: topic.title,
     description: topic.description,
+    sopContent: topic.sopContent,
     status: topic.status,
     createdAt: topic.createdAt,
     updatedAt: topic.updatedAt,
@@ -322,6 +330,7 @@ export async function createTopic(createdById: string, payload: unknown) {
       trainingModule: input.trainingModule,
       title: input.title,
       description: input.description,
+      sopContent: input.sopContent,
       status: input.status,
       createdById,
     },
@@ -351,7 +360,33 @@ export async function updateTopic(topicId: string, payload: unknown) {
       trainingModule: input.trainingModule,
       title: input.title,
       description: input.description,
+      sopContent: input.sopContent,
       status: input.status,
+    },
+    include: {
+      scenarios: {
+        include: {
+          steps: { orderBy: { order: 'asc' } },
+        },
+      },
+    },
+  })
+
+  return mapTopic(topic)
+}
+
+export async function updateTopicSop(topicId: string, payload: unknown) {
+  const input = topicSopSchema.parse(payload)
+  const existing = await prisma.trainingTopic.findUnique({ where: { id: topicId } })
+
+  if (!existing) {
+    throw new HttpError(404, 'Topic not found')
+  }
+
+  const topic = await prisma.trainingTopic.update({
+    where: { id: topicId },
+    data: {
+      sopContent: normalizeSopText(input.sopContent),
     },
     include: {
       scenarios: {

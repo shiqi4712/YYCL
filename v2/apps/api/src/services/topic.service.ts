@@ -22,6 +22,7 @@ export async function listTopics() {
     trainingModule: topic.trainingModule,
     title: topic.title,
     description: topic.description,
+    sopConfigured: Boolean(topic.sopContent),
     scenarioCount: topic.scenarios.length,
     scenarios: topic.scenarios.map((scenario: (typeof topic.scenarios)[number]) => ({
       id: scenario.id,

@@ -20,9 +20,30 @@ model User {
 
   createdTopics    TrainingTopic[]    @relation("TopicCreator")
   createdScenarios TrainingScenario[] @relation("ScenarioCreator")
+  createdObjections ObjectionItem[]    @relation("ObjectionCreator")
   sessions         TrainingSession[]
 
   @@map("users")
+}
+
+model ObjectionItem {
+  id           String   @id @default(cuid()) @db.VarChar(32)
+  scene        String   @db.VarChar(32)
+  title        String   @db.VarChar(191)
+  concern      String   @db.Text
+  keywordsJson String   @db.Text
+  thinkingJson String   @db.Text
+  scriptsJson  String   @db.LongText
+  avoid        String   @db.Text
+  status       String   @default("ACTIVE") @db.VarChar(32)
+  createdById  String   @db.VarChar(32)
+  createdBy    User     @relation("ObjectionCreator", fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scene])
+  @@index([status])
+  @@map("objection_items")
 }
 
 model TrainingTopic {
@@ -30,6 +51,7 @@ model TrainingTopic {
   trainingModule String   @default("PRE_CLASS") @db.VarChar(32)
   title          String   @db.VarChar(191)
   description    String   @db.Text
+  sopContent     String?  @db.LongText
   status         String   @default("ACTIVE") @db.VarChar(32)
   createdById    String   @db.VarChar(32)
   createdBy      User     @relation("TopicCreator", fields: [createdById], references: [id])

@@ -24,6 +24,7 @@ async function buildParentReply(input: {
   parentName: string
   scenarioTitle: string
   scenarioDescription: string
+  sopContent?: string | null
   parentPersona: string
   teacherMessage: string
   currentStepTitle: string
@@ -52,6 +53,7 @@ async function buildParentReply(input: {
 async function evaluateObjectionResolved(input: {
   scenarioTitle: string
   scenarioDescription: string
+  sopContent?: string | null
   parentPersona: string
   currentStepTitle: string
   currentObjection: string
@@ -81,6 +83,7 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
     include: {
       scenario: {
         include: {
+          topic: true,
           steps: { orderBy: { order: 'asc' } },
         },
       },
@@ -105,7 +108,7 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
 export async function createSession(teacherId: string, scenarioId: string) {
   const scenario = await prisma.trainingScenario.findUnique({
     where: { id: scenarioId },
-    include: { steps: { orderBy: { order: 'asc' } } },
+    include: { topic: true, steps: { orderBy: { order: 'asc' } } },
   })
 
   if (!scenario || scenario.status !== 'ACTIVE') {
@@ -271,6 +274,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
       ? await evaluateObjectionResolved({
           scenarioTitle: session.scenario.title,
           scenarioDescription: session.scenario.description,
+          sopContent: session.scenario.topic.sopContent,
           parentPersona: session.scenario.parentPersona,
           currentStepTitle: currentStep.title,
           currentObjection: currentStep.objectionText,
@@ -291,6 +295,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     parentName: session.scenario.parentPersona,
     scenarioTitle: session.scenario.title,
     scenarioDescription: session.scenario.description,
+    sopContent: session.scenario.topic.sopContent,
     parentPersona: session.scenario.parentPersona,
     teacherMessage: content,
     history: [
@@ -378,6 +383,7 @@ export async function generateReview(sessionId: string, teacherId: string) {
       const aiReview = await buildDeepSeekReview({
         scenarioTitle: session.scenario.title,
         scenarioDescription: session.scenario.description,
+        sopContent: session.scenario.topic.sopContent,
         parentPersona: session.scenario.parentPersona,
         steps: session.scenario.steps.map((step: (typeof session.scenario.steps)[number]) => ({
           order: step.order,

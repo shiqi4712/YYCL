@@ -8,6 +8,7 @@ import { initializeDatabase } from './lib/prisma'
 import { errorHandler } from './middleware/error'
 import adminRoutes from './routes/admin'
 import authRoutes from './routes/auth'
+import objectionRoutes from './routes/objections'
 import topicRoutes from './routes/topics'
 import trainingRoutes from './routes/training'
 import { ok } from './utils/api'
@@ -25,6 +26,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/admin', adminRoutes)
 app.use('/api/auth', authRoutes)
+app.use('/api/objections', objectionRoutes)
 app.use('/api/topics', topicRoutes)
 app.use('/api/training', trainingRoutes)
 

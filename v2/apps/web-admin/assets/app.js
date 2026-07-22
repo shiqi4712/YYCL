@@ -1,14 +1,19 @@
 (function () {
   const storageKey = 'yycl_v2_admin_token';
+  const scenes = [
+    { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
+    { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
+    { id: 'close', title: '结转促单', desc: '结转报名阶段，重点处理价格、犹豫、对比、决策人和付款节奏。', tone: '给证据，给下一步' },
+  ];
+
   const state = {
     token: localStorage.getItem(storageKey) || '',
     profile: null,
-    dashboard: null,
+    module: 'content',
+    scene: 'pre',
+    objections: [],
+    selectedObjectionId: '',
     users: [],
-    topics: [],
-    activeTab: 'dashboard',
-    editingTopicId: '',
-    editingScenarioId: '',
   };
 
   const nodes = {
@@ -17,832 +22,333 @@
     loginForm: document.getElementById('adminLoginForm'),
     loginStatus: document.getElementById('adminLoginStatus'),
     profileChip: document.getElementById('adminProfileChip'),
-    metrics: document.getElementById('adminMetrics'),
-    recentSessions: document.getElementById('adminRecentSessions'),
-    teacherList: document.getElementById('adminTeacherList'),
-    teacherForm: document.getElementById('adminTeacherForm'),
-    teacherStatus: document.getElementById('adminTeacherStatus'),
+    moduleButtons: Array.from(document.querySelectorAll('[data-module]')),
+    contentModule: document.getElementById('contentModule'),
+    accountModule: document.getElementById('accountModule'),
+    contentMetrics: document.getElementById('adminContentMetrics'),
+    sceneList: document.getElementById('adminSceneList'),
+    libraryTitle: document.getElementById('adminLibraryTitle'),
+    objectionSearchInput: document.getElementById('adminObjectionSearchInput'),
+    objectionStatusFilter: document.getElementById('adminObjectionStatusFilter'),
+    objectionList: document.getElementById('adminObjectionList'),
+    objectionForm: document.getElementById('adminObjectionForm'),
+    editorTitle: document.getElementById('adminEditorTitle'),
+    editorStatus: document.getElementById('adminEditorStatus'),
+    toggleObjectionStatusButton: document.getElementById('adminToggleObjectionStatusButton'),
+    newObjectionButton: document.getElementById('adminNewObjectionButton'),
+    objectionFormStatus: document.getElementById('adminObjectionFormStatus'),
+    importForm: document.getElementById('adminObjectionImportForm'),
+    importStatus: document.getElementById('adminObjectionImportStatus'),
+    downloadObjectionTemplateButton: document.getElementById('adminDownloadObjectionTemplateButton'),
+    accountMetrics: document.getElementById('adminAccountMetrics'),
+    accountSearchInput: document.getElementById('adminAccountSearchInput'),
+    roleFilter: document.getElementById('adminRoleFilter'),
+    accountList: document.getElementById('adminAccountList'),
+    accountForm: document.getElementById('adminAccountForm'),
+    accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
     teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
-    teacherImportResults: document.getElementById('adminTeacherImportResults'),
-    topicStudio: document.getElementById('adminTopicStudio'),
-    topicForm: document.getElementById('adminTopicForm'),
-    topicFormTitle: document.getElementById('topicFormTitle'),
-    topicStatus: document.getElementById('adminTopicStatus'),
-    topicResetButton: document.getElementById('adminTopicResetButton'),
-    scenarioForm: document.getElementById('adminScenarioForm'),
-    scenarioStatus: document.getElementById('adminScenarioStatus'),
-    scenarioFormTitle: document.getElementById('scenarioFormTitle'),
-    scenarioTopicSelect: document.getElementById('adminScenarioTopicSelect'),
-    scenarioImportForm: document.getElementById('adminScenarioImportForm'),
-    scenarioImportTopicSelect: document.getElementById('adminScenarioImportTopicSelect'),
-    scenarioImportStatus: document.getElementById('adminScenarioImportStatus'),
-    scenarioImportResults: document.getElementById('adminScenarioImportResults'),
-    downloadScenarioTemplateButton: document.getElementById('adminDownloadScenarioTemplateButton'),
-    scenarioBulkDeleteButton: document.getElementById('adminBulkDeleteScenariosButton'),
-    scenarioBulkDeleteStatus: document.getElementById('adminScenarioBulkDeleteStatus'),
-    scenarioBulkDeleteResults: document.getElementById('adminScenarioBulkDeleteResults'),
-    stepEditorList: document.getElementById('adminStepEditorList'),
-    addStepButton: document.getElementById('adminAddStepButton'),
-    scenarioResetButton: document.getElementById('adminScenarioResetButton'),
-    refreshButton: document.getElementById('adminRefreshButton'),
     logoutButton: document.getElementById('adminLogoutButton'),
-    tabButtons: Array.from(document.querySelectorAll('[data-tab]')),
-    tabDashboard: document.getElementById('adminTabDashboard'),
-    tabTeachers: document.getElementById('adminTabTeachers'),
-    tabTopics: document.getElementById('adminTabTopics'),
   };
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      };
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
       return map[char];
     });
   }
 
-  function renderEmptyState(message) {
-    return `<div class="empty-state">${escapeHtml(message)}</div>`;
+  function sceneName(sceneId) {
+    return scenes.find((scene) => scene.id === sceneId)?.title || sceneId;
+  }
+
+  function roleLabel(role) {
+    return role === 'TRAINER' ? '管理员' : '老师';
+  }
+
+  function parseCommaLine(line) {
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const next = line[index + 1];
+      if (char === '"' && inQuotes && next === '"') {
+        current += '"';
+        index += 1;
+        continue;
+      }
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if ((char === ',' || char === '，') && !inQuotes) {
+        cells.push(current.trim());
+        current = '';
+        continue;
+      }
+      current += char;
+    }
+    cells.push(current.trim());
+    return cells;
+  }
+
+  function parseTeacherImportText(text) {
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !/^账号[,，]/.test(line) && !/^username[,，]/i.test(line))
+      .map((line, index) => {
+        const [username, displayName, password] = parseCommaLine(line);
+        if (!username || !displayName || !password) {
+          throw new Error(`第 ${index + 1} 行格式不正确，请使用：账号,姓名,初始密码`);
+        }
+        return { username, displayName, password };
+      });
+  }
+
+  function downloadCsv(filename, rows) {
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(',')
+      )
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function setToken(token) {
     state.token = token;
-    if (token) {
-      localStorage.setItem(storageKey, token);
-    } else {
-      localStorage.removeItem(storageKey);
-    }
+    if (token) localStorage.setItem(storageKey, token);
+    else localStorage.removeItem(storageKey);
   }
 
   function toggleApp(isAuthed) {
     nodes.authScreen.classList.toggle('hidden', isAuthed);
     nodes.workspace.classList.toggle('hidden', !isAuthed);
-    if (!isAuthed) {
-      nodes.loginForm.reset();
-    }
+    if (!isAuthed) nodes.loginForm.reset();
   }
 
   async function api(path, options) {
     const request = options || {};
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(request.headers || {}),
-    };
-
-    if (state.token) {
-      headers.Authorization = `Bearer ${state.token}`;
-    }
-
-    const response = await fetch(path, {
-      ...request,
-      headers,
-    });
-
+    const headers = { 'Content-Type': 'application/json', ...(request.headers || {}) };
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    const response = await fetch(path, { ...request, headers });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.code !== 0) {
-      throw new Error(payload.message || '请求失败，请稍后重试');
-    }
-
+    if (!response.ok || payload.code !== 0) throw new Error(payload.message || '请求失败，请稍后重试');
     return payload.data;
   }
 
-  function formatDate(value) {
-    if (!value) return '未结束';
-    const date = new Date(value);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-      date.getDate()
-    ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(
-      2,
-      '0'
-    )}`;
+  async function uploadApi(path, formData) {
+    const headers = {};
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    const response = await fetch(path, { method: 'POST', headers, body: formData });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.code !== 0) throw new Error(payload.message || '上传失败，请稍后重试');
+    return payload.data;
   }
 
-  function formatRole(role) {
-    return role === 'TRAINER' ? '培训主管' : '教师';
+  function selectedObjection() {
+    return state.objections.find((item) => item.id === state.selectedObjectionId) || null;
   }
 
-  function difficultyLabel(value) {
-    const map = {
-      BASIC: '基础',
-      STANDARD: '标准',
-      ADVANCED: '进阶',
-    };
-    return map[value] || value;
+  function renderModules() {
+    nodes.contentModule.classList.toggle('hidden', state.module !== 'content');
+    nodes.accountModule.classList.toggle('hidden', state.module !== 'accounts');
+    nodes.moduleButtons.forEach((button) => button.classList.toggle('active', button.dataset.module === state.module));
   }
 
-  function statusLabel(value) {
-    const map = {
-      ACTIVE: '启用',
-      INACTIVE: '停用',
-      COMPLETED: '已完成',
-      ENDED: '已结束',
-    };
-    return map[value] || value;
-  }
-
-  function trainingModuleLabel(value) {
-    const map = {
-      PRE_CLASS: '课前训练',
-    };
-    return map[value] || value || '课前训练';
-  }
-
-  function renderTabs() {
-    const map = {
-      dashboard: nodes.tabDashboard,
-      teachers: nodes.tabTeachers,
-      topics: nodes.tabTopics,
-    };
-
-    nodes.tabButtons.forEach((button) => {
-      const isActive = button.getAttribute('data-tab') === state.activeTab;
-      button.classList.toggle('active', isActive);
-    });
-
-    Object.entries(map).forEach(([key, node]) => {
-      node.classList.toggle('visible', key === state.activeTab);
-    });
-  }
-
-  function renderDashboard() {
-    if (!state.dashboard) return;
-
-    const items = [
-      ['教师总数', state.dashboard.totalTeachers, '当前系统内可训练教师数量'],
-      ['团队均分', state.dashboard.teamAverageScore ?? '--', '已生成点评教师的平均表现'],
-      ['训练记录', state.dashboard.totalSessions, `近 7 天活跃教师 ${state.dashboard.activeTeachersLast7Days}`],
-      ['训练场景', state.dashboard.totalScenarios, `训练主题 ${state.dashboard.totalTopics}`],
+  function renderContentMetrics() {
+    const activeCount = state.objections.filter((item) => item.status === 'ACTIVE').length;
+    const inactiveCount = state.objections.filter((item) => item.status === 'INACTIVE').length;
+    const metrics = [
+      ['当前场景内容', state.objections.length, `${sceneName(state.scene)}下全部异议内容`],
+      ['已上架', activeCount, '老师端可查询使用的内容'],
+      ['已下架', inactiveCount, '暂不进入老师端仓库'],
     ];
-
-    nodes.metrics.innerHTML = items
+    nodes.contentMetrics.innerHTML = metrics
       .map(
-        ([label, value, description]) => `
+        ([label, value, desc]) => `
           <article class="metric-card">
             <p class="eyebrow">${escapeHtml(label)}</p>
             <strong>${escapeHtml(value)}</strong>
-            <p>${escapeHtml(description)}</p>
-          </article>
-        `
-      )
-      .join('');
-
-    const teacherStats = state.dashboard.teacherStats || [];
-    if (!teacherStats.length) {
-      nodes.recentSessions.innerHTML = renderEmptyState('当前还没有教师训练统计。');
-      return;
-    }
-
-    const maxPracticeCount = Math.max(...teacherStats.map((teacher) => teacher.practiceCount), 1);
-
-    nodes.recentSessions.innerHTML = teacherStats
-      .map(
-        (teacher) => `
-          <article class="activity-card teacher-stat-card">
-            <div class="teacher-stat-head">
-              <div>
-                <p class="eyebrow">Teacher</p>
-                <h3>${escapeHtml(teacher.displayName)}</h3>
-                <p>账号：${escapeHtml(teacher.username)}</p>
-              </div>
-              <div class="chip-row">
-                <span class="chip">练习 ${escapeHtml(teacher.practiceCount)} 次</span>
-                <span class="chip-warn">均分 ${escapeHtml(teacher.averageScore ?? '--')}</span>
-                <span class="chip-good">完成 ${escapeHtml(teacher.completedCount)} 次</span>
-              </div>
-            </div>
-            <div class="stat-bars">
-              <div>
-                <div class="stat-bar-label">
-                  <span>练习次数</span>
-                  <strong>${escapeHtml(teacher.practiceCount)} 次</strong>
-                </div>
-                <div class="stat-bar-track">
-                  <span style="width: ${Math.max(6, Math.round((teacher.practiceCount / maxPracticeCount) * 100))}%"></span>
-                </div>
-              </div>
-              <div>
-                <div class="stat-bar-label">
-                  <span>平均分</span>
-                  <strong>${escapeHtml(teacher.averageScore ?? '--')}</strong>
-                </div>
-                <div class="stat-bar-track score-track">
-                  <span style="width: ${typeof teacher.averageScore === 'number' ? teacher.averageScore : 0}%"></span>
-                </div>
-              </div>
-            </div>
-            <p>最近训练：${escapeHtml(teacher.lastTrainedAt ? formatDate(teacher.lastTrainedAt) : '暂无训练')}</p>
+            <p>${escapeHtml(desc)}</p>
           </article>
         `
       )
       .join('');
   }
 
-  function renderTeachers() {
-    if (!state.users.length) {
-      nodes.teacherList.innerHTML = renderEmptyState('当前还没有账号。');
-      return;
-    }
-
-    nodes.teacherList.innerHTML = state.users
+  function renderScenes() {
+    nodes.sceneList.innerHTML = scenes
       .map(
-        (user) => `
-          <article class="teacher-card">
-            <p class="eyebrow">${escapeHtml(formatRole(user.role))}</p>
-            <h3>${escapeHtml(user.displayName || user.username)}</h3>
-            <p>账号：${escapeHtml(user.username)}</p>
-            <div class="row-actions">
-              <div class="chip-row">
-                <span class="${user.isActive ? 'chip-good' : 'chip-warn'}">${user.isActive ? '启用中' : '已停用'}</span>
-                <span class="chip">训练 ${escapeHtml(user.sessionCount)}</span>
-                <span class="chip">均分 ${escapeHtml(user.averageScore ?? '--')}</span>
-              </div>
-              ${
-                user.role === 'TEACHER'
-                  ? `
-                    <button
-                      class="secondary-btn compact-btn"
-                      type="button"
-                      data-toggle-user="${escapeHtml(user.id)}"
-                      data-next-active="${user.isActive ? 'false' : 'true'}"
-                    >
-                      ${user.isActive ? '停用' : '启用'}
-                    </button>
-                  `
-                  : ''
-              }
-            </div>
-          </article>
+        (scene) => `
+          <button class="scene-card ${scene.id === state.scene ? 'active' : ''}" type="button" data-scene="${escapeHtml(scene.id)}">
+            <p class="eyebrow">${escapeHtml(scene.tone)}</p>
+            <h3>${escapeHtml(scene.title)}</h3>
+            <p>${escapeHtml(scene.desc)}</p>
+          </button>
         `
       )
       .join('');
-
-    nodes.teacherList.querySelectorAll('[data-toggle-user]').forEach((button) => {
+    nodes.sceneList.querySelectorAll('[data-scene]').forEach((button) => {
       button.addEventListener('click', async () => {
-        const userId = button.getAttribute('data-toggle-user');
-        const isActive = button.getAttribute('data-next-active') === 'true';
-        await api(`/api/admin/users/${userId}/status`, {
-          method: 'PATCH',
-          body: JSON.stringify({ isActive }),
-        });
-        await Promise.all([loadUsers(), loadDashboard()]);
+        state.scene = button.dataset.scene;
+        await loadObjections();
       });
     });
   }
 
-  function parseTeacherImportRows(value) {
-    return String(value || '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .filter((line) => !/^账号[\s,，\t]+姓名[\s,，\t]+/.test(line))
-      .map((line, index) => {
-        const columns = line
-          .split(/\t|,|，/)
-          .map((column) => column.trim())
-          .filter(Boolean);
-
-        if (columns.length !== 3) {
-          throw new Error(`第 ${index + 1} 行格式不正确，请使用：账号,姓名,初始密码`);
-        }
-
-        return {
-          username: columns[0],
-          displayName: columns[1],
-          password: columns[2],
-        };
+  function renderObjections() {
+    nodes.libraryTitle.textContent = `${sceneName(state.scene)}内容库`;
+    if (!state.objections.length) {
+      nodes.objectionList.innerHTML = '<div class="empty-state">当前没有匹配内容，可以新增或上传文档导入。</div>';
+      fillObjectionForm(null);
+      return;
+    }
+    if (!state.objections.some((item) => item.id === state.selectedObjectionId)) {
+      state.selectedObjectionId = state.objections[0].id;
+    }
+    nodes.objectionList.innerHTML = state.objections
+      .map(
+        (item) => `
+          <article class="objection-card ${item.id === state.selectedObjectionId ? 'active' : ''}" data-objection="${escapeHtml(item.id)}">
+            <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.concern)}</p>
+            <div class="tag-row">
+              <span class="${item.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${item.status === 'ACTIVE' ? '已上架' : '已下架'}</span>
+              ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join('')}
+            </div>
+          </article>
+        `
+      )
+      .join('');
+    nodes.objectionList.querySelectorAll('[data-objection]').forEach((card) => {
+      card.addEventListener('click', () => {
+        state.selectedObjectionId = card.dataset.objection;
+        renderObjections();
+        fillObjectionForm(selectedObjection());
       });
+    });
+    fillObjectionForm(selectedObjection());
   }
 
-  function renderTeacherImportResults(results) {
-    if (!results.length) {
-      nodes.teacherImportResults.innerHTML = '';
+  function fillObjectionForm(item) {
+    nodes.objectionForm.reset();
+    if (!item) {
+      nodes.editorTitle.textContent = '新增异议';
+      nodes.editorStatus.textContent = '草稿';
+      nodes.editorStatus.className = 'tag-warn';
+      nodes.toggleObjectionStatusButton.textContent = '下架';
+      nodes.objectionForm.scene.value = state.scene;
       return;
     }
+    nodes.editorTitle.textContent = '编辑异议';
+    nodes.editorStatus.textContent = item.status === 'ACTIVE' ? '已上架' : '已下架';
+    nodes.editorStatus.className = item.status === 'ACTIVE' ? 'tag-good' : 'tag-danger';
+    nodes.toggleObjectionStatusButton.textContent = item.status === 'ACTIVE' ? '下架' : '上架';
+    nodes.objectionForm.id.value = item.id;
+    nodes.objectionForm.scene.value = item.scene;
+    nodes.objectionForm.title.value = item.title;
+    nodes.objectionForm.keywords.value = (item.keywords || []).join(', ');
+    nodes.objectionForm.concern.value = item.concern;
+    nodes.objectionForm.thinking.value = (item.thinking || []).join('\n');
+    nodes.objectionForm.scripts.value = (item.scripts || []).join('\n\n');
+    nodes.objectionForm.avoid.value = item.avoid;
+  }
 
-    nodes.teacherImportResults.innerHTML = results
+  async function loadObjections() {
+    const params = new URLSearchParams({ scene: state.scene, status: nodes.objectionStatusFilter.value });
+    const keyword = nodes.objectionSearchInput.value.trim();
+    if (keyword) params.set('keyword', keyword);
+    state.objections = await api(`/api/admin/objections?${params.toString()}`);
+    state.selectedObjectionId = state.objections[0]?.id || '';
+    renderContentMetrics();
+    renderScenes();
+    renderObjections();
+  }
+
+  function renderAccounts() {
+    const keyword = nodes.accountSearchInput.value.trim().toLowerCase();
+    const role = nodes.roleFilter.value;
+    const users = state.users.filter((user) => {
+      if (role !== 'all' && user.role !== role) return false;
+      if (!keyword) return true;
+      return [user.username, user.displayName, roleLabel(user.role)].join(' ').toLowerCase().includes(keyword);
+    });
+    nodes.accountMetrics.innerHTML = [
+      ['账号总数', state.users.length, '系统内老师和管理员账号'],
+      ['老师账号', state.users.filter((user) => user.role === 'TEACHER').length, '可登录老师端'],
+      ['管理员', state.users.filter((user) => user.role === 'TRAINER').length, '可维护后台内容'],
+    ]
       .map(
-        (result) => `
-          <article class="import-result-card">
-            <div class="row-actions">
-              <div>
-                <p class="eyebrow">${escapeHtml(result.status === 'CREATED' ? 'Created' : 'Skipped')}</p>
-                <h3>${escapeHtml(result.displayName || result.username)}</h3>
-                <p>账号：${escapeHtml(result.username)}</p>
-              </div>
-              <span class="${result.status === 'CREATED' ? 'chip-good' : 'chip-warn'}">
-                ${escapeHtml(result.status === 'CREATED' ? '已创建' : result.reason || '已跳过')}
-              </span>
-            </div>
-          </article>
+        ([label, value, desc]) => `
+          <article class="metric-card"><p class="eyebrow">${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><p>${escapeHtml(desc)}</p></article>
         `
       )
       .join('');
-  }
-
-  function mapDifficultyInput(value) {
-    const normalized = String(value || '').trim().toUpperCase();
-    const map = {
-      基础: 'BASIC',
-      BASIC: 'BASIC',
-      标准: 'STANDARD',
-      STANDARD: 'STANDARD',
-      进阶: 'ADVANCED',
-      高级: 'ADVANCED',
-      ADVANCED: 'ADVANCED',
-    };
-    return map[normalized] || 'STANDARD';
-  }
-
-  function mapStatusInput(value) {
-    const normalized = String(value || '').trim().toUpperCase();
-    const map = {
-      启用: 'ACTIVE',
-      ACTIVE: 'ACTIVE',
-      停用: 'INACTIVE',
-      INACTIVE: 'INACTIVE',
-    };
-    return map[normalized] || 'ACTIVE';
-  }
-
-  function parseCsvLine(line) {
-    const columns = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let index = 0; index < line.length; index += 1) {
-      const char = line[index];
-      const nextChar = line[index + 1];
-
-      if (char === '"' && inQuotes && nextChar === '"') {
-        current += '"';
-        index += 1;
-        continue;
-      }
-
-      if (char === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-
-      if (char === ',' && !inQuotes) {
-        columns.push(current.trim());
-        current = '';
-        continue;
-      }
-
-      current += char;
-    }
-
-    if (inQuotes) {
-      throw new Error('CSV 内容存在未闭合的英文双引号，请检查模板内容。');
-    }
-
-    columns.push(current.trim());
-    return columns;
-  }
-
-  function parseScenarioImportColumns(line) {
-    return line.includes('\t') ? line.split('\t').map((column) => column.trim()) : parseCsvLine(line);
-  }
-
-  function csvCell(value) {
-    return `"${String(value).replace(/"/g, '""')}"`;
-  }
-
-  function downloadCsv(filename, rows) {
-    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
-    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function handleDownloadScenarioTemplate() {
-    downloadCsv('异议场景导入模板.csv', [
-      ['场景名称', '场景描述', '家长画像', '开场话术', '难度', '状态', '异议步骤'],
-      [
-        '价格敏感型家长',
-        '家长认可课程方向，但会连续提出价格、对比和决策顾虑。',
-        '李妈妈',
-        '老师，今天体验课孩子玩得挺开心的，但正式课是不是有点贵？',
-        '标准',
-        '启用',
-        '价格偏高|你们课程太贵了|先共情，再说明课程价值；还想比较|我再看看别家|帮助家长明确比较标准',
-      ],
-    ]);
-  }
-
-  function parseScenarioImportRows(value) {
-    return String(value || '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .filter((line) => !/^场景名称[\s,，\t]+场景描述[\s,，\t]+/.test(line))
-      .map((line, index) => {
-        const columns = parseScenarioImportColumns(line);
-
-        if (columns.length !== 7) {
-          throw new Error(`第 ${index + 1} 行格式不正确，请使用 7 列：场景名称、场景描述、家长画像、开场话术、难度、状态、异议步骤`);
-        }
-
-        const steps = columns[6]
-          .split(/;|；/)
-          .map((stepText) => stepText.trim())
-          .filter(Boolean)
-          .map((stepText, stepIndex) => {
-            const stepColumns = stepText.split('|').map((column) => column.trim());
-
-            if (stepColumns.length !== 3) {
-              throw new Error(`第 ${index + 1} 行第 ${stepIndex + 1} 个异议步骤格式不正确，请使用：步骤标题|异议内容|点评关注点`);
-            }
-
-            return {
-              order: stepIndex + 1,
-              title: stepColumns[0],
-              objectionText: stepColumns[1],
-              evaluationFocus: stepColumns[2],
-            };
-          });
-
-        if (!steps.length) {
-          throw new Error(`第 ${index + 1} 行至少需要 1 个异议步骤。`);
-        }
-
-        return {
-          title: columns[0],
-          description: columns[1],
-          parentPersona: columns[2],
-          openingLine: columns[3],
-          difficulty: mapDifficultyInput(columns[4]),
-          status: mapStatusInput(columns[5]),
-          steps,
-        };
-      });
-  }
-
-  function renderScenarioImportResults(results) {
-    if (!results.length) {
-      nodes.scenarioImportResults.innerHTML = '';
-      return;
-    }
-
-    nodes.scenarioImportResults.innerHTML = results
-      .map(
-        (result) => `
-          <article class="import-result-card">
-            <div class="row-actions">
-              <div>
-                <p class="eyebrow">Created</p>
-                <h3>${escapeHtml(result.title)}</h3>
-                <p>场景 ID：${escapeHtml(result.id)}</p>
-              </div>
-              <span class="chip-good">已创建</span>
-            </div>
-          </article>
-        `
-      )
-      .join('');
-  }
-
-  function getSelectedScenarioIds() {
-    return Array.from(nodes.topicStudio.querySelectorAll('[data-select-scenario]:checked')).map((input) =>
-      input.getAttribute('data-select-scenario')
-    );
-  }
-
-  function renderScenarioBulkDeleteResults(results) {
-    const deleted = results.filter((result) => result.status === 'DELETED').length;
-    const skipped = results.filter((result) => result.status === 'SKIPPED').length;
-    nodes.scenarioBulkDeleteStatus.textContent = `批量删除完成：删除 ${deleted} 个，跳过 ${skipped} 个。`;
-    nodes.scenarioBulkDeleteResults.innerHTML = results
-      .map(
-        (result) => `
-          <article class="import-result-card">
-            <div class="row-actions">
-              <div>
-                <p class="eyebrow">${escapeHtml(result.status === 'DELETED' ? 'Deleted' : 'Skipped')}</p>
-                <h3>${escapeHtml(result.title || result.id)}</h3>
-                <p>${escapeHtml(result.reason || '已删除')}</p>
-              </div>
-              <span class="${result.status === 'DELETED' ? 'chip-good' : 'chip-warn'}">
-                ${escapeHtml(result.status === 'DELETED' ? '已删除' : '已跳过')}
-              </span>
-            </div>
-          </article>
-        `
-      )
-      .join('');
-  }
-
-  function renderTopicStudio() {
-    if (!state.topics.length) {
-      nodes.topicStudio.innerHTML = renderEmptyState('还没有主题，先在右侧创建一个主题。');
-      return;
-    }
-
-    nodes.topicStudio.innerHTML = state.topics
-      .map(
-        (topic) => `
-          <div class="topic-block">
-            <article class="topic-card">
-              <div class="row-actions">
+    nodes.accountList.innerHTML = users.length
+      ? users
+          .map(
+            (user) => `
+              <article class="account-card">
                 <div>
-                  <p class="eyebrow">${escapeHtml(trainingModuleLabel(topic.trainingModule))} · ${escapeHtml(statusLabel(topic.status))}</p>
-                  <h3>${escapeHtml(topic.title)}</h3>
+                  <p class="eyebrow">${escapeHtml(roleLabel(user.role))}</p>
+                  <h3>${escapeHtml(user.displayName || user.username)}</h3>
+                  <p>账号：${escapeHtml(user.username)} · 练习 ${escapeHtml(user.sessionCount || 0)} 次</p>
+                  <div class="tag-row">
+                    <span class="${user.isActive ? 'tag-good' : 'tag-danger'}">${user.isActive ? '启用中' : '已停用'}</span>
+                  </div>
                 </div>
-                <div class="chip-row">
-                  <span class="chip">场景 ${escapeHtml(topic.scenarioCount)}</span>
-                  <button class="secondary-btn compact-btn" type="button" data-edit-topic="${escapeHtml(topic.id)}">
-                    编辑主题
-                  </button>
-                  <button class="secondary-btn compact-btn" type="button" data-delete-topic="${escapeHtml(topic.id)}">
-                    删除主题
-                  </button>
-                </div>
-              </div>
-              <p>${escapeHtml(topic.description)}</p>
-            </article>
-            <div class="scenario-list">
-              ${topic.scenarios
-                .map(
-                  (scenario) => `
-                    <article class="scenario-card">
-                      <div class="scenario-actions">
-                        <label class="scenario-select">
-                          <input type="checkbox" data-select-scenario="${escapeHtml(scenario.id)}" />
-                          <span>选择</span>
-                        </label>
-                        <div>
-                          <p class="eyebrow">${escapeHtml(difficultyLabel(scenario.difficulty))} · ${escapeHtml(
-                            statusLabel(scenario.status)
-                          )}</p>
-                          <h3>${escapeHtml(scenario.title)}</h3>
-                        </div>
-                        <div class="chip-row">
-                          <button
-                            class="secondary-btn compact-btn"
-                            type="button"
-                            data-edit-scenario="${escapeHtml(scenario.id)}"
-                          >
-                            编辑场景
-                          </button>
-                          <button
-                            class="secondary-btn compact-btn"
-                            type="button"
-                            data-delete-scenario="${escapeHtml(scenario.id)}"
-                          >
-                            删除场景
-                          </button>
-                        </div>
-                      </div>
-                      <p>${escapeHtml(scenario.description)}</p>
-                      <div class="chip-row">
-                        ${scenario.steps
-                          .map(
-                            (step) => `
-                              <span class="chip-warn">Step ${escapeHtml(step.order)} · ${escapeHtml(step.title)}</span>
-                            `
-                          )
-                          .join('')}
-                      </div>
-                    </article>
-                  `
-                )
-                .join('')}
-            </div>
-          </div>
-        `
-      )
-      .join('');
-
-    nodes.topicStudio.querySelectorAll('[data-edit-topic]').forEach((button) => {
-      button.addEventListener('click', () => {
-        fillTopicForm(button.getAttribute('data-edit-topic'));
-      });
-    });
-
-    nodes.topicStudio.querySelectorAll('[data-delete-topic]').forEach((button) => {
+                <button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
+              </article>
+            `
+          )
+          .join('')
+      : '<div class="empty-state">暂无匹配账号。</div>';
+    nodes.accountList.querySelectorAll('[data-toggle-user]').forEach((button) => {
       button.addEventListener('click', async () => {
-        const topicId = button.getAttribute('data-delete-topic');
-        if (!confirm('确认删除该主题？如果主题下仍有场景，系统会阻止删除。')) return;
-        await api(`/api/admin/topics/${topicId}`, { method: 'DELETE' });
-        await Promise.all([loadTopics(), loadDashboard()]);
+        await api(`/api/admin/users/${button.dataset.toggleUser}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ isActive: button.dataset.next === 'true' }),
+        });
+        await loadUsers();
       });
     });
-
-    nodes.topicStudio.querySelectorAll('[data-edit-scenario]').forEach((button) => {
-      button.addEventListener('click', () => {
-        fillScenarioForm(button.getAttribute('data-edit-scenario'));
-      });
-    });
-
-    nodes.topicStudio.querySelectorAll('[data-delete-scenario]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        const scenarioId = button.getAttribute('data-delete-scenario');
-        if (!confirm('确认删除该场景？')) return;
-        await api(`/api/admin/scenarios/${scenarioId}`, { method: 'DELETE' });
-        await Promise.all([loadTopics(), loadDashboard()]);
-      });
-    });
-  }
-
-  function refreshScenarioTopicSelect() {
-    const options = state.topics
-      .map(
-        (topic) =>
-          `<option value="${escapeHtml(topic.id)}">${escapeHtml(trainingModuleLabel(topic.trainingModule))} / ${escapeHtml(topic.title)}</option>`
-      )
-      .join('');
-    nodes.scenarioTopicSelect.innerHTML = options;
-    nodes.scenarioImportTopicSelect.innerHTML = options;
-  }
-
-  function createStepEditorRow(step) {
-    const stepData = step || { order: 1, title: '', objectionText: '', evaluationFocus: '' };
-    const row = document.createElement('div');
-    row.className = 'step-editor-card';
-    row.innerHTML = `
-      <div class="step-editor-head">
-        <h3>步骤 ${escapeHtml(stepData.order)}</h3>
-        <button class="secondary-btn compact-btn" type="button">移除</button>
-      </div>
-      <div class="form-grid">
-        <label>
-          <span>顺序</span>
-          <input type="number" name="order" min="1" value="${escapeHtml(stepData.order)}" />
-        </label>
-        <label>
-          <span>步骤标题</span>
-          <input
-            type="text"
-            name="title"
-            value="${escapeHtml(stepData.title)}"
-            placeholder="第一异议：价格偏高"
-          />
-        </label>
-      </div>
-      <label>
-        <span>异议内容</span>
-        <textarea name="objectionText" placeholder="你们课程有点贵。">${escapeHtml(stepData.objectionText)}</textarea>
-      </label>
-      <label>
-        <span>点评关注点</span>
-        <textarea name="evaluationFocus" placeholder="先共情，再解释价值，最后推动下一步。">${escapeHtml(
-          stepData.evaluationFocus
-        )}</textarea>
-      </label>
-    `;
-
-    row.querySelector('button').addEventListener('click', () => {
-      row.remove();
-      ensureStepRows();
-      renumberStepRows();
-    });
-
-    return row;
-  }
-
-  function ensureStepRows() {
-    if (!nodes.stepEditorList.children.length) {
-      nodes.stepEditorList.appendChild(createStepEditorRow());
-    }
-  }
-
-  function renumberStepRows() {
-    Array.from(nodes.stepEditorList.children).forEach((row, index) => {
-      const orderInput = row.querySelector('[name="order"]');
-      const titleNode = row.querySelector('.step-editor-head h3');
-      if (orderInput && !orderInput.value) {
-        orderInput.value = String(index + 1);
-      }
-      if (titleNode) {
-        titleNode.textContent = `步骤 ${index + 1}`;
-      }
-    });
-  }
-
-  function collectStepRows() {
-    return Array.from(nodes.stepEditorList.children).map((row) => ({
-      order: Number(row.querySelector('[name="order"]').value),
-      title: row.querySelector('[name="title"]').value.trim(),
-      objectionText: row.querySelector('[name="objectionText"]').value.trim(),
-      evaluationFocus: row.querySelector('[name="evaluationFocus"]').value.trim(),
-    }));
-  }
-
-  function resetTopicForm() {
-    state.editingTopicId = '';
-    nodes.topicForm.reset();
-    nodes.topicForm.querySelector('[name="topicId"]').value = '';
-    nodes.topicFormTitle.textContent = '新增主题';
-    nodes.topicStatus.textContent = '';
-    nodes.topicForm.querySelector('[name="trainingModule"]').value = 'PRE_CLASS';
-    nodes.topicForm.querySelector('[name="status"]').value = 'ACTIVE';
-  }
-
-  function resetScenarioForm() {
-    state.editingScenarioId = '';
-    nodes.scenarioForm.reset();
-    nodes.scenarioForm.querySelector('[name="scenarioId"]').value = '';
-    nodes.scenarioFormTitle.textContent = '新增场景';
-    nodes.scenarioStatus.textContent = '';
-    nodes.stepEditorList.innerHTML = '';
-    nodes.stepEditorList.appendChild(createStepEditorRow());
-    if (state.topics.length) {
-      nodes.scenarioTopicSelect.value = state.topics[0].id;
-    }
-  }
-
-  function fillTopicForm(topicId) {
-    const topic = state.topics.find((item) => item.id === topicId);
-    if (!topic) return;
-
-    state.editingTopicId = topic.id;
-    nodes.topicFormTitle.textContent = `编辑主题 · ${topic.title}`;
-    nodes.topicForm.querySelector('[name="topicId"]').value = topic.id;
-    nodes.topicForm.querySelector('[name="trainingModule"]').value = topic.trainingModule || 'PRE_CLASS';
-    nodes.topicForm.querySelector('[name="title"]').value = topic.title;
-    nodes.topicForm.querySelector('[name="description"]').value = topic.description;
-    nodes.topicForm.querySelector('[name="status"]').value = topic.status;
-    nodes.topicStatus.textContent = '已载入主题，可直接修改并保存。';
-    state.activeTab = 'topics';
-    renderTabs();
-  }
-
-  function fillScenarioForm(scenarioId) {
-    for (const topic of state.topics) {
-      const scenario = topic.scenarios.find((item) => item.id === scenarioId);
-      if (!scenario) continue;
-
-      state.editingScenarioId = scenario.id;
-      nodes.scenarioFormTitle.textContent = `编辑场景 · ${scenario.title}`;
-      nodes.scenarioForm.querySelector('[name="scenarioId"]').value = scenario.id;
-      nodes.scenarioForm.querySelector('[name="topicId"]').value = topic.id;
-      nodes.scenarioForm.querySelector('[name="title"]').value = scenario.title;
-      nodes.scenarioForm.querySelector('[name="description"]').value = scenario.description;
-      nodes.scenarioForm.querySelector('[name="parentPersona"]').value = scenario.parentPersona;
-      nodes.scenarioForm.querySelector('[name="openingLine"]').value = scenario.openingLine;
-      nodes.scenarioForm.querySelector('[name="difficulty"]').value = scenario.difficulty;
-      nodes.scenarioForm.querySelector('[name="status"]').value = scenario.status;
-      nodes.stepEditorList.innerHTML = '';
-      scenario.steps.forEach((step) => {
-        nodes.stepEditorList.appendChild(createStepEditorRow(step));
-      });
-      renumberStepRows();
-      state.activeTab = 'topics';
-      renderTabs();
-      return;
-    }
-  }
-
-  async function loadProfile() {
-    state.profile = await api('/api/admin/me');
-    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${formatRole(
-      state.profile.role
-    )}`;
-  }
-
-  async function loadDashboard() {
-    state.dashboard = await api('/api/admin/dashboard');
-    renderDashboard();
   }
 
   async function loadUsers() {
     state.users = await api('/api/admin/users');
-    renderTeachers();
+    renderAccounts();
   }
 
-  async function loadTopics() {
-    state.topics = await api('/api/admin/topics');
-    refreshScenarioTopicSelect();
-    renderTopicStudio();
-    if (!state.editingTopicId) {
-      resetTopicForm();
-    }
-    if (!state.editingScenarioId) {
-      resetScenarioForm();
-    }
+  async function loadProfile() {
+    state.profile = await api('/api/admin/me');
+    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
+      state.profile.role === 'TRAINER' ? '管理员' : '老师'
+    }`;
   }
 
   async function refreshAll() {
-    await Promise.all([loadProfile(), loadDashboard(), loadUsers(), loadTopics()]);
+    await Promise.all([loadProfile(), loadObjections(), loadUsers()]);
+    renderModules();
   }
 
-  async function handleLogin(event) {
+  nodes.loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     nodes.loginStatus.textContent = '正在登录...';
     const formData = new FormData(nodes.loginForm);
-
     try {
       const result = await api('/api/auth/login', {
         method: 'POST',
@@ -851,11 +357,7 @@
           password: String(formData.get('password') || ''),
         }),
       });
-
-      if (result.user.role !== 'TRAINER') {
-        throw new Error('当前账号不是培训主管，无法进入管理台。');
-      }
-
+      if (result.user.role !== 'TRAINER') throw new Error('当前账号不是管理员，无法进入后台');
       setToken(result.token);
       toggleApp(true);
       nodes.loginStatus.textContent = '';
@@ -863,13 +365,94 @@
     } catch (error) {
       nodes.loginStatus.textContent = error.message;
     }
-  }
+  });
 
-  async function handleCreateUser(event) {
+  nodes.moduleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.module = button.dataset.module;
+      renderModules();
+    });
+  });
+  nodes.logoutButton.addEventListener('click', () => {
+    setToken('');
+    toggleApp(false);
+  });
+  nodes.objectionSearchInput.addEventListener('input', () => window.setTimeout(loadObjections, 180));
+  nodes.objectionStatusFilter.addEventListener('change', loadObjections);
+  nodes.accountSearchInput.addEventListener('input', renderAccounts);
+  nodes.roleFilter.addEventListener('change', renderAccounts);
+  nodes.newObjectionButton.addEventListener('click', () => {
+    state.selectedObjectionId = '';
+    fillObjectionForm(null);
+  });
+  nodes.toggleObjectionStatusButton.addEventListener('click', async () => {
+    const item = selectedObjection();
+    if (!item) return;
+    await api(`/api/admin/objections/${item.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }),
+    });
+    await loadObjections();
+  });
+  nodes.objectionForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    nodes.teacherStatus.textContent = '正在创建...';
-    const formData = new FormData(nodes.teacherForm);
-
+    const formData = new FormData(nodes.objectionForm);
+    const id = String(formData.get('id') || '');
+    const payload = {
+      scene: String(formData.get('scene') || state.scene),
+      title: String(formData.get('title') || '').trim(),
+      concern: String(formData.get('concern') || '').trim(),
+      keywords: String(formData.get('keywords') || '').split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean),
+      thinking: String(formData.get('thinking') || '').split(/\n+/).map((item) => item.trim()).filter(Boolean),
+      scripts: String(formData.get('scripts') || '').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean),
+      avoid: String(formData.get('avoid') || '').trim(),
+      status: selectedObjection()?.status || 'ACTIVE',
+    };
+    try {
+      const saved = await api(id ? `/api/admin/objections/${id}` : '/api/admin/objections', {
+        method: id ? 'PUT' : 'POST',
+        body: JSON.stringify(payload),
+      });
+      state.scene = saved.scene;
+      state.selectedObjectionId = saved.id;
+      nodes.objectionFormStatus.textContent = '内容已保存';
+      await loadObjections();
+    } catch (error) {
+      nodes.objectionFormStatus.textContent = error.message;
+    }
+  });
+  nodes.importForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(nodes.importForm);
+    nodes.importStatus.textContent = '正在上传并导入...';
+    try {
+      const result = await uploadApi('/api/admin/objections/import/document', formData);
+      nodes.importStatus.textContent = `导入完成：${result.created} 条`;
+      nodes.importForm.reset();
+      await loadObjections();
+    } catch (error) {
+      nodes.importStatus.textContent = error.message;
+    }
+  });
+  nodes.downloadObjectionTemplateButton.addEventListener('click', () => {
+    downloadCsv('异议内容导入模板.csv', [
+      ['场景', '异议问题', '真实顾虑', '关键词', '解决思路', '推荐话术', '禁忌提醒', '状态'],
+      [
+        '课前进线',
+        '孩子坐不住，担心体验课没效果',
+        '家长担心孩子专注力不足，体验课浪费时间，也担心老师无法控场。',
+        '坐不住、专注力、没效果',
+        '先承认担心；再说明体验课会观察孩子适配度；最后给家长明确观察标准',
+        '您这个担心很正常，体验课就是用来观察孩子能不能被老师带起来，以及他对课程有没有兴趣。',
+        '不要直接保证一定有效，也不要评价孩子不配合。',
+        'ACTIVE',
+      ],
+    ]);
+  });
+  nodes.accountForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(nodes.accountForm);
+    nodes.accountStatus.textContent = '正在创建...';
     try {
       await api('/api/admin/users', {
         method: 'POST',
@@ -880,223 +463,36 @@
           role: String(formData.get('role') || 'TEACHER'),
         }),
       });
-      nodes.teacherForm.reset();
-      nodes.teacherStatus.textContent = '账号创建成功。';
-      await Promise.all([loadUsers(), loadDashboard()]);
+      nodes.accountForm.reset();
+      nodes.accountStatus.textContent = '账号已创建';
+      await loadUsers();
     } catch (error) {
-      nodes.teacherStatus.textContent = error.message;
+      nodes.accountStatus.textContent = error.message;
     }
-  }
-
-  async function handleImportTeachers(event) {
+  });
+  nodes.teacherImportForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    nodes.teacherImportStatus.textContent = '正在解析导入内容...';
-    nodes.teacherImportResults.innerHTML = '';
-
+    const formData = new FormData(nodes.teacherImportForm);
+    nodes.teacherImportStatus.textContent = '正在导入老师账号...';
     try {
-      const formData = new FormData(nodes.teacherImportForm);
-      const users = parseTeacherImportRows(formData.get('users'));
-
-      if (!users.length) {
-        throw new Error('请先粘贴需要导入的教师账号。');
-      }
-
-      nodes.teacherImportStatus.textContent = `正在导入 ${users.length} 个教师账号...`;
+      const users = parseTeacherImportText(String(formData.get('users') || ''));
       const result = await api('/api/admin/users/import', {
         method: 'POST',
         body: JSON.stringify({ users }),
       });
-
-      nodes.teacherImportStatus.textContent = `导入完成：成功 ${result.created} 个，跳过 ${result.skipped} 个。`;
-      renderTeacherImportResults(result.results || []);
+      nodes.teacherImportStatus.textContent = `导入完成：创建 ${result.created} 个，跳过 ${result.skipped} 个`;
       nodes.teacherImportForm.reset();
-      await Promise.all([loadUsers(), loadDashboard()]);
+      await loadUsers();
     } catch (error) {
       nodes.teacherImportStatus.textContent = error.message;
     }
-  }
-
-  async function handleSaveTopic(event) {
-    event.preventDefault();
-    nodes.topicStatus.textContent = '正在保存...';
-    const formData = new FormData(nodes.topicForm);
-    const payload = {
-      trainingModule: String(formData.get('trainingModule') || 'PRE_CLASS'),
-      title: String(formData.get('title') || ''),
-      description: String(formData.get('description') || ''),
-      status: String(formData.get('status') || 'ACTIVE'),
-    };
-
-    try {
-      if (state.editingTopicId) {
-        await api(`/api/admin/topics/${state.editingTopicId}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-        nodes.topicStatus.textContent = '主题已更新。';
-      } else {
-        await api('/api/admin/topics', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        nodes.topicStatus.textContent = '主题创建成功。';
-      }
-
-      await Promise.all([loadTopics(), loadDashboard()]);
-      resetTopicForm();
-    } catch (error) {
-      nodes.topicStatus.textContent = error.message;
-    }
-  }
-
-  async function handleSaveScenario(event) {
-    event.preventDefault();
-    nodes.scenarioStatus.textContent = '正在保存...';
-    const formData = new FormData(nodes.scenarioForm);
-    const payload = {
-      topicId: String(formData.get('topicId') || ''),
-      title: String(formData.get('title') || ''),
-      description: String(formData.get('description') || ''),
-      parentPersona: String(formData.get('parentPersona') || ''),
-      openingLine: String(formData.get('openingLine') || ''),
-      difficulty: String(formData.get('difficulty') || 'STANDARD'),
-      status: String(formData.get('status') || 'ACTIVE'),
-      steps: collectStepRows(),
-    };
-
-    try {
-      if (state.editingScenarioId) {
-        await api(`/api/admin/scenarios/${state.editingScenarioId}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-        nodes.scenarioStatus.textContent = '场景已更新。';
-      } else {
-        await api('/api/admin/scenarios', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        nodes.scenarioStatus.textContent = '场景创建成功。';
-      }
-
-      await Promise.all([loadTopics(), loadDashboard()]);
-      resetScenarioForm();
-    } catch (error) {
-      nodes.scenarioStatus.textContent = error.message;
-    }
-  }
-
-  async function handleImportScenarios(event) {
-    event.preventDefault();
-    nodes.scenarioImportStatus.textContent = '正在解析导入内容...';
-    nodes.scenarioImportResults.innerHTML = '';
-
-    try {
-      const formData = new FormData(nodes.scenarioImportForm);
-      const scenarios = parseScenarioImportRows(formData.get('scenarios'));
-      const topicId = String(formData.get('topicId') || '');
-
-      if (!topicId) {
-        throw new Error('请先选择所属主题。');
-      }
-
-      if (!scenarios.length) {
-        throw new Error('请先粘贴需要导入的场景。');
-      }
-
-      nodes.scenarioImportStatus.textContent = `正在导入 ${scenarios.length} 个场景...`;
-      const result = await api('/api/admin/scenarios/import', {
-        method: 'POST',
-        body: JSON.stringify({ topicId, scenarios }),
-      });
-
-      nodes.scenarioImportStatus.textContent = `导入完成：成功 ${result.created} 个场景。`;
-      renderScenarioImportResults(result.results || []);
-      nodes.scenarioImportForm.reset();
-      await Promise.all([loadTopics(), loadDashboard()]);
-    } catch (error) {
-      nodes.scenarioImportStatus.textContent = error.message;
-    }
-  }
-
-  async function handleBulkDeleteScenarios() {
-    const scenarioIds = getSelectedScenarioIds().filter(Boolean);
-    nodes.scenarioBulkDeleteResults.innerHTML = '';
-
-    if (!scenarioIds.length) {
-      nodes.scenarioBulkDeleteStatus.textContent = '请先勾选需要删除的场景。';
-      return;
-    }
-
-    if (!confirm(`确认删除选中的 ${scenarioIds.length} 个场景？已有训练记录的场景会自动跳过。`)) {
-      return;
-    }
-
-    nodes.scenarioBulkDeleteStatus.textContent = '正在批量删除场景...';
-
-    try {
-      const result = await api('/api/admin/scenarios/delete', {
-        method: 'POST',
-        body: JSON.stringify({ scenarioIds }),
-      });
-      renderScenarioBulkDeleteResults(result.results || []);
-      await Promise.all([loadTopics(), loadDashboard()]);
-    } catch (error) {
-      nodes.scenarioBulkDeleteStatus.textContent = error.message;
-    }
-  }
+  });
 
   async function bootstrap() {
-    nodes.loginForm.addEventListener('submit', handleLogin);
-    nodes.teacherForm.addEventListener('submit', handleCreateUser);
-    nodes.teacherImportForm.addEventListener('submit', handleImportTeachers);
-    nodes.topicForm.addEventListener('submit', handleSaveTopic);
-    nodes.scenarioForm.addEventListener('submit', handleSaveScenario);
-    nodes.scenarioImportForm.addEventListener('submit', handleImportScenarios);
-    nodes.downloadScenarioTemplateButton.addEventListener('click', handleDownloadScenarioTemplate);
-    nodes.scenarioBulkDeleteButton.addEventListener('click', handleBulkDeleteScenarios);
-    nodes.topicResetButton.addEventListener('click', resetTopicForm);
-    nodes.scenarioResetButton.addEventListener('click', resetScenarioForm);
-    nodes.addStepButton.addEventListener('click', () => {
-      nodes.stepEditorList.appendChild(
-        createStepEditorRow({
-          order: nodes.stepEditorList.children.length + 1,
-          title: '',
-          objectionText: '',
-          evaluationFocus: '',
-        })
-      );
-      renumberStepRows();
-    });
-    nodes.refreshButton.addEventListener('click', refreshAll);
-    nodes.logoutButton.addEventListener('click', () => {
-      setToken('');
-      state.profile = null;
-      state.dashboard = null;
-      state.users = [];
-      state.topics = [];
-      state.editingTopicId = '';
-      state.editingScenarioId = '';
-      resetTopicForm();
-      resetScenarioForm();
-      toggleApp(false);
-    });
-
-    nodes.tabButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        state.activeTab = button.getAttribute('data-tab');
-        renderTabs();
-      });
-    });
-
-    ensureStepRows();
-    renderTabs();
-
     if (!state.token) {
       toggleApp(false);
       return;
     }
-
     try {
       toggleApp(true);
       await refreshAll();

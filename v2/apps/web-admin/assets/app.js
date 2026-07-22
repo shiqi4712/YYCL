@@ -65,6 +65,8 @@
     logoutButton: document.getElementById('adminLogoutButton'),
   };
 
+  nodes.teacherImportForm.querySelector('button[type="submit"]').textContent = '上传表格并导入';
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => {
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -122,6 +124,37 @@
         }
         return { username, displayName, password };
       });
+  }
+
+  function parseTeacherImportText(text) {
+    const rows = String(text || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (rows.length < 2) {
+      throw new Error('请上传包含表头和账号数据的 CSV 表格');
+    }
+
+    const headers = parseCommaLine(rows[0]).map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase());
+    const usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header));
+    const displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header));
+    const passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header));
+    if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0) {
+      throw new Error('表头必须包含：工号,姓名,密码');
+    }
+
+    return rows.slice(1).map((line, index) => {
+      const cells = parseCommaLine(line);
+      const username = (cells[usernameIndex] || '').trim();
+      const displayName = (cells[displayNameIndex] || '').trim();
+      const password = (cells[passwordIndex] || '').trim();
+      if (!username || !displayName || !password) {
+        throw new Error(`第 ${index + 2} 行缺少工号、姓名或密码`);
+      }
+      return { username, displayName, password };
+    });
   }
 
   function parseScriptsText(text) {
@@ -797,7 +830,11 @@
     const formData = new FormData(nodes.teacherImportForm);
     nodes.teacherImportStatus.textContent = '正在导入老师账号...';
     try {
-      const users = parseTeacherImportText(String(formData.get('users') || ''));
+      const file = formData.get('usersFile');
+      if (!(file instanceof File) || !file.size) {
+        throw new Error('请先选择老师账号 CSV 表格');
+      }
+      const users = parseTeacherImportText(await file.text());
       const result = await api('/api/admin/users/import', {
         method: 'POST',
         body: JSON.stringify({ users }),

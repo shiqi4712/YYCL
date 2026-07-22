@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260722-preserve-list" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260722-teacher-csv-import" />
   </head>
   <body>
     <div class="admin-shell">
@@ -251,6 +251,11 @@
                 </div>
                 <form class="form-stack" id="adminTeacherImportForm">
                   <label>
+                    <span>上传老师账号表格</span>
+                    <input name="usersFile" type="file" accept=".csv,text/csv" />
+                  </label>
+                  <p class="helper-text">请上传 CSV 表格，第一行为表头：工号,姓名,密码。工号将作为老师登录账号。</p>
+                  <label>
                     <span>账号清单</span>
                     <textarea name="users" placeholder="每行一个老师：账号,姓名,初始密码&#10;teacher02,李老师,123456&#10;teacher03,王老师,123456"></textarea>
                   </label>
@@ -268,6 +273,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260722-preserve-list"></script>
+    <script src="/assets/admin/app.js?v=20260722-teacher-csv-import"></script>
   </body>
 </html>

@@ -86,6 +86,7 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .script-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: start; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.9); box-shadow: var(--shadow-soft); }
 .script-row p { color: var(--muted); font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
 .form-stack label:has(.material-editor) { display: none; }
+.account-import-panel label:has(textarea[name="users"]) { display: none; }
 .rich-script-row > button[data-remove-script] { grid-column: 3; grid-row: 1; }
 .script-material-box { grid-column: 1 / -1; display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: rgba(245,245,247,.88); }
 .script-material-head { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }

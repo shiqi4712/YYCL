@@ -10,6 +10,16 @@ const materialSchema = z.object({
   url: z.string().min(1).max(1000),
   description: z.string().max(300).default(''),
 })
+const scriptSchema = z
+  .union([
+    z.string().min(1).max(2000),
+    z.object({
+      text: z.string().min(1).max(2000),
+      materials: z.array(materialSchema).max(12).default([]),
+    }),
+  ])
+  .transform((script) => (typeof script === 'string' ? { text: script, materials: [] } : script))
+type ScriptItem = z.infer<typeof scriptSchema>
 
 const objectionSchema = z.object({
   scene: sceneSchema,
@@ -17,7 +27,7 @@ const objectionSchema = z.object({
   concern: z.string().max(1000).default(''),
   keywords: z.array(z.string().min(1).max(30)).max(20).default([]),
   thinking: z.array(z.string().min(1).max(500)).max(12).default([]),
-  scripts: z.array(z.string().min(1).max(2000)).max(12).default([]),
+  scripts: z.array(scriptSchema).max(12).default([]),
   materials: z.array(materialSchema).max(12).default([]),
   avoid: z.string().max(1000).default(''),
   status: statusSchema.default('ACTIVE'),
@@ -35,6 +45,38 @@ function parseJsonArray(value: string) {
   } catch {
     return []
   }
+}
+
+function normalizeScripts(value: unknown): ScriptItem[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((script) => {
+      if (typeof script === 'string') {
+        const text = script.trim()
+        return text ? { text, materials: [] } : null
+      }
+      if (script && typeof script === 'object') {
+        const candidate = script as { text?: unknown; materials?: unknown }
+        const text = String(candidate.text || '').trim()
+        if (!text) return null
+        const materials = Array.isArray(candidate.materials)
+          ? candidate.materials
+              .map((material) => materialSchema.safeParse(material))
+              .filter((result): result is z.SafeParseSuccess<z.infer<typeof materialSchema>> => result.success)
+              .map((result) => result.data)
+          : []
+        return { text, materials }
+      }
+      return null
+    })
+    .filter((script): script is ScriptItem => Boolean(script))
+}
+
+function scriptSearchParts(scripts: ScriptItem[]) {
+  return scripts.flatMap((script) => [
+    script.text,
+    ...script.materials.flatMap((material) => [material.title || '', material.url || '', material.description || '']),
+  ])
 }
 
 function mapObjection(item: {
@@ -58,7 +100,7 @@ function mapObjection(item: {
     concern: item.concern,
     keywords: parseJsonArray(item.keywordsJson),
     thinking: parseJsonArray(item.thinkingJson),
-    scripts: parseJsonArray(item.scriptsJson),
+    scripts: normalizeScripts(parseJsonArray(item.scriptsJson)),
     materials: parseJsonArray(item.materialsJson || '[]'),
     avoid: item.avoid,
     status: item.status,
@@ -225,7 +267,7 @@ export async function listObjectionsForTeacher(scene?: string, keyword?: string)
       item.avoid,
       ...item.keywords,
       ...item.thinking,
-      ...item.scripts,
+      ...scriptSearchParts(item.scripts),
       ...item.materials.flatMap((material: { title?: string; url?: string; description?: string }) => [
         material.title || '',
         material.url || '',
@@ -265,7 +307,7 @@ export async function listObjectionsForAdmin(scene?: string, status?: string, ke
       item.avoid,
       ...item.keywords,
       ...item.thinking,
-      ...item.scripts,
+      ...scriptSearchParts(item.scripts),
       ...item.materials.flatMap((material: { title?: string; url?: string; description?: string }) => [
         material.title || '',
         material.url || '',

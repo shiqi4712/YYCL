@@ -129,16 +129,48 @@
     if (!value) return [];
     try {
       const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+      return Array.isArray(parsed) ? normalizeScripts(parsed) : [];
     } catch {
       return value
         .split(/\n{2,}/)
-        .map((item) => item.trim())
-        .filter(Boolean);
+        .map((item) => ({ text: item.trim(), materials: [] }))
+        .filter((item) => item.text);
     }
   }
 
+  function normalizeMaterial(material) {
+    if (!material || typeof material !== 'object') return null;
+    const title = String(material.title || '').trim();
+    const url = String(material.url || '').trim();
+    if (!title || !url) return null;
+    return {
+      type: material.type === 'IMAGE' ? 'IMAGE' : 'LINK',
+      title,
+      url,
+      description: String(material.description || '').trim(),
+    };
+  }
+
+  function normalizeScript(script) {
+    if (typeof script === 'string') {
+      const text = script.trim();
+      return text ? { text, materials: [] } : null;
+    }
+    if (!script || typeof script !== 'object') return null;
+    const text = String(script.text || '').trim();
+    if (!text) return null;
+    const materials = Array.isArray(script.materials)
+      ? script.materials.map(normalizeMaterial).filter(Boolean)
+      : [];
+    return { text, materials };
+  }
+
+  function normalizeScripts(scripts) {
+    return Array.isArray(scripts) ? scripts.map(normalizeScript).filter(Boolean) : [];
+  }
+
   function syncScriptsInput() {
+    state.scripts = normalizeScripts(state.scripts);
     nodes.objectionForm.scripts.value = JSON.stringify(state.scripts);
   }
 
@@ -148,9 +180,43 @@
       ? state.scripts
           .map(
             (script, index) => `
-              <article class="script-row">
+              <article class="script-row rich-script-row">
                 <div class="tag">${index + 1}</div>
-                <p>${escapeHtml(script)}</p>
+                <p>${escapeHtml(script.text)}</p>
+                <div class="script-material-box">
+                  <div class="script-material-head">
+                    <span>该话术配套物料</span>
+                    <small>可添加链接，也可上传本地图片</small>
+                  </div>
+                  <div class="material-list nested-material-list">
+                    ${(script.materials || []).length
+                      ? script.materials
+                          .map(
+                            (material, materialIndex) => `
+                              <article class="material-row nested-material-row">
+                                <div class="${material.type === 'IMAGE' ? 'tag-good' : 'tag'}">${material.type === 'IMAGE' ? '图片' : '链接'}</div>
+                                <div>
+                                  <h3>${escapeHtml(material.title)}</h3>
+                                  <p>${escapeHtml(material.description || material.url)}</p>
+                                </div>
+                                <button class="secondary-btn compact-btn" type="button" data-script-index="${index}" data-remove-script-material="${materialIndex}">移除</button>
+                              </article>
+                            `
+                          )
+                          .join('')
+                      : '<div class="empty-state compact-empty">暂无该话术专属物料。</div>'}
+                  </div>
+                  <div class="script-material-form">
+                    <input data-script-material-title="${index}" placeholder="物料名称，例如：作品示例图" />
+                    <input data-script-material-url="${index}" placeholder="链接地址，例如：https://..." />
+                    <input data-script-material-image="${index}" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+                    <input data-script-material-description="${index}" placeholder="使用说明，可选" />
+                  </div>
+                  <div class="row-actions">
+                    <button class="secondary-btn compact-btn" type="button" data-add-script-link="${index}">添加链接物料</button>
+                    <button class="secondary-btn compact-btn" type="button" data-upload-script-image="${index}">上传图片物料</button>
+                  </div>
+                </div>
                 <button class="secondary-btn compact-btn" type="button" data-remove-script="${index}">移除</button>
               </article>
             `
@@ -162,6 +228,58 @@
       button.addEventListener('click', () => {
         state.scripts.splice(Number(button.dataset.removeScript), 1);
         renderScriptEditor();
+      });
+    });
+
+    nodes.scriptList.querySelectorAll('[data-remove-script-material]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const scriptIndex = Number(button.dataset.scriptIndex);
+        const materialIndex = Number(button.dataset.removeScriptMaterial);
+        state.scripts[scriptIndex]?.materials?.splice(materialIndex, 1);
+        renderScriptEditor();
+      });
+    });
+
+    nodes.scriptList.querySelectorAll('[data-add-script-link]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const scriptIndex = Number(button.dataset.addScriptLink);
+        const title = nodes.scriptList.querySelector(`[data-script-material-title="${scriptIndex}"]`)?.value.trim() || '';
+        const url = nodes.scriptList.querySelector(`[data-script-material-url="${scriptIndex}"]`)?.value.trim() || '';
+        const description = nodes.scriptList.querySelector(`[data-script-material-description="${scriptIndex}"]`)?.value.trim() || '';
+        if (!title || !url) {
+          nodes.objectionFormStatus.textContent = '请填写该话术物料的名称和链接地址';
+          return;
+        }
+        state.scripts[scriptIndex].materials.push({ type: 'LINK', title, url, description });
+        nodes.objectionFormStatus.textContent = '';
+        renderScriptEditor();
+      });
+    });
+
+    nodes.scriptList.querySelectorAll('[data-upload-script-image]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const scriptIndex = Number(button.dataset.uploadScriptImage);
+        const fileInput = nodes.scriptList.querySelector(`[data-script-material-image="${scriptIndex}"]`);
+        const file = fileInput?.files?.[0];
+        if (!file) {
+          nodes.objectionFormStatus.textContent = '请先选择该话术要上传的本地图片';
+          return;
+        }
+        const title = nodes.scriptList.querySelector(`[data-script-material-title="${scriptIndex}"]`)?.value.trim() || file.name;
+        const description = nodes.scriptList.querySelector(`[data-script-material-description="${scriptIndex}"]`)?.value.trim() || '';
+        const formData = new FormData();
+        formData.set('image', file);
+        formData.set('title', title);
+        formData.set('description', description);
+        nodes.objectionFormStatus.textContent = '正在上传该话术图片物料...';
+        try {
+          const material = await uploadApi('/api/admin/materials/upload', formData);
+          state.scripts[scriptIndex].materials.push(material);
+          nodes.objectionFormStatus.textContent = '该话术图片物料已上传';
+          renderScriptEditor();
+        } catch (error) {
+          nodes.objectionFormStatus.textContent = error.message;
+        }
       });
     });
   }
@@ -190,11 +308,14 @@
   }
 
   function syncMaterialsInput() {
-    nodes.objectionForm.materials.value = JSON.stringify(state.materials);
+    if (nodes.objectionForm.materials) {
+      nodes.objectionForm.materials.value = JSON.stringify(state.materials);
+    }
   }
 
   function renderMaterialEditor() {
     syncMaterialsInput();
+    if (!nodes.materialList) return;
     nodes.materialTypeButtons.forEach((button) => {
       button.classList.toggle('active', button.dataset.materialType === state.materialType);
     });
@@ -228,6 +349,7 @@
   }
 
   function resetMaterialDraft() {
+    if (!nodes.materialTitleInput) return;
     nodes.materialTitleInput.value = '';
     nodes.materialUrlInput.value = '';
     nodes.materialImageInput.value = '';
@@ -530,7 +652,7 @@
       nodes.objectionFormStatus.textContent = '请先输入一条推荐话术';
       return;
     }
-    state.scripts.push(script);
+    state.scripts.push({ text: script, materials: [] });
     nodes.scriptDraftInput.value = '';
     nodes.objectionFormStatus.textContent = '';
     renderScriptEditor();

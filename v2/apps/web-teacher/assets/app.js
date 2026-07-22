@@ -103,6 +103,52 @@
     return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(String(url || ''));
   }
 
+  function normalizeScript(script) {
+    if (typeof script === 'string') {
+      const text = script.trim();
+      return text ? { text, materials: [] } : null;
+    }
+    if (!script || typeof script !== 'object') return null;
+    const text = String(script.text || '').trim();
+    if (!text) return null;
+    const materials = Array.isArray(script.materials)
+      ? script.materials.filter((material) => material && material.title && material.url)
+      : [];
+    return { text, materials };
+  }
+
+  function renderMaterialCards(materials) {
+    if (!materials.length) return '';
+    return `
+      <div class="script-materials">
+        <p class="eyebrow">Materials</p>
+        <div class="material-grid">
+          ${materials
+            .map(
+              (material) => `
+                <article class="material-card">
+                  ${
+                    material.type === 'IMAGE' || isImageUrl(material.url)
+                      ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
+                      : `<div class="material-file">物</div>`
+                  }
+                  <div>
+                    <h3>${escapeHtml(material.title)}</h3>
+                    <p>${escapeHtml(material.description || '可配合当前话术发给家长。')}</p>
+                    <div class="inline-actions">
+                      <a class="secondary-btn compact-btn" href="${escapeHtml(material.url)}" target="_blank" rel="noreferrer">打开物料</a>
+                      <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(material.url)}" data-copy-label="复制链接">复制链接</button>
+                    </div>
+                  </div>
+                </article>
+              `
+            )
+            .join('')}
+        </div>
+      </div>
+    `;
+  }
+
   function setView(view) {
     state.view = view;
     nodes.portalView.classList.toggle('hidden', view !== 'portal');
@@ -226,16 +272,19 @@
       }
 
       ${
-        (item.scripts || []).length
+        (item.scripts || []).map(normalizeScript).filter(Boolean).length
           ? `
             <div class="script-list">
               ${(item.scripts || [])
+                .map(normalizeScript)
+                .filter(Boolean)
                 .map(
                   (script, index) => `
                     <article class="script-card">
                       <h3>话术 ${index + 1}</h3>
-                      <p>${escapeHtml(script)}</p>
-                      <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}" data-copy-label="复制话术">复制话术</button>
+                      <p>${escapeHtml(script.text)}</p>
+                      ${renderMaterialCards(script.materials || [])}
+                      <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script.text)}" data-copy-label="复制话术">复制话术</button>
                     </article>
                   `
                 )

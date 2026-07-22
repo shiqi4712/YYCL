@@ -85,6 +85,15 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .script-editor-list { display: grid; gap: 10px; }
 .script-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: start; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.9); box-shadow: var(--shadow-soft); }
 .script-row p { color: var(--muted); font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+.form-stack label:has(.material-editor) { display: none; }
+.rich-script-row > button[data-remove-script] { grid-column: 3; grid-row: 1; }
+.script-material-box { grid-column: 1 / -1; display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: rgba(245,245,247,.88); }
+.script-material-head { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }
+.script-material-head span { color: var(--text); font-weight: 650; }
+.script-material-head small { color: var(--faint); }
+.script-material-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.nested-material-list { gap: 8px; }
+.nested-material-row { background: rgba(255,255,255,.94); }
 .material-editor { display: grid; gap: 12px; padding: 14px; border-radius: 20px; background: var(--surface-soft); box-shadow: var(--shadow-soft); }
 .material-tabs { display: flex; gap: 10px; padding: 6px; border-radius: 18px; background: rgba(255,255,255,.78); }
 .material-grid { display: grid; gap: 10px; }
@@ -97,4 +106,4 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .primary-btn:hover, .secondary-btn:hover, .metric-card:hover, .scene-card:hover, .objection-card:hover, .account-card:hover { transform: translateY(-4px); box-shadow: 0 18px 34px rgba(15,23,42,.08); }
 .empty-state { padding: 24px; border-radius: 20px; background: var(--surface-soft); color: var(--muted); line-height: 1.8; }
 @media (max-width: 1240px) { .auth-screen, .metric-grid, .admin-layout, .account-layout, .import-panel, .account-import-panel { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .admin-app { width: calc(100vw - 20px); padding-top: 12px; } .auth-screen, .hero-card, .section-card { padding: 22px; } .topbar, .topbar-actions, .section-head { align-items: stretch; flex-direction: column; } .toolbar { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .admin-app { width: calc(100vw - 20px); padding-top: 12px; } .auth-screen, .hero-card, .section-card { padding: 22px; } .topbar, .topbar-actions, .section-head { align-items: stretch; flex-direction: column; } .toolbar, .script-material-form { grid-template-columns: 1fr; } }

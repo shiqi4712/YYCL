@@ -103,6 +103,12 @@
     return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(String(url || ''));
   }
 
+  function isImageMaterial(material) {
+    const type = String(material?.type || '').toUpperCase();
+    const url = String(material?.url || '');
+    return type === 'IMAGE' || url.startsWith('/uploads/materials/') || isImageUrl(url);
+  }
+
   function normalizeScript(script) {
     if (typeof script === 'string') {
       const text = script.trim();
@@ -128,7 +134,7 @@
               (material) => `
                 <article class="material-card">
                   ${
-                    material.type === 'IMAGE' || isImageUrl(material.url)
+                    isImageMaterial(material)
                       ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
                       : `<div class="material-file">物</div>`
                   }
@@ -283,7 +289,7 @@
                     <article class="script-card">
                       <h3>话术 ${index + 1}</h3>
                       <p>${escapeHtml(script.text)}</p>
-                      ${renderMaterialCards(script.materials || [])}
+                      ${renderMaterialCards((script.materials || []).length ? script.materials : index === 0 ? item.materials || [] : [])}
                       <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script.text)}" data-copy-label="复制话术">复制话术</button>
                     </article>
                   `
@@ -295,7 +301,7 @@
       }
 
       ${
-        (item.materials || []).length
+        (item.materials || []).length && !(item.scripts || []).map(normalizeScript).filter(Boolean).length
           ? `
             <section class="material-section">
               <p class="eyebrow">Materials</p>
@@ -306,7 +312,7 @@
                     (material) => `
                       <article class="material-card">
                         ${
-                          material.type === 'IMAGE' || isImageUrl(material.url)
+                          isImageMaterial(material)
                             ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
                             : `<div class="material-file">物</div>`
                         }

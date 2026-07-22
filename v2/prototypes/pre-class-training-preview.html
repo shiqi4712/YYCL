@@ -272,6 +272,7 @@
       .scene-list,
       .objection-list,
       .script-list,
+      .material-list,
       .form-stack,
       .thought-list {
         display: grid;
@@ -477,7 +478,8 @@
       }
 
       .thought-step,
-      .script-card {
+      .script-card,
+      .material-card {
         padding: 18px;
         border-radius: 20px;
         background: var(--surface-soft);
@@ -502,15 +504,42 @@
       }
 
       .thought-step h3,
-      .script-card h3 {
+      .script-card h3,
+      .material-card h3 {
         font-size: 17px;
       }
 
       .thought-step p,
-      .script-card p {
+      .script-card p,
+      .material-card p {
         margin-top: 8px;
         color: var(--muted);
         line-height: 1.75;
+      }
+
+      .material-card {
+        display: grid;
+        grid-template-columns: 132px minmax(0, 1fr);
+        gap: 16px;
+        align-items: center;
+      }
+
+      .material-card img,
+      .material-file {
+        width: 132px;
+        height: 92px;
+        border-radius: 18px;
+        object-fit: cover;
+        background: linear-gradient(145deg, rgba(10, 132, 255, 0.14), rgba(255, 255, 255, 0.96));
+        box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.08);
+      }
+
+      .material-file {
+        display: grid;
+        place-items: center;
+        color: var(--blue);
+        font-size: 26px;
+        font-weight: 760;
       }
 
       .script-card {
@@ -908,6 +937,13 @@
             '您这个担心很正常，6 岁孩子本来就很难一直坐得很端正。明天这节体验课我不会只看他坐了多久，更会看他对哪个环节有兴趣、能不能跟着完成一个小作品。课后我也会跟您同步：他适合什么节奏、后面要怎么引导。',
             '如果孩子中途注意力跑掉，也不是坏事，我们反而能看到他真实的课堂状态。老师会用短任务和互动问题把他拉回来，您重点观察他有没有愿意继续尝试，这个比单纯坐得住更重要。',
           ],
+          materials: [
+            {
+              title: '体验课作品示例图',
+              url: 'https://dummyimage.com/900x560/eaf4ff/0a84ff.png&text=Trial+Class+Work',
+              description: '家长担心孩子坐不住或没效果时，可配合话术发送，让家长看到体验课产出。',
+            },
+          ],
           avoid: '不要直接保证“肯定有效”，也不要说“孩子都这样”，容易让家长觉得被敷衍。',
         },
         {
@@ -1032,6 +1068,10 @@
           const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
           return map[char];
         });
+      }
+
+      function isImageUrl(url) {
+        return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(String(url || ''));
       }
 
       function sceneName(sceneId) {
@@ -1195,6 +1235,44 @@
                 .join('')}
             </div>
           </div>
+
+          ${
+            (item.materials || []).length
+              ? `
+                <div>
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Materials</p>
+                      <h2>话术配套物料</h2>
+                    </div>
+                  </div>
+                  <div class="material-list">
+                    ${item.materials
+                      .map(
+                        (material) => `
+                          <article class="material-card">
+                            ${
+                              isImageUrl(material.url)
+                                ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
+                                : `<div class="material-file">物</div>`
+                            }
+                            <div>
+                              <h3>${escapeHtml(material.title)}</h3>
+                              <p>${escapeHtml(material.description || '可配合当前话术发给家长。')}</p>
+                              <div class="inline-actions">
+                                <a class="btn btn-secondary" href="${escapeHtml(material.url)}" target="_blank" rel="noreferrer">打开物料</a>
+                                <button class="btn btn-secondary" type="button" data-copy="${escapeHtml(material.url)}">复制链接</button>
+                              </div>
+                            </div>
+                          </article>
+                        `
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              `
+              : ''
+          }
 
           <article class="script-card">
             <h3>禁忌提醒</h3>

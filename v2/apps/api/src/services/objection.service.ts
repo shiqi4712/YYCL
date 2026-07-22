@@ -4,6 +4,11 @@ import { HttpError } from '../utils/http-error'
 
 const sceneSchema = z.enum(['pre', 'mid', 'close'])
 const statusSchema = z.enum(['ACTIVE', 'INACTIVE'])
+const materialSchema = z.object({
+  title: z.string().min(1).max(80),
+  url: z.string().min(1).max(1000),
+  description: z.string().max(300).default(''),
+})
 
 const objectionSchema = z.object({
   scene: sceneSchema,
@@ -12,6 +17,7 @@ const objectionSchema = z.object({
   keywords: z.array(z.string().min(1).max(30)).max(20).default([]),
   thinking: z.array(z.string().min(1).max(500)).min(1).max(12),
   scripts: z.array(z.string().min(1).max(2000)).min(1).max(12),
+  materials: z.array(materialSchema).max(12).default([]),
   avoid: z.string().min(1).max(1000),
   status: statusSchema.default('ACTIVE'),
 })
@@ -38,6 +44,7 @@ function mapObjection(item: {
   keywordsJson: string
   thinkingJson: string
   scriptsJson: string
+  materialsJson: string | null
   avoid: string
   status: string
   createdAt: Date
@@ -51,6 +58,7 @@ function mapObjection(item: {
     keywords: parseJsonArray(item.keywordsJson),
     thinking: parseJsonArray(item.thinkingJson),
     scripts: parseJsonArray(item.scriptsJson),
+    materials: parseJsonArray(item.materialsJson || '[]'),
     avoid: item.avoid,
     status: item.status,
     createdAt: item.createdAt,
@@ -66,6 +74,7 @@ function toData(input: z.infer<typeof objectionSchema>, createdById?: string) {
     keywordsJson: JSON.stringify(input.keywords),
     thinkingJson: JSON.stringify(input.thinking),
     scriptsJson: JSON.stringify(input.scripts),
+    materialsJson: JSON.stringify(input.materials),
     avoid: input.avoid,
     status: input.status,
     ...(createdById ? { createdById } : {}),
@@ -84,6 +93,21 @@ function splitKeywords(value: string) {
     .split(/[,，、\s]+/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function splitMaterials(value: string) {
+  return value
+    .split(/\n{2,}|[;；]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [title, url, description = ''] = item.split(/[|｜]/).map((cell) => cell.trim())
+      return materialSchema.parse({
+        title: title || '配套物料',
+        url: url || title,
+        description,
+      })
+    })
 }
 
 function normalizeScene(value: string, fallback: string) {
@@ -154,7 +178,11 @@ export function parseObjectionImportText(text: string, defaultScene = 'pre') {
       throw new HttpError(400, `第 ${index + 1} 行格式不正确，请至少包含：场景、异议、顾虑、关键词、思路、话术、禁忌`)
     }
 
-    const [scene, title, concern, keywords, thinking, scripts, avoid = '请补充禁忌提醒', status = 'ACTIVE'] = cells
+    const hasMaterialsColumn = cells.length >= 9
+    const [scene, title, concern, keywords, thinking, scripts] = cells
+    const materials = hasMaterialsColumn ? cells[6] : ''
+    const avoid = hasMaterialsColumn ? cells[7] || '请补充禁忌提醒' : cells[6] || '请补充禁忌提醒'
+    const status = hasMaterialsColumn ? cells[8] || 'ACTIVE' : cells[7] || 'ACTIVE'
     return objectionSchema.parse({
       scene: normalizeScene(scene, defaultScene),
       title,
@@ -162,6 +190,7 @@ export function parseObjectionImportText(text: string, defaultScene = 'pre') {
       keywords: splitKeywords(keywords),
       thinking: splitList(thinking),
       scripts: splitList(scripts),
+      materials: splitMaterials(materials),
       avoid,
       status: status === 'INACTIVE' || status === '已下架' ? 'INACTIVE' : 'ACTIVE',
     })
@@ -188,7 +217,19 @@ export async function listObjectionsForTeacher(scene?: string, keyword?: string)
   if (!normalizedKeyword) return mapped
 
   return mapped.filter((item: ReturnType<typeof mapObjection>) =>
-    [item.title, item.concern, item.avoid, ...item.keywords, ...item.thinking, ...item.scripts]
+    [
+      item.title,
+      item.concern,
+      item.avoid,
+      ...item.keywords,
+      ...item.thinking,
+      ...item.scripts,
+      ...item.materials.flatMap((material: { title?: string; url?: string; description?: string }) => [
+        material.title || '',
+        material.url || '',
+        material.description || '',
+      ]),
+    ]
       .join(' ')
       .toLowerCase()
       .includes(normalizedKeyword)
@@ -216,7 +257,19 @@ export async function listObjectionsForAdmin(scene?: string, status?: string, ke
   if (!normalizedKeyword) return mapped
 
   return mapped.filter((item: ReturnType<typeof mapObjection>) =>
-    [item.title, item.concern, item.avoid, ...item.keywords, ...item.thinking, ...item.scripts]
+    [
+      item.title,
+      item.concern,
+      item.avoid,
+      ...item.keywords,
+      ...item.thinking,
+      ...item.scripts,
+      ...item.materials.flatMap((material: { title?: string; url?: string; description?: string }) => [
+        material.title || '',
+        material.url || '',
+        material.description || '',
+      ]),
+    ]
       .join(' ')
       .toLowerCase()
       .includes(normalizedKeyword)

@@ -299,6 +299,13 @@ async function main() {
         '您这个担心很正常，孩子能不能坐得住，确实不是靠我们嘴上保证的。体验课反而就是用来观察这一点：老师会看孩子在哪些环节能被吸引、哪些地方容易走神，再判断适不适合继续学。',
         '如果孩子一开始坐不住，我们不会硬压着他，而是会通过小任务和互动把注意力慢慢拉回来。您到时候重点看两个点：孩子愿不愿意跟老师走，以及下课后还想不想继续尝试。',
       ],
+      materials: [
+        {
+          title: '体验课作品示例图',
+          url: 'https://dummyimage.com/900x560/eaf4ff/0a84ff.png&text=Trial+Class+Work',
+          description: '家长担心孩子坐不住或没效果时，可配合发送作品示例。',
+        },
+      ],
       avoid: '不要直接说“肯定没问题”，也不要把孩子描述成“不专注”“不配合”。',
     },
     {
@@ -316,6 +323,7 @@ async function main() {
         '可以理解，孩子现在安排多的话，家长确实不想再增加负担。我们可以先不急着定长期学习，只是帮孩子约一节体验，看他适不适合、感不感兴趣。',
         '如果您担心时间冲突，我先给您两个轻一点的时间段，您看哪个不影响孩子休息。体验后您再决定要不要继续，不会让您现在就做报名决定。',
       ],
+      materials: [],
       avoid: '不要催促家长“名额快没了”，也不要把体验课说成必须马上参加。',
     },
     {
@@ -332,6 +340,13 @@ async function main() {
       scripts: [
         '您看得很准，开心只是第一层。我们更关注的是孩子在任务里有没有听懂规则、愿不愿意尝试、遇到问题会不会调整，这些才是这类课真正训练的能力。',
         '今天这节课里，孩子愿意跟着老师完成步骤，这说明他不是单纯玩，而是在理解规则和解决问题。后续我们会继续把这种能力稳定下来。',
+      ],
+      materials: [
+        {
+          title: '课堂能力反馈样张',
+          url: 'https://dummyimage.com/900x560/f2fbf5/15803d.png&text=Learning+Feedback',
+          description: '用于解释“开心之外还学到了什么”。',
+        },
       ],
       avoid: '不要只说“孩子很棒”，要给家长具体证据。',
     },
@@ -350,6 +365,13 @@ async function main() {
         '您想比较一下很正常，课程不是只看价格，更重要的是孩子是否适配、老师能不能持续跟进、每个阶段有没有清楚目标。您比较的时候可以重点看这几项。',
         '如果只是比单价，可能会越看越乱。我们可以先根据今天孩子的表现，把适合他的学习路径和每阶段目标说清楚，您再判断这个投入值不值。',
       ],
+      materials: [
+        {
+          title: '学习路径说明图',
+          url: 'https://dummyimage.com/900x560/fff7ed/b45309.png&text=Learning+Roadmap',
+          description: '家长比较价格时，用来说明阶段目标和服务内容。',
+        },
+      ],
       avoid: '不要一上来降价或强调优惠，也不要说其他机构不好。',
     },
     {
@@ -367,6 +389,7 @@ async function main() {
         '应该的，孩子学习这件事家里一起商量会更稳。我想先了解一下，您主要想和家里人确认的是时间、费用，还是孩子能不能坚持？我可以把对应信息帮您整理清楚。',
         '那您和家里人沟通时，可以重点说三点：孩子今天的表现、后续学习目标、以及时间费用安排。我们明天这个时间再简单同步一下，您看可以吗？',
       ],
+      materials: [],
       avoid: '不要逼问“您自己不能决定吗”，也不要让家长只带着价格去商量。',
     },
   ]
@@ -381,6 +404,7 @@ async function main() {
         keywordsJson: JSON.stringify(item.keywords),
         thinkingJson: JSON.stringify(item.thinking),
         scriptsJson: JSON.stringify(item.scripts),
+        materialsJson: JSON.stringify(item.materials),
         avoid: item.avoid,
         status: 'ACTIVE',
         createdById: trainer.id,
@@ -393,6 +417,7 @@ async function main() {
         keywordsJson: JSON.stringify(item.keywords),
         thinkingJson: JSON.stringify(item.thinking),
         scriptsJson: JSON.stringify(item.scripts),
+        materialsJson: JSON.stringify(item.materials),
         avoid: item.avoid,
         status: 'ACTIVE',
         createdById: trainer.id,

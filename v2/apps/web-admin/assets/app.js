@@ -110,6 +110,27 @@
       });
   }
 
+  function parseMaterialsText(text) {
+    return String(text || '')
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [title, url, description = ''] = line.split(/[|｜]/).map((cell) => cell.trim());
+        return {
+          title: title || '配套物料',
+          url: url || title,
+          description,
+        };
+      });
+  }
+
+  function formatMaterialsText(materials) {
+    return (materials || [])
+      .map((material) => [material.title, material.url, material.description].filter(Boolean).join('|'))
+      .join('\n');
+  }
+
   function downloadCsv(filename, rows) {
     const csv = rows
       .map((row) =>
@@ -265,6 +286,7 @@
     nodes.objectionForm.concern.value = item.concern;
     nodes.objectionForm.thinking.value = (item.thinking || []).join('\n');
     nodes.objectionForm.scripts.value = (item.scripts || []).join('\n\n');
+    nodes.objectionForm.materials.value = formatMaterialsText(item.materials);
     nodes.objectionForm.avoid.value = item.avoid;
   }
 
@@ -405,6 +427,7 @@
       keywords: String(formData.get('keywords') || '').split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean),
       thinking: String(formData.get('thinking') || '').split(/\n+/).map((item) => item.trim()).filter(Boolean),
       scripts: String(formData.get('scripts') || '').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean),
+      materials: parseMaterialsText(String(formData.get('materials') || '')),
       avoid: String(formData.get('avoid') || '').trim(),
       status: selectedObjection()?.status || 'ACTIVE',
     };
@@ -436,7 +459,7 @@
   });
   nodes.downloadObjectionTemplateButton.addEventListener('click', () => {
     downloadCsv('异议内容导入模板.csv', [
-      ['场景', '异议问题', '真实顾虑', '关键词', '解决思路', '推荐话术', '禁忌提醒', '状态'],
+      ['场景', '异议问题', '真实顾虑', '关键词', '解决思路', '推荐话术', '配套物料', '禁忌提醒', '状态'],
       [
         '课前进线',
         '孩子坐不住，担心体验课没效果',
@@ -444,6 +467,7 @@
         '坐不住、专注力、没效果',
         '先承认担心；再说明体验课会观察孩子适配度；最后给家长明确观察标准',
         '您这个担心很正常，体验课就是用来观察孩子能不能被老师带起来，以及他对课程有没有兴趣。',
+        '孩子作品示例|https://example.com/work.png|家长担心效果时可配合发送',
         '不要直接保证一定有效，也不要评价孩子不配合。',
         'ACTIVE',
       ],

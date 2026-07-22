@@ -99,6 +99,10 @@
     return state.objections.find((item) => item.id === state.selectedObjectionId) || null;
   }
 
+  function isImageUrl(url) {
+    return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(String(url || ''));
+  }
+
   function setView(view) {
     state.view = view;
     nodes.portalView.classList.toggle('hidden', view !== 'portal');
@@ -222,12 +226,46 @@
               <article class="script-card">
                 <h3>话术 ${index + 1}</h3>
                 <p>${escapeHtml(script)}</p>
-                <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}">复制话术</button>
+                <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}" data-copy-label="复制话术">复制话术</button>
               </article>
             `
           )
           .join('')}
       </div>
+
+      ${
+        (item.materials || []).length
+          ? `
+            <section class="material-section">
+              <p class="eyebrow">Materials</p>
+              <h2>话术配套物料</h2>
+              <div class="material-grid">
+                ${(item.materials || [])
+                  .map(
+                    (material) => `
+                      <article class="material-card">
+                        ${
+                          isImageUrl(material.url)
+                            ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" loading="lazy" />`
+                            : `<div class="material-file">物</div>`
+                        }
+                        <div>
+                          <h3>${escapeHtml(material.title)}</h3>
+                          <p>${escapeHtml(material.description || '可配合当前话术发给家长。')}</p>
+                          <div class="inline-actions">
+                            <a class="secondary-btn compact-btn" href="${escapeHtml(material.url)}" target="_blank" rel="noreferrer">打开物料</a>
+                            <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(material.url)}" data-copy-label="复制链接">复制链接</button>
+                          </div>
+                        </div>
+                      </article>
+                    `
+                  )
+                  .join('')}
+              </div>
+            </section>
+          `
+          : ''
+      }
 
       <article class="script-card">
         <h3>禁忌提醒</h3>
@@ -239,11 +277,12 @@
     nodes.detailPanel.querySelectorAll('[data-copy]').forEach((button) => {
       button.addEventListener('click', async () => {
         const text = button.getAttribute('data-copy') || '';
+        const label = button.getAttribute('data-copy-label') || '复制';
         try {
           await navigator.clipboard.writeText(text);
           button.textContent = '已复制';
           window.setTimeout(() => {
-            button.textContent = '复制话术';
+            button.textContent = label;
           }, 1400);
         } catch {
           alert('当前浏览器不支持自动复制，请手动选中文本复制。');

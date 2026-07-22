@@ -34,6 +34,7 @@ model ObjectionItem {
   keywordsJson String   @db.Text
   thinkingJson String   @db.Text
   scriptsJson  String   @db.LongText
+  materialsJson String?  @db.LongText
   avoid        String   @db.Text
   status       String   @default("ACTIVE") @db.VarChar(32)
   createdById  String   @db.VarChar(32)

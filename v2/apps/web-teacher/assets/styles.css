@@ -391,15 +391,58 @@ select:focus {
   margin-top: 16px;
 }
 
+.material-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.material-section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+.material-grid {
+  display: grid;
+  gap: 14px;
+}
+
 .scene-card,
 .objection-card,
 .flow-card,
 .script-card,
+.material-card,
 .detail-hero {
   padding: 20px;
   border-radius: var(--radius-lg);
   background: var(--surface-soft);
   box-shadow: var(--shadow-soft);
+}
+
+.material-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.material-card img,
+.material-file {
+  width: 132px;
+  height: 92px;
+  border-radius: 18px;
+  object-fit: cover;
+  background: linear-gradient(145deg, rgba(10, 132, 255, 0.14), rgba(255, 255, 255, 0.96));
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.08);
+}
+
+.material-file {
+  display: grid;
+  place-items: center;
+  color: var(--blue);
+  font-size: 28px;
+  font-weight: 760;
 }
 
 .scene-card,
@@ -416,7 +459,8 @@ select:focus {
 .scene-card h3,
 .objection-card h3,
 .flow-card h3,
-.script-card h3 {
+.script-card h3,
+.material-card h3 {
   font-size: 20px;
   font-weight: 650;
   letter-spacing: -0.03em;
@@ -426,6 +470,7 @@ select:focus {
 .objection-card p,
 .flow-card p,
 .script-card p,
+.material-card p,
 .detail-hero p {
   margin-top: 8px;
   color: var(--muted);
@@ -506,7 +551,8 @@ select:focus {
 .scene-card:hover,
 .objection-card:hover,
 .flow-card:hover,
-.script-card:hover {
+.script-card:hover,
+.material-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
@@ -550,5 +596,15 @@ select:focus {
   .inline-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .material-card {
+    grid-template-columns: 1fr;
+  }
+
+  .material-card img,
+  .material-file {
+    width: 100%;
+    height: 170px;
   }
 }

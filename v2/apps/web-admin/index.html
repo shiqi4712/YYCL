@@ -123,6 +123,10 @@
                     <textarea name="scripts"></textarea>
                   </label>
                   <label>
+                    <span>话术配套物料，每行一条</span>
+                    <textarea name="materials" placeholder="物料名称|图片或链接地址|使用说明&#10;孩子作品示例|https://example.com/work.png|家长担心效果时可配合发送"></textarea>
+                  </label>
+                  <label>
                     <span>禁忌提醒</span>
                     <textarea name="avoid"></textarea>
                   </label>
@@ -163,7 +167,7 @@
               <section class="shell-card section-card">
                 <p class="eyebrow">Import Format</p>
                 <h2>导入格式说明</h2>
-                <p class="helper-text">CSV/文本文档每行一条：场景,异议问题,真实顾虑,关键词,解决思路,推荐话术,禁忌提醒,状态。思路和话术可用分号分隔多条。</p>
+                <p class="helper-text">CSV/文本文档每行一条：场景,异议问题,真实顾虑,关键词,解决思路,推荐话术,配套物料,禁忌提醒,状态。物料格式为“物料名称|图片或链接地址|使用说明”，多条可用分号分隔。</p>
                 <button class="secondary-btn compact-btn" id="adminDownloadObjectionTemplateButton" type="button">下载 CSV 模板</button>
               </section>
             </section>

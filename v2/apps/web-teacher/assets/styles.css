@@ -508,6 +508,42 @@ select:focus {
   gap: 12px;
 }
 
+.detail-panel > .flow-list {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-soft);
+}
+
+.detail-panel > .flow-list::before {
+  content: "注意事项";
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.detail-panel > .flow-list .flow-card {
+  display: block;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.detail-panel > .flow-list .step-num,
+.detail-panel > .flow-list .flow-card h3 {
+  display: none;
+}
+
+.detail-panel > .flow-list .flow-card p {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .step-num {
   display: grid;
   place-items: center;

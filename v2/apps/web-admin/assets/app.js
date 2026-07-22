@@ -505,6 +505,8 @@
       nodes.editorStatus.textContent = '草稿';
       nodes.editorStatus.className = 'tag-warn';
       nodes.toggleObjectionStatusButton.textContent = '下架';
+      nodes.objectionForm.id.value = '';
+      nodes.objectionForm.id.defaultValue = '';
       nodes.objectionForm.scene.value = state.scene;
       state.scripts = [];
       renderScriptEditor();
@@ -529,12 +531,15 @@
     nodes.objectionForm.avoid.value = item.avoid;
   }
 
-  async function loadObjections() {
+  async function loadObjections(preferredId) {
+    const previousSelectedId = preferredId || state.selectedObjectionId;
     const params = new URLSearchParams({ scene: state.scene, status: nodes.objectionStatusFilter.value });
     const keyword = nodes.objectionSearchInput.value.trim();
     if (keyword) params.set('keyword', keyword);
     state.objections = await api(`/api/admin/objections?${params.toString()}`);
-    state.selectedObjectionId = state.objections[0]?.id || '';
+    state.selectedObjectionId = state.objections.some((item) => item.id === previousSelectedId)
+      ? previousSelectedId
+      : state.objections[0]?.id || '';
     renderContentMetrics();
     renderScenes();
     renderObjections();
@@ -644,6 +649,7 @@
   nodes.roleFilter.addEventListener('change', renderAccounts);
   nodes.newObjectionButton.addEventListener('click', () => {
     state.selectedObjectionId = '';
+    nodes.objectionSearchInput.value = '';
     fillObjectionForm(null);
   });
   nodes.addScriptButton.addEventListener('click', () => {
@@ -730,7 +736,8 @@
       state.scene = saved.scene;
       state.selectedObjectionId = saved.id;
       nodes.objectionFormStatus.textContent = '内容已保存';
-      await loadObjections();
+      nodes.objectionSearchInput.value = '';
+      await loadObjections(saved.id);
     } catch (error) {
       nodes.objectionFormStatus.textContent = error.message;
     }

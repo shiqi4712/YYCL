@@ -66,6 +66,7 @@ async function main() {
   await cleanupLegacyBrokenData()
 
   const trainerPassword = await hashPassword('123456')
+  const shiqiPassword = await hashPassword('shiqi123')
   const teacherPassword = await hashPassword('123456')
 
   const trainer = await prisma.user.upsert({
@@ -80,6 +81,23 @@ async function main() {
       username: 'trainer01',
       passwordHash: trainerPassword,
       displayName: '张诗琪',
+      role: 'TRAINER',
+      isActive: true,
+    },
+  })
+
+  await prisma.user.upsert({
+    where: { username: 'shiqi' },
+    update: {
+      passwordHash: shiqiPassword,
+      displayName: 'shiqi',
+      role: 'TRAINER',
+      isActive: true,
+    },
+    create: {
+      username: 'shiqi',
+      passwordHash: shiqiPassword,
+      displayName: 'shiqi',
       role: 'TRAINER',
       isActive: true,
     },

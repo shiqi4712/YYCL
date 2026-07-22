@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260722-optional-fields" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260722-script-list" />
   </head>
   <body>
     <div class="admin-shell">
@@ -120,7 +120,14 @@
                   </label>
                   <label>
                     <span>推荐话术，每段一条</span>
-                    <textarea name="scripts"></textarea>
+                    <input type="hidden" name="scripts" />
+                    <div class="script-editor">
+                      <textarea id="adminScriptDraftInput" placeholder="输入一条推荐话术，点击下方按钮添加"></textarea>
+                      <div class="row-actions">
+                        <button class="secondary-btn compact-btn" id="adminAddScriptButton" type="button">添加话术</button>
+                      </div>
+                      <div class="script-editor-list" id="adminScriptList"></div>
+                    </div>
                   </label>
                   <label>
                     <span>话术配套物料，每行一条</span>
@@ -261,6 +268,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260722-optional-fields"></script>
+    <script src="/assets/admin/app.js?v=20260722-script-list"></script>
   </body>
 </html>

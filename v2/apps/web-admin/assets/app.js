@@ -14,6 +14,7 @@
     objections: [],
     selectedObjectionId: '',
     users: [],
+    scripts: [],
     materials: [],
     materialType: 'LINK',
   };
@@ -50,6 +51,9 @@
     accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
     teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
+    scriptDraftInput: document.getElementById('adminScriptDraftInput'),
+    scriptList: document.getElementById('adminScriptList'),
+    addScriptButton: document.getElementById('adminAddScriptButton'),
     materialTypeButtons: Array.from(document.querySelectorAll('[data-material-type]')),
     materialTitleInput: document.getElementById('adminMaterialTitleInput'),
     materialUrlInput: document.getElementById('adminMaterialUrlInput'),
@@ -118,6 +122,48 @@
         }
         return { username, displayName, password };
       });
+  }
+
+  function parseScriptsText(text) {
+    const value = String(text || '').trim();
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+    } catch {
+      return value
+        .split(/\n{2,}/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  function syncScriptsInput() {
+    nodes.objectionForm.scripts.value = JSON.stringify(state.scripts);
+  }
+
+  function renderScriptEditor() {
+    syncScriptsInput();
+    nodes.scriptList.innerHTML = state.scripts.length
+      ? state.scripts
+          .map(
+            (script, index) => `
+              <article class="script-row">
+                <div class="tag">${index + 1}</div>
+                <p>${escapeHtml(script)}</p>
+                <button class="secondary-btn compact-btn" type="button" data-remove-script="${index}">移除</button>
+              </article>
+            `
+          )
+          .join('')
+      : '<div class="empty-state compact-empty">暂无推荐话术。填写一条话术后点击“添加话术”。</div>';
+
+    nodes.scriptList.querySelectorAll('[data-remove-script]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.scripts.splice(Number(button.dataset.removeScript), 1);
+        renderScriptEditor();
+      });
+    });
   }
 
   function parseMaterialsText(text) {
@@ -338,6 +384,8 @@
       nodes.editorStatus.className = 'tag-warn';
       nodes.toggleObjectionStatusButton.textContent = '下架';
       nodes.objectionForm.scene.value = state.scene;
+      state.scripts = [];
+      renderScriptEditor();
       state.materials = [];
       renderMaterialEditor();
       return;
@@ -352,7 +400,8 @@
     nodes.objectionForm.keywords.value = (item.keywords || []).join(', ');
     nodes.objectionForm.concern.value = item.concern;
     nodes.objectionForm.thinking.value = (item.thinking || []).join('\n');
-    nodes.objectionForm.scripts.value = (item.scripts || []).join('\n\n');
+    state.scripts = [...(item.scripts || [])];
+    renderScriptEditor();
     state.materials = [...(item.materials || [])];
     renderMaterialEditor();
     nodes.objectionForm.avoid.value = item.avoid;
@@ -475,6 +524,17 @@
     state.selectedObjectionId = '';
     fillObjectionForm(null);
   });
+  nodes.addScriptButton.addEventListener('click', () => {
+    const script = nodes.scriptDraftInput.value.trim();
+    if (!script) {
+      nodes.objectionFormStatus.textContent = '请先输入一条推荐话术';
+      return;
+    }
+    state.scripts.push(script);
+    nodes.scriptDraftInput.value = '';
+    nodes.objectionFormStatus.textContent = '';
+    renderScriptEditor();
+  });
   nodes.materialTypeButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.materialType = button.dataset.materialType || 'LINK';
@@ -534,7 +594,7 @@
       concern: String(formData.get('concern') || '').trim(),
       keywords: String(formData.get('keywords') || '').split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean),
       thinking: String(formData.get('thinking') || '').split(/\n+/).map((item) => item.trim()).filter(Boolean),
-      scripts: String(formData.get('scripts') || '').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean),
+      scripts: parseScriptsText(String(formData.get('scripts') || '')),
       materials: parseMaterialsText(String(formData.get('materials') || '')),
       avoid: String(formData.get('avoid') || '').trim(),
       status: selectedObjection()?.status || 'ACTIVE',

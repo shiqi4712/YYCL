@@ -14,12 +14,12 @@ const materialSchema = z.object({
 const objectionSchema = z.object({
   scene: sceneSchema,
   title: z.string().min(1).max(120),
-  concern: z.string().min(1).max(1000),
+  concern: z.string().max(1000).default(''),
   keywords: z.array(z.string().min(1).max(30)).max(20).default([]),
-  thinking: z.array(z.string().min(1).max(500)).min(1).max(12),
-  scripts: z.array(z.string().min(1).max(2000)).min(1).max(12),
+  thinking: z.array(z.string().min(1).max(500)).max(12).default([]),
+  scripts: z.array(z.string().min(1).max(2000)).max(12).default([]),
   materials: z.array(materialSchema).max(12).default([]),
-  avoid: z.string().min(1).max(1000),
+  avoid: z.string().max(1000).default(''),
   status: statusSchema.default('ACTIVE'),
 })
 
@@ -83,21 +83,21 @@ function toData(input: z.infer<typeof objectionSchema>, createdById?: string) {
 }
 
 function splitList(value: string) {
-  return value
+  return String(value || '')
     .split(/\n{2,}|[;；]/)
     .map((item) => item.trim())
     .filter(Boolean)
 }
 
 function splitKeywords(value: string) {
-  return value
+  return String(value || '')
     .split(/[,，、\s]+/)
     .map((item) => item.trim())
     .filter(Boolean)
 }
 
 function splitMaterials(value: string) {
-  return value
+  return String(value || '')
     .split(/\n{2,}|[;；]/)
     .map((item) => item.trim())
     .filter(Boolean)
@@ -176,14 +176,14 @@ export function parseObjectionImportText(text: string, defaultScene = 'pre') {
   const items = rows.map((line, index) => {
     const cells = line.includes('\t') ? line.split('\t').map((cell) => cell.trim()) : parseCsvLine(line)
 
-    if (cells.length < 6) {
-      throw new HttpError(400, `第 ${index + 1} 行格式不正确，请至少包含：场景、异议、顾虑、关键词、思路、话术、禁忌`)
+    if (cells.length < 2) {
+      throw new HttpError(400, `第 ${index + 1} 行格式不正确，请至少包含：场景、异议问题`)
     }
 
     const hasMaterialsColumn = cells.length >= 9
-    const [scene, title, concern, keywords, thinking, scripts] = cells
+    const [scene, title, concern = '', keywords = '', thinking = '', scripts = ''] = cells
     const materials = hasMaterialsColumn ? cells[6] : ''
-    const avoid = hasMaterialsColumn ? cells[7] || '请补充禁忌提醒' : cells[6] || '请补充禁忌提醒'
+    const avoid = hasMaterialsColumn ? cells[7] || '' : cells[6] || ''
     const status = hasMaterialsColumn ? cells[8] || 'ACTIVE' : cells[7] || 'ACTIVE'
     return objectionSchema.parse({
       scene: normalizeScene(scene, defaultScene),

@@ -174,7 +174,7 @@
           <button class="objection-card ${item.id === state.selectedObjectionId ? 'active' : ''}" type="button" data-objection="${escapeHtml(item.id)}">
             <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
             <h3>${escapeHtml(item.title)}</h3>
-            <p>${escapeHtml(item.concern)}</p>
+            ${item.concern ? `<p>${escapeHtml(item.concern)}</p>` : ''}
             <div class="tag-row">
               ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join('')}
             </div>
@@ -200,38 +200,50 @@
       <article class="detail-hero">
         <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
         <h2>${escapeHtml(item.title)}</h2>
-        <p>${escapeHtml(item.concern)}</p>
+        ${item.concern ? `<p>${escapeHtml(item.concern)}</p>` : ''}
       </article>
 
-      <div class="flow-list">
-        ${(item.thinking || [])
-          .map(
-            (step, index) => `
-              <article class="flow-card">
-                <span class="step-num">${index + 1}</span>
-                <div>
-                  <h3>${index === 0 ? '先接住' : index === 1 ? '再解释' : '给下一步'}</h3>
-                  <p>${escapeHtml(step)}</p>
-                </div>
-              </article>
-            `
-          )
-          .join('')}
-      </div>
+      ${
+        (item.thinking || []).length
+          ? `
+            <div class="flow-list">
+              ${(item.thinking || [])
+                .map(
+                  (step, index) => `
+                    <article class="flow-card">
+                      <span class="step-num">${index + 1}</span>
+                      <div>
+                        <h3>${index === 0 ? '先接住' : index === 1 ? '再解释' : '给下一步'}</h3>
+                        <p>${escapeHtml(step)}</p>
+                      </div>
+                    </article>
+                  `
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
 
-      <div class="script-list">
-        ${(item.scripts || [])
-          .map(
-            (script, index) => `
-              <article class="script-card">
-                <h3>话术 ${index + 1}</h3>
-                <p>${escapeHtml(script)}</p>
-                <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}" data-copy-label="复制话术">复制话术</button>
-              </article>
-            `
-          )
-          .join('')}
-      </div>
+      ${
+        (item.scripts || []).length
+          ? `
+            <div class="script-list">
+              ${(item.scripts || [])
+                .map(
+                  (script, index) => `
+                    <article class="script-card">
+                      <h3>话术 ${index + 1}</h3>
+                      <p>${escapeHtml(script)}</p>
+                      <button class="secondary-btn compact-btn" type="button" data-copy="${escapeHtml(script)}" data-copy-label="复制话术">复制话术</button>
+                    </article>
+                  `
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
 
       ${
         (item.materials || []).length
@@ -267,11 +279,17 @@
           : ''
       }
 
-      <article class="script-card">
-        <h3>禁忌提醒</h3>
-        <p>${escapeHtml(item.avoid)}</p>
-        <span class="tag-danger">不要这样说</span>
-      </article>
+      ${
+        item.avoid
+          ? `
+            <article class="script-card">
+              <h3>禁忌提醒</h3>
+              <p>${escapeHtml(item.avoid)}</p>
+              <span class="tag-danger">不要这样说</span>
+            </article>
+          `
+          : ''
+      }
     `;
 
     nodes.detailPanel.querySelectorAll('[data-copy]').forEach((button) => {

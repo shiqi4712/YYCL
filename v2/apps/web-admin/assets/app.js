@@ -191,10 +191,6 @@
   function validateObjectionPayload(payload) {
     const missing = [];
     if (!payload.title) missing.push('异议问题');
-    if (!payload.concern) missing.push('家长真实顾虑');
-    if (!payload.thinking.length) missing.push('解决思路');
-    if (!payload.scripts.length) missing.push('推荐话术');
-    if (!payload.avoid) missing.push('禁忌提醒');
     if (missing.length) {
       throw new Error(`请先补充：${missing.join('、')}`);
     }

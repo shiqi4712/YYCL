@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { TextDecoder } from 'node:util'
 import multer from 'multer'
+import * as XLSX from 'xlsx'
 import { z } from 'zod'
 import { extractSopTextFromFile, extractTextFromFile } from '../lib/document-parser'
 import { authenticate } from '../middleware/auth'
@@ -114,20 +115,17 @@ function parseUserCsvLine(line: string) {
   return cells
 }
 
-function parseTeacherUsersCsv(text: string) {
-  const rows = text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !/^sep\s*=/i.test(line))
+function parseTeacherUsersRows(rows: string[][]) {
+  const normalizedRows = rows
+    .map((row) => row.map((cell) => String(cell || '').trim()))
+    .filter((row) => row.some(Boolean))
+    .filter((row) => !/^sep\s*=/i.test(row[0] || ''))
 
-  if (rows.length < 2) {
-    throw new HttpError(400, '请上传包含表头和账号数据的 CSV 表格')
+  if (normalizedRows.length < 2) {
+    throw new HttpError(400, '请上传包含表头和账号数据的表格')
   }
 
-  const headers = parseUserCsvLine(rows[0]).map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase())
+  const headers = normalizedRows[0].map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase())
   let usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header))
   let displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header))
   let passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header))
@@ -142,11 +140,10 @@ function parseTeacherUsersCsv(text: string) {
     }
   }
 
-  return rows.slice(1).map((line, index) => {
-    const cells = parseUserCsvLine(line)
-    const username = (cells[usernameIndex] || '').trim()
-    const displayName = (cells[displayNameIndex] || '').trim()
-    const password = (cells[passwordIndex] || '').trim()
+  return normalizedRows.slice(1).map((row, index) => {
+    const username = (row[usernameIndex] || '').trim()
+    const displayName = (row[displayNameIndex] || '').trim()
+    const password = (row[passwordIndex] || '').trim()
 
     if (!username || !displayName || !password) {
       throw new HttpError(400, `第 ${index + 2} 行缺少工号、姓名或密码`)
@@ -154,6 +151,19 @@ function parseTeacherUsersCsv(text: string) {
 
     return { username, displayName, password }
   })
+}
+
+function parseTeacherUsersCsv(text: string) {
+  const rows = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^sep\s*=/i.test(line))
+    .map(parseUserCsvLine)
+
+  return parseTeacherUsersRows(rows)
 }
 
 function decodeCsvBuffer(buffer: Buffer) {
@@ -179,6 +189,31 @@ function parseTeacherUsersCsvBuffer(buffer: Buffer) {
   }
 
   throw lastError
+}
+
+function parseTeacherUsersXlsxBuffer(buffer: Buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const firstSheetName = workbook.SheetNames[0]
+  if (!firstSheetName) {
+    throw new HttpError(400, 'Excel 表格为空，请检查文件内容')
+  }
+
+  const rows = XLSX.utils.sheet_to_json<Array<string | number | boolean | null>>(workbook.Sheets[firstSheetName], {
+    header: 1,
+    defval: '',
+    blankrows: false,
+  })
+
+  return parseTeacherUsersRows(rows.map((row) => row.map((cell) => String(cell || '').trim())))
+}
+
+function parseTeacherUsersFile(file: Express.Multer.File) {
+  const ext = path.extname(file.originalname || '').toLowerCase()
+  if (ext === '.xlsx' || ext === '.xls') {
+    return parseTeacherUsersXlsxBuffer(file.buffer)
+  }
+
+  return parseTeacherUsersCsvBuffer(file.buffer)
 }
 
 router.use(authenticate)
@@ -230,7 +265,7 @@ router.post('/users/import/document', requireRole('TRAINER'), upload.single('use
       throw new HttpError(400, '请上传老师账号 CSV 表格')
     }
 
-    const users = parseTeacherUsersCsvBuffer(req.file.buffer)
+    const users = parseTeacherUsersFile(req.file)
     res.json(ok(await importTeacherUsers({ users })))
   } catch (error) {
     next(error)

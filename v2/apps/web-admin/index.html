@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260728-teacher-file-upload" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260728-teacher-xlsx-import" />
   </head>
   <body>
     <div class="admin-shell">
@@ -252,9 +252,9 @@
                 <form class="form-stack" id="adminTeacherImportForm">
                   <label>
                     <span>上传老师账号表格</span>
-                    <input name="usersFile" type="file" accept=".csv,text/csv" />
+                    <input name="usersFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" />
                   </label>
-                  <p class="helper-text">请上传 CSV 表格，第一行为表头：工号,姓名,密码。工号将作为老师登录账号。</p>
+                  <p class="helper-text">请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码。工号将作为老师登录账号。</p>
                   <label>
                     <span>账号清单</span>
                     <textarea name="users" placeholder="每行一个老师：账号,姓名,初始密码&#10;teacher02,李老师,123456&#10;teacher03,王老师,123456"></textarea>
@@ -273,6 +273,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260728-teacher-file-upload"></script>
+    <script src="/assets/admin/app.js?v=20260728-teacher-xlsx-import"></script>
   </body>
 </html>

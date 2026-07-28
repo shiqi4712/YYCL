@@ -108,6 +108,9 @@ function parseUserCsvLine(line: string) {
   }
 
   cells.push(current.trim())
+  if (cells.length === 1 && /\s+/.test(cells[0])) {
+    return cells[0].split(/\s+/).map((cell) => cell.trim()).filter(Boolean)
+  }
   return cells
 }
 
@@ -118,18 +121,25 @@ function parseTeacherUsersCsv(text: string) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
+    .filter((line) => !/^sep\s*=/i.test(line))
 
   if (rows.length < 2) {
     throw new HttpError(400, '请上传包含表头和账号数据的 CSV 表格')
   }
 
   const headers = parseUserCsvLine(rows[0]).map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase())
-  const usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header))
-  const displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header))
-  const passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header))
+  let usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header))
+  let displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header))
+  let passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header))
 
   if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0) {
-    throw new HttpError(400, '表头必须包含：工号,姓名,密码')
+    if (headers.length >= 3) {
+      usernameIndex = 0
+      displayNameIndex = 1
+      passwordIndex = 2
+    } else {
+      throw new HttpError(400, '表头必须包含：工号,姓名,密码')
+    }
   }
 
   return rows.slice(1).map((line, index) => {

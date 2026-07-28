@@ -2,6 +2,7 @@ import { Router } from 'express'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { TextDecoder } from 'node:util'
 import multer from 'multer'
 import { z } from 'zod'
 import { extractSopTextFromFile, extractTextFromFile } from '../lib/document-parser'
@@ -97,7 +98,7 @@ function parseUserCsvLine(line: string) {
       continue
     }
 
-    if ((char === ',' || char === '，') && !inQuotes) {
+    if ((char === ',' || char === '，' || char === '\t' || char === ';' || char === '；') && !inQuotes) {
       cells.push(current.trim())
       current = ''
       continue
@@ -143,6 +144,31 @@ function parseTeacherUsersCsv(text: string) {
 
     return { username, displayName, password }
   })
+}
+
+function decodeCsvBuffer(buffer: Buffer) {
+  const texts = [buffer.toString('utf8')]
+  for (const encoding of ['gb18030', 'gbk']) {
+    try {
+      texts.push(new TextDecoder(encoding).decode(buffer))
+    } catch {
+      // Some Node builds may not expose every legacy label; UTF-8 fallback remains available.
+    }
+  }
+  return Array.from(new Set(texts))
+}
+
+function parseTeacherUsersCsvBuffer(buffer: Buffer) {
+  let lastError: unknown
+  for (const text of decodeCsvBuffer(buffer)) {
+    try {
+      return parseTeacherUsersCsv(text)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError
 }
 
 router.use(authenticate)
@@ -194,8 +220,7 @@ router.post('/users/import/document', requireRole('TRAINER'), upload.single('use
       throw new HttpError(400, '请上传老师账号 CSV 表格')
     }
 
-    const text = req.file.buffer.toString('utf8')
-    const users = parseTeacherUsersCsv(text)
+    const users = parseTeacherUsersCsvBuffer(req.file.buffer)
     res.json(ok(await importTeacherUsers({ users })))
   } catch (error) {
     next(error)

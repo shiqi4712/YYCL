@@ -834,11 +834,7 @@
       if (!(file instanceof File) || !file.size) {
         throw new Error('请先选择老师账号 CSV 表格');
       }
-      const users = parseTeacherImportText(await file.text());
-      const result = await api('/api/admin/users/import', {
-        method: 'POST',
-        body: JSON.stringify({ users }),
-      });
+      const result = await uploadApi('/api/admin/users/import/document', formData);
       nodes.teacherImportStatus.textContent = `导入完成：创建 ${result.created} 个，跳过 ${result.skipped} 个`;
       nodes.teacherImportForm.reset();
       await loadUsers();

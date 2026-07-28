@@ -77,6 +77,74 @@ const objectionStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE']),
 })
 
+function parseUserCsvLine(line: string) {
+  const cells: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    const next = line[index + 1]
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"'
+      index += 1
+      continue
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes
+      continue
+    }
+
+    if ((char === ',' || char === '，') && !inQuotes) {
+      cells.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  cells.push(current.trim())
+  return cells
+}
+
+function parseTeacherUsersCsv(text: string) {
+  const rows = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (rows.length < 2) {
+    throw new HttpError(400, '请上传包含表头和账号数据的 CSV 表格')
+  }
+
+  const headers = parseUserCsvLine(rows[0]).map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase())
+  const usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header))
+  const displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header))
+  const passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header))
+
+  if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0) {
+    throw new HttpError(400, '表头必须包含：工号,姓名,密码')
+  }
+
+  return rows.slice(1).map((line, index) => {
+    const cells = parseUserCsvLine(line)
+    const username = (cells[usernameIndex] || '').trim()
+    const displayName = (cells[displayNameIndex] || '').trim()
+    const password = (cells[passwordIndex] || '').trim()
+
+    if (!username || !displayName || !password) {
+      throw new HttpError(400, `第 ${index + 2} 行缺少工号、姓名或密码`)
+    }
+
+    return { username, displayName, password }
+  })
+}
+
 router.use(authenticate)
 
 router.get('/me', async (req: AuthedRequest, res, next) => {
@@ -115,6 +183,20 @@ router.post('/users', requireRole('TRAINER'), async (req: AuthedRequest, res, ne
 router.post('/users/import', requireRole('TRAINER'), async (req, res, next) => {
   try {
     res.json(ok(await importTeacherUsers(req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/users/import/document', requireRole('TRAINER'), upload.single('usersFile'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new HttpError(400, '请上传老师账号 CSV 表格')
+    }
+
+    const text = req.file.buffer.toString('utf8')
+    const users = parseTeacherUsersCsv(text)
+    res.json(ok(await importTeacherUsers({ users })))
   } catch (error) {
     next(error)
   }

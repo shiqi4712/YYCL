@@ -535,6 +535,12 @@ select:focus {
   align-items: center;
 }
 
+.submit-training-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 18px;
+}
+
 .dimension-card {
   display: flex;
   justify-content: space-between;

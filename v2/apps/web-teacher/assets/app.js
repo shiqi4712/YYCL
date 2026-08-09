@@ -62,6 +62,7 @@
     trainingMessageForm: document.getElementById('trainingMessageForm'),
     trainingMessageInput: document.getElementById('trainingMessageInput'),
     trainingForceReplyButton: document.getElementById('trainingForceReplyButton'),
+    trainingSubmitButton: document.getElementById('trainingSubmitButton'),
     trainingReviewPanel: document.getElementById('trainingReviewPanel'),
     trainingReviewScore: document.getElementById('trainingReviewScore'),
     trainingReviewContent: document.getElementById('trainingReviewContent'),
@@ -574,6 +575,7 @@
     nodes.trainingStatusChip.textContent = '训练中';
     nodes.trainingMessageInput.disabled = false;
     nodes.trainingForceReplyButton.disabled = false;
+    nodes.trainingSubmitButton.disabled = false;
     renderTrainingContext();
     renderTrainingMessages();
   }
@@ -619,6 +621,7 @@
         completed = true;
         nodes.trainingMessageInput.disabled = true;
         nodes.trainingForceReplyButton.disabled = true;
+        nodes.trainingSubmitButton.disabled = false;
       }
     } catch (error) {
       alert(error.message);
@@ -668,7 +671,7 @@
   }
 
   async function endTrainingAndReview() {
-    if (!state.training.sessionId) return;
+    if (!state.training.sessionId || state.training.review) return;
     if (state.training.replyTimer) {
       window.clearTimeout(state.training.replyTimer);
       state.training.replyTimer = null;
@@ -677,21 +680,25 @@
     state.training.replyInFlight = false;
     setReplyWait('');
     nodes.trainingEndButton.disabled = true;
+    nodes.trainingSubmitButton.disabled = true;
     nodes.trainingMessageInput.disabled = true;
     nodes.trainingForceReplyButton.disabled = true;
     nodes.trainingStatusChip.textContent = '生成复盘中';
+    let reviewCompleted = false;
 
     try {
       await api(`/api/training/sessions/${state.training.sessionId}/end`, { method: 'POST' });
       const review = await api(`/api/training/sessions/${state.training.sessionId}/review`, { method: 'POST' });
       state.training.review = review;
+      reviewCompleted = true;
       nodes.trainingStatusChip.textContent = '复盘完成';
       renderTrainingReview(review);
     } catch (error) {
       alert(error.message);
       nodes.trainingStatusChip.textContent = '训练中';
     } finally {
-      nodes.trainingEndButton.disabled = false;
+      nodes.trainingEndButton.disabled = reviewCompleted;
+      nodes.trainingSubmitButton.disabled = reviewCompleted;
     }
   }
 
@@ -765,6 +772,7 @@
     nodes.trainingMessageForm.addEventListener('submit', sendTrainingMessage);
     nodes.trainingForceReplyButton.addEventListener('click', requestParentReply);
     nodes.trainingEndButton.addEventListener('click', endTrainingAndReview);
+    nodes.trainingSubmitButton.addEventListener('click', endTrainingAndReview);
     nodes.trainingMessageInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();

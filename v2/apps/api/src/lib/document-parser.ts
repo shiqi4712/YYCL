@@ -1,4 +1,5 @@
 import mammoth from 'mammoth'
+import { TextDecoder } from 'node:util'
 import { HttpError } from '../utils/http-error'
 
 const MAX_TEXT_LENGTH = 50_000
@@ -23,6 +24,26 @@ function assertTextSize(text: string, label: string) {
   return text
 }
 
+function textQualityScore(text: string) {
+  const badChars = (text.match(/[�]/g) || []).length
+  const suspiciousLatin = (text.match(/[ÃÂÅÆÇÈÉåæçèé]{1}/g) || []).length
+  const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
+  return chineseChars * 2 - badChars * 80 - suspiciousLatin * 12
+}
+
+function decodeTextBuffer(buffer: Buffer) {
+  const texts = [buffer.toString('utf8')]
+  for (const encoding of ['gb18030', 'gbk']) {
+    try {
+      texts.push(new TextDecoder(encoding).decode(buffer))
+    } catch {
+      // UTF-8 fallback remains available when a legacy decoder is unavailable.
+    }
+  }
+
+  return Array.from(new Set(texts)).sort((a, b) => textQualityScore(b) - textQualityScore(a))[0]
+}
+
 export async function extractTextFromFile(file: Express.Multer.File, label = '') {
   const originalName = file.originalname.toLowerCase()
 
@@ -36,7 +57,7 @@ export async function extractTextFromFile(file: Express.Multer.File, label = '')
     originalName.endsWith('.md') ||
     originalName.endsWith('.csv')
   ) {
-    return assertTextSize(normalizeText(file.buffer.toString('utf8')), label)
+    return assertTextSize(normalizeText(decodeTextBuffer(file.buffer)), label)
   }
 
   throw new HttpError(400, '当前仅支持上传 .docx、.txt、.md、.csv 格式的文档')

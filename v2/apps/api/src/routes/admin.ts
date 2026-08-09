@@ -179,14 +179,29 @@ function decodeCsvBuffer(buffer: Buffer) {
   return Array.from(new Set(texts))
 }
 
+function textQualityScore(text: string) {
+  const badChars = (text.match(/[�]/g) || []).length
+  const suspiciousLatin = (text.match(/[ÃÂÅÆÇÈÉåæçèé]{1}/g) || []).length
+  const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
+  return chineseChars * 2 - badChars * 80 - suspiciousLatin * 12
+}
+
 function parseTeacherUsersCsvBuffer(buffer: Buffer) {
+  const parsedCandidates: Array<{ users: ReturnType<typeof parseTeacherUsersCsv>; score: number }> = []
   let lastError: unknown
   for (const text of decodeCsvBuffer(buffer)) {
     try {
-      return parseTeacherUsersCsv(text)
+      parsedCandidates.push({
+        users: parseTeacherUsersCsv(text),
+        score: textQualityScore(text),
+      })
     } catch (error) {
       lastError = error
     }
+  }
+
+  if (parsedCandidates.length) {
+    return parsedCandidates.sort((a, b) => b.score - a.score)[0].users
   }
 
   throw lastError
@@ -329,6 +344,7 @@ function parseTrainingScenariosFile(file: Express.Multer.File) {
     return parseTrainingScenarioRows(rows.map((row) => row.map((cell) => String(cell || '').trim())))
   }
 
+  const parsedCandidates: Array<{ scenarios: ReturnType<typeof parseTrainingScenarioRows>; score: number }> = []
   let lastError: unknown
   for (const text of decodeCsvBuffer(file.buffer)) {
     try {
@@ -339,10 +355,17 @@ function parseTrainingScenariosFile(file: Express.Multer.File) {
         .map((line) => line.trim())
         .filter(Boolean)
         .map(parseUserCsvLine)
-      return parseTrainingScenarioRows(rows)
+      parsedCandidates.push({
+        scenarios: parseTrainingScenarioRows(rows),
+        score: textQualityScore(JSON.stringify(rows)),
+      })
     } catch (error) {
       lastError = error
     }
+  }
+
+  if (parsedCandidates.length) {
+    return parsedCandidates.sort((a, b) => b.score - a.score)[0].scenarios
   }
 
   throw lastError

@@ -23,6 +23,8 @@
       replyDueAt: 0,
       replyInFlight: false,
       review: null,
+      sessions: [],
+      selectedHistorySessionId: '',
     },
   };
 
@@ -66,6 +68,8 @@
     trainingReviewPanel: document.getElementById('trainingReviewPanel'),
     trainingReviewScore: document.getElementById('trainingReviewScore'),
     trainingReviewContent: document.getElementById('trainingReviewContent'),
+    trainingHistoryList: document.getElementById('trainingHistoryList'),
+    trainingHistoryDetail: document.getElementById('trainingHistoryDetail'),
   };
 
   function escapeHtml(value) {
@@ -77,6 +81,15 @@
 
   function renderEmptyState(message) {
     return `<div class="empty-state">${escapeHtml(message)}</div>`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '暂无时间';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '暂无时间';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(
+      date.getHours()
+    ).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
   function setToken(token) {
@@ -456,9 +469,50 @@
     });
   }
 
+  function renderTrainingHistory() {
+    const reviewedSessions = (state.training.sessions || []).filter((session) => session.reviewGenerated);
+
+    if (!reviewedSessions.length) {
+      nodes.trainingHistoryList.innerHTML = renderEmptyState('提交训练后，这里会保存你的复盘记录。');
+      nodes.trainingHistoryDetail.innerHTML = renderEmptyState('选择一条复盘记录，查看本次训练的提升建议。');
+      return;
+    }
+
+    nodes.trainingHistoryList.innerHTML = reviewedSessions
+      .map(
+        (session) => `
+          <button class="training-history-card ${
+            session.id === state.training.selectedHistorySessionId ? 'active' : ''
+          }" type="button" data-history-session="${escapeHtml(session.id)}">
+            <p class="eyebrow">${escapeHtml(formatDateTime(session.endedAt || session.startedAt))}</p>
+            <h3>${escapeHtml(session.scenario?.title || '未命名训练')}</h3>
+            <p>${escapeHtml(session.summary || '已生成复盘，点击查看提升建议。')}</p>
+            <span class="tag-good">查看复盘</span>
+          </button>
+        `
+      )
+      .join('');
+
+    nodes.trainingHistoryList.querySelectorAll('[data-history-session]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await loadTrainingReviewDetail(button.getAttribute('data-history-session') || '');
+      });
+    });
+
+    if (!state.training.selectedHistorySessionId) {
+      nodes.trainingHistoryDetail.innerHTML = renderEmptyState('选择一条复盘记录，查看本次训练的提升建议。');
+    }
+  }
+
+  async function loadTeacherTrainingSessions() {
+    state.training.sessions = await api('/api/training/sessions');
+    renderTrainingHistory();
+  }
+
   async function loadTrainingTopics() {
     nodes.trainingLoadStatus.textContent = '正在加载训练场景...';
-    state.training.topics = await api('/api/topics');
+    const [topics] = await Promise.all([api('/api/topics'), loadTeacherTrainingSessions()]);
+    state.training.topics = topics;
     nodes.trainingLoadStatus.textContent = '';
     renderTrainingPicker();
   }
@@ -632,8 +686,7 @@
     }
   }
 
-  function renderTrainingReview(review) {
-    if (!review) return;
+  function buildTrainingReviewHtml(review) {
     const dimensions = review.dimensions || {};
     const dimensionLabels = [
       ['empathy', '共情'],
@@ -643,13 +696,39 @@
       ['close', '缔结'],
     ];
 
-    nodes.trainingReviewPanel.classList.remove('hidden');
-    nodes.trainingReviewScore.textContent = '提升建议';
-    nodes.trainingReviewContent.innerHTML = `
+    return `
       <article class="review-summary">
         <h3>${escapeHtml(review.summary || '训练复盘已生成')}</h3>
         <p>${escapeHtml(review.nextAction || '建议继续练习完整沟通节奏。')}</p>
       </article>
+      ${
+        review.strengths || review.weaknesses
+          ? `
+            <div class="review-note-grid">
+              ${
+                review.strengths
+                  ? `
+                    <article class="review-note-card">
+                      <p class="eyebrow">做得好的地方</p>
+                      <p>${escapeHtml(review.strengths)}</p>
+                    </article>
+                  `
+                  : ''
+              }
+              ${
+                review.weaknesses
+                  ? `
+                    <article class="review-note-card">
+                      <p class="eyebrow">重点提升方向</p>
+                      <p>${escapeHtml(review.weaknesses)}</p>
+                    </article>
+                  `
+                  : ''
+              }
+            </div>
+          `
+          : ''
+      }
       <div class="dimension-list">
         ${dimensionLabels
           .map(([key, label]) => {
@@ -667,6 +746,31 @@
           .join('')}
       </div>
     `;
+  }
+
+  async function loadTrainingReviewDetail(sessionId) {
+    if (!sessionId) return;
+    state.training.selectedHistorySessionId = sessionId;
+    renderTrainingHistory();
+    nodes.trainingHistoryDetail.innerHTML = renderEmptyState('正在加载复盘内容...');
+
+    try {
+      const detail = await api(`/api/training/sessions/${sessionId}`);
+      if (!detail.review) {
+        nodes.trainingHistoryDetail.innerHTML = renderEmptyState('这次训练还没有生成复盘。');
+        return;
+      }
+      nodes.trainingHistoryDetail.innerHTML = buildTrainingReviewHtml(detail.review);
+    } catch (error) {
+      nodes.trainingHistoryDetail.innerHTML = renderEmptyState(error.message);
+    }
+  }
+
+  function renderTrainingReview(review) {
+    if (!review) return;
+    nodes.trainingReviewPanel.classList.remove('hidden');
+    nodes.trainingReviewScore.textContent = '提升建议';
+    nodes.trainingReviewContent.innerHTML = buildTrainingReviewHtml(review);
   }
 
   async function endTrainingAndReview() {
@@ -692,6 +796,7 @@
       reviewCompleted = true;
       nodes.trainingStatusChip.textContent = '复盘完成';
       renderTrainingReview(review);
+      await loadTeacherTrainingSessions();
     } catch (error) {
       alert(error.message);
       nodes.trainingStatusChip.textContent = '训练中';

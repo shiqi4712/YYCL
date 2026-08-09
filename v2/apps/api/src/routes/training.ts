@@ -6,6 +6,7 @@ import {
   createSession,
   endSession,
   generateReview,
+  generateParentReply,
   getSessionDetail,
   listTeacherSessions,
   sendTeacherMessage,
@@ -53,6 +54,14 @@ router.post('/sessions/:sessionId/messages', async (req: AuthedRequest, res, nex
   try {
     const payload = messageSchema.parse(req.body)
     res.json(ok(await sendTeacherMessage(req.params.sessionId, req.user!.id, payload.content)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/sessions/:sessionId/reply', async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await generateParentReply(req.params.sessionId, req.user!.id)))
   } catch (error) {
     next(error)
   }

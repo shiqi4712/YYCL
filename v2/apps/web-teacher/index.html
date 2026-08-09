@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理训练仓</title>
-    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260722-hide-material-copy" />
+    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260809-training-chat" />
   </head>
   <body>
     <div class="page-shell">
@@ -119,44 +119,71 @@
             </section>
           </section>
 
-          <section class="training-placeholder hidden" id="trainingView">
-            <article class="shell-card section-card">
+          <section class="training-view hidden" id="trainingView">
+            <article class="shell-card section-card" id="trainingPicker">
               <div class="section-head">
                 <div>
                   <p class="eyebrow">Training</p>
-                  <h2>异议处理训练</h2>
+                  <h2>选择训练场景</h2>
                 </div>
-                <span class="tag-warn">独立功能</span>
+                <span class="tag-warn">先选场景，再进入对话</span>
               </div>
-              <div class="flow-list">
-                <article class="flow-card">
-                  <span class="step-num">1</span>
-                  <div>
-                    <h3>选择训练场景</h3>
-                    <p>从课前进线、课中推进、结转促单中选择训练方向。</p>
-                  </div>
-                </article>
-                <article class="flow-card">
-                  <span class="step-num">2</span>
-                  <div>
-                    <h3>AI 模拟家长异议</h3>
-                    <p>系统生成家长表达，老师进行多轮回复练习。</p>
-                  </div>
-                </article>
-                <article class="flow-card">
-                  <span class="step-num">3</span>
-                  <div>
-                    <h3>结束后结构化复盘</h3>
-                    <p>复盘是否接住情绪、拆解顾虑、给出证据和下一步动作。</p>
-                  </div>
-                </article>
-              </div>
+              <div class="training-scenario-grid" id="trainingScenarioList"></div>
+              <p class="status-text" id="trainingLoadStatus"></p>
             </article>
+
+            <section class="training-chat hidden" id="trainingChat">
+              <aside class="shell-card section-card training-context">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Context</p>
+                    <h2 id="trainingScenarioTitle">训练场景</h2>
+                  </div>
+                  <button class="secondary-btn compact-btn" id="trainingBackButton" type="button">重新选场景</button>
+                </div>
+                <div class="context-list" id="trainingContextList"></div>
+                <button class="secondary-btn" id="trainingEndButton" type="button">结束训练并生成复盘</button>
+              </aside>
+
+              <article class="shell-card section-card training-dialog">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Parent Chat</p>
+                    <h2>模拟家长对话</h2>
+                  </div>
+                  <span class="tag" id="trainingStatusChip">训练中</span>
+                </div>
+                <div class="message-list" id="trainingMessageList"></div>
+                <div class="reply-wait hidden" id="trainingReplyWait"></div>
+                <form class="chat-composer" id="trainingMessageForm">
+                  <textarea
+                    id="trainingMessageInput"
+                    rows="4"
+                    placeholder="输入老师回复。Enter 发送，Shift + Enter 换行；如需发送物料，可写 +物料 / +案例 / +图片 / +链接。"
+                  ></textarea>
+                  <div class="composer-actions">
+                    <button class="secondary-btn" id="trainingForceReplyButton" type="button">我说完了，让家长回复</button>
+                    <button class="primary-btn" type="submit">发送</button>
+                  </div>
+                </form>
+              </article>
+
+              <aside class="shell-card section-card training-review hidden" id="trainingReviewPanel">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Review</p>
+                    <h2>结构化复盘</h2>
+                  </div>
+                  <span class="tag-good" id="trainingReviewScore">0 分</span>
+                </div>
+                <div id="trainingReviewContent"></div>
+              </aside>
+            </section>
           </section>
         </section>
       </main>
     </div>
 
-    <script src="/assets/teacher/app.js?v=20260722-hide-material-copy"></script>
+    <script src="/assets/teacher/app.js?v=20260809-training-chat"></script>
   </body>
 </html>

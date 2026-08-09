@@ -147,11 +147,15 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
   return [
     '请判断少儿编程体验课转化训练中，老师是否已经把当前这个家长异议处理到可以自然进入下一个异议。',
     '只输出 JSON，不要 Markdown，不要解释。',
-    'JSON 字段必须包含：resolved, reason。',
-    'resolved 必须是 boolean；reason 用一句中文说明判断原因。',
-    '判定要严格：只有当老师已经承接家长情绪、回应核心担心、给出具体到孩子的方案或证据，并提出合理下一步时，才算 resolved=true。',
+    'JSON 字段必须包含：resolved, canAdvance, resolutionScore, emotionState, reason。',
+    'resolved 和 canAdvance 必须是 boolean；resolutionScore 为 0-100 整数；emotionState 只能是“防备”“犹豫”“松动”“接受”之一；reason 用一句中文说明判断原因。',
+    'resolved=true 代表老师基本处理了当前顾虑；canAdvance=true 代表家长可以自然松动并进入下一个顾虑。',
+    '判定要严格但不要机械：老师需要承接家长情绪、回应核心担心、给出具体到孩子的方案或证据，并提出合理下一步，才可以高分。',
+    '如果老师已经连续多轮补充，内容足够具体，即使表达不完美也可以给 70-85 分；如果只是套话很流畅但没有解决根因，分数要低。',
     '如果老师只是表达理解、泛泛介绍课程价值、简单承诺效果、直接催报名、只反问家长，或者没有针对当前异议的根因，就必须 resolved=false。',
     '不要因为老师话术很长就判定解决；必须看内容是否真正解决当前异议。',
+    '参考分档：0-40 完全没接住；41-60 有回应但空泛；61-71 有部分说服但还不能推进；72-81 基本解决但仍有轻微犹豫；82-100 可以自然推进。',
+    'canAdvance=true 通常需要 resolutionScore >= 82；如果对话已经非常自然且家长明显松动，72 分以上也可以为 true。',
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
     `家长情况：${input.parentPersona}`,
@@ -206,8 +210,26 @@ export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput)
   }
 
   const parsed = JSON.parse(content)
+  const resolutionScore = Number(parsed.resolutionScore)
+  const normalizedScore = Number.isFinite(resolutionScore)
+    ? Math.max(0, Math.min(100, Math.round(resolutionScore)))
+    : parsed.resolved === true
+      ? 82
+      : 45
+  const emotionState = ['防备', '犹豫', '松动', '接受'].includes(parsed.emotionState)
+    ? parsed.emotionState
+    : normalizedScore >= 82
+      ? '接受'
+      : normalizedScore >= 72
+        ? '松动'
+        : normalizedScore >= 45
+          ? '犹豫'
+          : '防备'
   return {
     resolved: parsed.resolved === true,
+    canAdvance: parsed.canAdvance === true,
+    resolutionScore: normalizedScore,
+    emotionState,
     reason: typeof parsed.reason === 'string' ? parsed.reason : '',
   }
 }
@@ -216,9 +238,18 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
   return [
     '请对一段少儿编程体验课转化训练对话做结构化复盘。',
     '只输出 JSON，不要 Markdown，不要解释。',
-    'JSON 字段必须包含：overallScore, summary, strengths, weaknesses, nextAction, tags, steps。',
+    'JSON 字段必须包含：overallScore, summary, strengths, weaknesses, nextAction, tags, dimensions, steps。',
+    'dimensions 必须包含 empathy, standard, enablement, caseProof, close 五项，每项包含 score, reason, suggestion。',
+    '五项总分各 20 分，overallScore 必须等于五项 score 相加，最高 100 分。',
+    '共情 empathy：0-5 没有共情或直接否定家长；6-10 只有泛泛“理解/正常”；11-15 回应了具体顾虑；16-20 给到情绪价值、降低家长压力。',
+    '建立标准 standard：0-5 没有标准只说课程好；6-10 标准很模糊；11-15 有清晰可观察标准；16-20 标准具体、可观察，并能连接当前异议和家长决策。',
+    '赋能 enablement：0-5 没有赋能；6-10 泛泛讲编程价值且没有物料；11-15 有具体价值解释但没有物料；16-20 解释价值并发送 +物料 / +资料 / +图片 / +链接 / +作品。硬规则：没有这些标记最高 15 分。',
+    '给案例 caseProof：0-5 没有案例；6-10 只有“很多孩子”这类泛泛表达；11-15 有具体案例结构；16-20 有具体案例并用 +案例 / +物料 / +图片 / +作品 做证据。硬规则：没有这些标记最高 15 分。',
+    '缔结 close：0-5 没有下一步；6-10 只是弱提醒“考虑一下”；11-15 有清晰下一步；16-20 低压力但明确要单、确认报名、约时间或推进付款。硬规则：没有清晰下一步最高 10 分。',
     'steps 数组每项必须包含：stepOrder, stepTitle, score, verdict, strengths, issue, recommendation。',
     'score 为 0-100 整数；verdict 用一句中文判断老师是否解决该异议。',
+    '如果老师用“+物料”“+案例”“+图片”“+链接”“+作品”等方式表示发送了辅助内容，需要视为已发送相关证据或物料。',
+    '复盘只在老师结束训练后给出，不要要求 AI 在对话过程中打断老师。',
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
     `家长情况：${input.parentPersona}`,

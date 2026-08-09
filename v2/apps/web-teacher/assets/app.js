@@ -13,6 +13,17 @@
     selectedScene: '',
     objections: [],
     selectedObjectionId: '',
+    training: {
+      topics: [],
+      selectedScenario: null,
+      sessionId: '',
+      messages: [],
+      pendingTeacherCount: 0,
+      replyTimer: null,
+      replyDueAt: 0,
+      replyInFlight: false,
+      review: null,
+    },
   };
 
   const nodes = {
@@ -37,6 +48,23 @@
     backToScenesButton: document.getElementById('teacherBackToScenesButton'),
     refreshButton: document.getElementById('teacherRefreshButton'),
     logoutButton: document.getElementById('teacherLogoutButton'),
+    trainingPicker: document.getElementById('trainingPicker'),
+    trainingScenarioList: document.getElementById('trainingScenarioList'),
+    trainingLoadStatus: document.getElementById('trainingLoadStatus'),
+    trainingChat: document.getElementById('trainingChat'),
+    trainingScenarioTitle: document.getElementById('trainingScenarioTitle'),
+    trainingContextList: document.getElementById('trainingContextList'),
+    trainingBackButton: document.getElementById('trainingBackButton'),
+    trainingEndButton: document.getElementById('trainingEndButton'),
+    trainingStatusChip: document.getElementById('trainingStatusChip'),
+    trainingMessageList: document.getElementById('trainingMessageList'),
+    trainingReplyWait: document.getElementById('trainingReplyWait'),
+    trainingMessageForm: document.getElementById('trainingMessageForm'),
+    trainingMessageInput: document.getElementById('trainingMessageInput'),
+    trainingForceReplyButton: document.getElementById('trainingForceReplyButton'),
+    trainingReviewPanel: document.getElementById('trainingReviewPanel'),
+    trainingReviewScore: document.getElementById('trainingReviewScore'),
+    trainingReviewContent: document.getElementById('trainingReviewContent'),
   };
 
   function escapeHtml(value) {
@@ -364,6 +392,303 @@
     });
   }
 
+  function resetTrainingRuntime() {
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+    }
+    state.training.sessionId = '';
+    state.training.selectedScenario = null;
+    state.training.messages = [];
+    state.training.pendingTeacherCount = 0;
+    state.training.replyTimer = null;
+    state.training.replyDueAt = 0;
+    state.training.replyInFlight = false;
+    state.training.review = null;
+    if (nodes.trainingMessageInput) {
+      nodes.trainingMessageInput.value = '';
+    }
+  }
+
+  function flattenTrainingScenarios() {
+    return state.training.topics.flatMap((topic) =>
+      (topic.scenarios || []).map((scenario) => ({
+        ...scenario,
+        topicTitle: topic.title,
+        topicDescription: topic.description,
+        sopConfigured: topic.sopConfigured,
+      }))
+    );
+  }
+
+  function renderTrainingPicker() {
+    const scenarios = flattenTrainingScenarios();
+    nodes.trainingPicker.classList.remove('hidden');
+    nodes.trainingChat.classList.add('hidden');
+    nodes.trainingReviewPanel.classList.add('hidden');
+
+    if (!scenarios.length) {
+      nodes.trainingScenarioList.innerHTML = renderEmptyState('当前暂无可训练场景，请管理员先在后台录入训练主题和场景。');
+      return;
+    }
+
+    nodes.trainingScenarioList.innerHTML = scenarios
+      .map(
+        (scenario) => `
+          <button class="training-scenario-card" type="button" data-training-scenario="${escapeHtml(scenario.id)}">
+            <p class="eyebrow">${escapeHtml(scenario.topicTitle || '训练主题')}</p>
+            <h3>${escapeHtml(scenario.title)}</h3>
+            <p>${escapeHtml(scenario.description)}</p>
+            <div class="tag-row">
+              <span class="tag">${escapeHtml(scenario.difficulty || '标准')}</span>
+              <span class="${scenario.sopConfigured ? 'tag-good' : 'tag-warn'}">${scenario.sopConfigured ? '已导入 SOP' : '暂无 SOP'}</span>
+            </div>
+          </button>
+        `
+      )
+      .join('');
+
+    nodes.trainingScenarioList.querySelectorAll('[data-training-scenario]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const scenarioId = button.getAttribute('data-training-scenario') || '';
+        await startTrainingScenario(scenarioId);
+      });
+    });
+  }
+
+  async function loadTrainingTopics() {
+    nodes.trainingLoadStatus.textContent = '正在加载训练场景...';
+    state.training.topics = await api('/api/topics');
+    nodes.trainingLoadStatus.textContent = '';
+    renderTrainingPicker();
+  }
+
+  function renderTrainingContext() {
+    const scenario = state.training.selectedScenario;
+    if (!scenario) return;
+
+    nodes.trainingScenarioTitle.textContent = scenario.title;
+    nodes.trainingContextList.innerHTML = `
+      <article class="context-card">
+        <p class="eyebrow">家长情况 / 学生情况</p>
+        <p>${escapeHtml(scenario.parentPersona || '管理员暂未填写家长与学生情况。')}</p>
+      </article>
+      <article class="context-card">
+        <p class="eyebrow">异议场景</p>
+        <p>${escapeHtml(scenario.description || '管理员暂未填写场景说明。')}</p>
+      </article>
+      <article class="context-card">
+        <p class="eyebrow">练习提示</p>
+        <p>老师可以连续发送多段话，系统会等待你说完后再让家长回复。需要发送物料时，可在话术里写 +物料、+案例、+图片 或 +链接。</p>
+      </article>
+    `;
+  }
+
+  function normalizeTrainingMessage(message) {
+    return {
+      id: message.id || `${message.role}-${Date.now()}-${Math.random()}`,
+      role: message.role === 'ai' || message.role === 'AI' ? 'ai' : 'teacher',
+      content: message.content || '',
+      stepOrder: message.stepOrder || 1,
+      createdAt: message.createdAt || new Date().toISOString(),
+    };
+  }
+
+  function renderTrainingMessages() {
+    if (!state.training.messages.length) {
+      nodes.trainingMessageList.innerHTML = renderEmptyState('训练开始后，家长会先发来第一条消息。');
+      return;
+    }
+
+    nodes.trainingMessageList.innerHTML = state.training.messages
+      .map(
+        (message) => `
+          <article class="chat-bubble ${message.role === 'teacher' ? 'teacher-bubble' : 'parent-bubble'}">
+            <span>${message.role === 'teacher' ? '老师' : '家长'}</span>
+            <p>${escapeHtml(message.content).replace(/\n/g, '<br />')}</p>
+          </article>
+        `
+      )
+      .join('');
+    nodes.trainingMessageList.scrollTop = nodes.trainingMessageList.scrollHeight;
+  }
+
+  function setReplyWait(message) {
+    if (!message) {
+      nodes.trainingReplyWait.classList.add('hidden');
+      nodes.trainingReplyWait.textContent = '';
+      return;
+    }
+    nodes.trainingReplyWait.classList.remove('hidden');
+    nodes.trainingReplyWait.textContent = message;
+  }
+
+  function calculateReplyDelay(content) {
+    const text = String(content || '');
+    const base = 6000;
+    const lengthDelay = Math.ceil(text.length / 50) * 2000;
+    const materialDelay = /\+(物料|案例|图片|链接|资料|作品)/.test(text) ? 4000 : 0;
+    const consecutiveDelay = Math.max(0, state.training.pendingTeacherCount - 1) * 2000;
+    return Math.min(20000, base + lengthDelay + materialDelay + consecutiveDelay);
+  }
+
+  function scheduleParentReply(latestTeacherContent) {
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+    }
+
+    const delay = calculateReplyDelay(latestTeacherContent);
+    state.training.replyDueAt = Date.now() + delay;
+    const seconds = Math.ceil(delay / 1000);
+    setReplyWait(`家长正在看消息，约 ${seconds} 秒后回复。你可以继续补充，系统会重新等待。`);
+    state.training.replyTimer = window.setTimeout(() => {
+      requestParentReply();
+    }, delay);
+  }
+
+  async function startTrainingScenario(scenarioId) {
+    const scenario = flattenTrainingScenarios().find((item) => item.id === scenarioId);
+    if (!scenario) return;
+
+    resetTrainingRuntime();
+    nodes.trainingLoadStatus.textContent = '正在创建训练...';
+    const created = await api('/api/training/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ scenarioId }),
+    });
+
+    state.training.selectedScenario = scenario;
+    state.training.sessionId = created.sessionId;
+    state.training.messages = [
+      normalizeTrainingMessage({
+        id: 'opening',
+        role: 'ai',
+        content: created.openingMessage,
+        stepOrder: 1,
+        createdAt: new Date().toISOString(),
+      }),
+    ];
+    nodes.trainingLoadStatus.textContent = '';
+    nodes.trainingPicker.classList.add('hidden');
+    nodes.trainingChat.classList.remove('hidden');
+    nodes.trainingReviewPanel.classList.add('hidden');
+    nodes.trainingStatusChip.textContent = '训练中';
+    nodes.trainingMessageInput.disabled = false;
+    nodes.trainingForceReplyButton.disabled = false;
+    renderTrainingContext();
+    renderTrainingMessages();
+  }
+
+  async function sendTrainingMessage(event) {
+    event?.preventDefault();
+    const content = nodes.trainingMessageInput.value.trim();
+    if (!content || !state.training.sessionId || state.training.replyInFlight) return;
+
+    nodes.trainingMessageInput.value = '';
+    const result = await api(`/api/training/sessions/${state.training.sessionId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    state.training.messages.push(normalizeTrainingMessage(result.message));
+    state.training.pendingTeacherCount += 1;
+    renderTrainingMessages();
+    scheduleParentReply(content);
+  }
+
+  async function requestParentReply() {
+    if (!state.training.sessionId || state.training.replyInFlight || state.training.pendingTeacherCount === 0) return;
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+      state.training.replyTimer = null;
+    }
+
+    state.training.replyInFlight = true;
+    setReplyWait('家长回复中...');
+    nodes.trainingForceReplyButton.disabled = true;
+    let completed = false;
+
+    try {
+      const result = await api(`/api/training/sessions/${state.training.sessionId}/reply`, {
+        method: 'POST',
+      });
+      state.training.messages.push(normalizeTrainingMessage(result.message));
+      state.training.pendingTeacherCount = 0;
+      nodes.trainingStatusChip.textContent =
+        result.status === 'COMPLETED' ? '已完成，可生成复盘' : `${result.emotionState || '家长'} · ${result.resolutionScore ?? 0}分`;
+      renderTrainingMessages();
+      if (result.status === 'COMPLETED') {
+        completed = true;
+        nodes.trainingMessageInput.disabled = true;
+        nodes.trainingForceReplyButton.disabled = true;
+      }
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      state.training.replyInFlight = false;
+      nodes.trainingForceReplyButton.disabled = completed;
+      setReplyWait('');
+    }
+  }
+
+  function renderTrainingReview(review) {
+    if (!review) return;
+    const dimensions = review.dimensions || {};
+    const dimensionLabels = [
+      ['empathy', '共情'],
+      ['standard', '建立标准'],
+      ['enablement', '赋能'],
+      ['caseProof', '给案例'],
+      ['close', '缔结'],
+    ];
+
+    nodes.trainingReviewPanel.classList.remove('hidden');
+    nodes.trainingReviewScore.textContent = `${review.overallScore || 0} 分`;
+    nodes.trainingReviewContent.innerHTML = `
+      <article class="review-summary">
+        <h3>${escapeHtml(review.summary || '训练复盘已生成')}</h3>
+        <p>${escapeHtml(review.nextAction || '建议继续练习完整沟通节奏。')}</p>
+      </article>
+      <div class="dimension-list">
+        ${dimensionLabels
+          .map(([key, label]) => {
+            const item = dimensions[key] || {};
+            return `
+              <article class="dimension-card">
+                <div>
+                  <h3>${label}</h3>
+                  <p>${escapeHtml(item.reason || '暂无扣分说明')}</p>
+                  <small>${escapeHtml(item.suggestion || '暂无改进建议')}</small>
+                </div>
+                <strong>${Number(item.score || 0)}/20</strong>
+              </article>
+            `;
+          })
+          .join('')}
+      </div>
+    `;
+  }
+
+  async function endTrainingAndReview() {
+    if (!state.training.sessionId) return;
+    if (state.training.pendingTeacherCount > 0) {
+      await requestParentReply();
+    }
+    nodes.trainingEndButton.disabled = true;
+    nodes.trainingStatusChip.textContent = '生成复盘中';
+
+    try {
+      await api(`/api/training/sessions/${state.training.sessionId}/end`, { method: 'POST' });
+      const review = await api(`/api/training/sessions/${state.training.sessionId}/review`, { method: 'POST' });
+      state.training.review = review;
+      nodes.trainingStatusChip.textContent = '复盘完成';
+      renderTrainingReview(review);
+    } catch (error) {
+      alert(error.message);
+      nodes.trainingStatusChip.textContent = '训练中';
+    } finally {
+      nodes.trainingEndButton.disabled = false;
+    }
+  }
+
   async function loadProfile() {
     state.profile = await api('/api/auth/me');
     nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
@@ -374,6 +699,8 @@
   async function refreshCurrentView() {
     if (state.view === 'repositoryDetail') {
       await loadObjections();
+    } else if (state.view === 'training') {
+      await loadTrainingTopics();
     } else {
       renderScenes();
     }
@@ -412,6 +739,7 @@
       state.objections = [];
       state.selectedScene = '';
       state.selectedObjectionId = '';
+      resetTrainingRuntime();
       toggleApp(false);
       setView('portal');
     });
@@ -424,6 +752,19 @@
       setView('portal');
     });
     nodes.backToScenesButton.addEventListener('click', () => setView('repository'));
+    nodes.trainingBackButton.addEventListener('click', () => {
+      resetTrainingRuntime();
+      renderTrainingPicker();
+    });
+    nodes.trainingMessageForm.addEventListener('submit', sendTrainingMessage);
+    nodes.trainingForceReplyButton.addEventListener('click', requestParentReply);
+    nodes.trainingEndButton.addEventListener('click', endTrainingAndReview);
+    nodes.trainingMessageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendTrainingMessage(event);
+      }
+    });
     nodes.searchInput.addEventListener('input', () => {
       window.clearTimeout(nodes.searchInput.timer);
       nodes.searchInput.timer = window.setTimeout(loadObjections, 220);
@@ -437,6 +778,7 @@
           return;
         }
         setView('training');
+        await loadTrainingTopics();
       });
     });
 

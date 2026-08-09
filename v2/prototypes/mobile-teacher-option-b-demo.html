@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>老师端移动版 Demo - 方案 B</title>
+    <style>
+      :root {
+        --bg: #f5f5f7;
+        --surface: #ffffff;
+        --surface-soft: #fbfbfd;
+        --text: #111827;
+        --muted: #6b7280;
+        --faint: #9ca3af;
+        --blue: #0a84ff;
+        --blue-soft: rgba(10, 132, 255, 0.12);
+        --green: #15803d;
+        --green-soft: rgba(22, 163, 74, 0.12);
+        --orange: #b45309;
+        --orange-soft: rgba(245, 158, 11, 0.14);
+        --line: rgba(148, 163, 184, 0.2);
+        --shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+        --shadow-soft: 0 2px 14px rgba(15, 23, 42, 0.055);
+        --radius-xl: 30px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 12% 8%, rgba(10, 132, 255, 0.14), transparent 30%),
+          radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.95), transparent 28%),
+          linear-gradient(180deg, #fafafa 0%, var(--bg) 54%, #eff1f5 100%);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      p,
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+      }
+
+      .demo-shell {
+        display: grid;
+        grid-template-columns: minmax(280px, 0.8fr) 430px;
+        gap: 34px;
+        align-items: center;
+        width: min(1120px, calc(100vw - 36px));
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 32px 0;
+      }
+
+      .demo-copy {
+        padding: 34px;
+        border-radius: var(--radius-xl);
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        color: var(--faint);
+        font-size: 12px;
+        font-weight: 760;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .demo-copy h1 {
+        max-width: 520px;
+        font-size: clamp(42px, 5vw, 70px);
+        line-height: 1.02;
+        letter-spacing: -0.065em;
+      }
+
+      .demo-copy p:not(.eyebrow) {
+        max-width: 560px;
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.85;
+      }
+
+      .demo-points {
+        display: grid;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .demo-point {
+        padding: 16px;
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .demo-point strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .demo-point span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .phone-frame {
+        position: relative;
+        width: min(430px, calc(100vw - 28px));
+        height: min(860px, calc(100vh - 36px));
+        min-height: 760px;
+        margin: 0 auto;
+        padding: 12px;
+        border-radius: 44px;
+        background: #111827;
+        box-shadow: var(--shadow);
+      }
+
+      .phone-screen {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 34px;
+        background:
+          radial-gradient(circle at 16% -6%, rgba(10, 132, 255, 0.14), transparent 34%),
+          linear-gradient(180deg, #f8f8fa 0%, #f5f5f7 100%);
+      }
+
+      .mobile-app {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        height: 100%;
+      }
+
+      .mobile-topbar {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px 12px;
+        background: rgba(255, 255, 255, 0.76);
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(229, 231, 235, 0.62);
+      }
+
+      .top-title h2 {
+        font-size: 20px;
+        font-weight: 720;
+        letter-spacing: -0.045em;
+      }
+
+      .top-title p {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 15px;
+        color: var(--blue);
+        background: var(--blue-soft);
+        transition: all 300ms ease-in-out;
+      }
+
+      .content {
+        position: relative;
+        overflow: auto;
+        padding: 18px 18px 96px;
+        scrollbar-width: none;
+      }
+
+      .content::-webkit-scrollbar {
+        display: none;
+      }
+
+      .view {
+        display: none;
+        animation: rise 360ms ease both;
+      }
+
+      .view.active {
+        display: block;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .hero-card,
+      .entry-card,
+      .scene-card,
+      .objection-card,
+      .detail-card,
+      .script-card,
+      .material-card,
+      .notice-card {
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+        transition: all 300ms ease-in-out;
+      }
+
+      .hero-card {
+        padding: 24px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 88% 12%, rgba(10, 132, 255, 0.18), transparent 34%),
+          var(--surface);
+      }
+
+      .hero-card h1 {
+        font-size: 36px;
+        line-height: 1.05;
+        letter-spacing: -0.06em;
+      }
+
+      .hero-card p {
+        margin-top: 14px;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .entry-grid,
+      .scene-grid,
+      .list-stack,
+      .detail-stack {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .entry-card,
+      .scene-card,
+      .objection-card {
+        width: 100%;
+        padding: 20px;
+        text-align: left;
+      }
+
+      .entry-card h3,
+      .scene-card h3,
+      .objection-card h3,
+      .detail-card h3,
+      .script-card h3,
+      .notice-card h3 {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+      }
+
+      .entry-card p,
+      .scene-card p,
+      .objection-card p,
+      .detail-card p,
+      .script-card p,
+      .notice-card p,
+      .material-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.68;
+      }
+
+      .entry-icon {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        margin-bottom: 14px;
+        border-radius: 17px;
+        color: #fff;
+        font-size: 22px;
+        font-weight: 800;
+        background: linear-gradient(145deg, #0a84ff, #45a8ff);
+        box-shadow: 0 14px 26px rgba(10, 132, 255, 0.22);
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .tag,
+      .tag-good,
+      .tag-warn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 11px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 720;
+      }
+
+      .tag {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .tag-good {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .tag-warn {
+        color: var(--orange);
+        background: var(--orange-soft);
+      }
+
+      .search-bar {
+        position: sticky;
+        top: -18px;
+        z-index: 4;
+        display: grid;
+        gap: 10px;
+        padding: 14px 0 10px;
+        background: linear-gradient(180deg, rgba(245, 245, 247, 0.98), rgba(245, 245, 247, 0.86));
+        backdrop-filter: blur(18px);
+      }
+
+      .search-input {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 16px;
+        border: 1px solid rgba(209, 213, 219, 0.72);
+        border-radius: 17px;
+        outline: none;
+        background: rgba(255, 255, 255, 0.92);
+        transition: all 300ms ease-in-out;
+      }
+
+      .search-input:focus {
+        border-color: rgba(10, 132, 255, 0.4);
+        box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.1);
+      }
+
+      .scene-tabs {
+        display: flex;
+        gap: 8px;
+        overflow: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+
+      .scene-tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tab-btn {
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        color: var(--muted);
+        white-space: nowrap;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .tab-btn.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .detail-card,
+      .notice-card,
+      .script-card {
+        padding: 20px;
+      }
+
+      .detail-card {
+        background:
+          radial-gradient(circle at 92% 12%, rgba(10, 132, 255, 0.15), transparent 34%),
+          var(--surface);
+      }
+
+      .notice-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .notice-list p {
+        margin: 0;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: var(--surface-soft);
+      }
+
+      .script-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .primary-btn,
+      .secondary-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 15px;
+        text-decoration: none;
+        transition: all 300ms ease-in-out;
+      }
+
+      .primary-btn {
+        color: #fff;
+        background: var(--blue);
+        box-shadow: 0 12px 26px rgba(10, 132, 255, 0.2);
+      }
+
+      .secondary-btn {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .material-card {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        margin-top: 12px;
+        padding: 12px;
+        background: var(--surface-soft);
+      }
+
+      .material-card img,
+      .material-file {
+        width: 92px;
+        height: 72px;
+        border-radius: 16px;
+        object-fit: cover;
+        background: linear-gradient(145deg, rgba(10, 132, 255, 0.14), #fff);
+      }
+
+      .material-file {
+        display: grid;
+        place-items: center;
+        color: var(--blue);
+        font-weight: 800;
+      }
+
+      .material-card h3 {
+        font-size: 15px;
+        font-weight: 720;
+      }
+
+      .material-card p {
+        font-size: 13px;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 8px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.76);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 16px 42px rgba(15, 23, 42, 0.12);
+      }
+
+      .nav-btn {
+        min-height: 46px;
+        border-radius: 18px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .nav-btn.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .back-row {
+        margin-bottom: 14px;
+      }
+
+      .empty-state {
+        padding: 22px;
+        border-radius: var(--radius-lg);
+        color: var(--muted);
+        line-height: 1.75;
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .entry-card:hover,
+      .scene-card:hover,
+      .objection-card:hover,
+      .script-card:hover,
+      .primary-btn:hover,
+      .secondary-btn:hover,
+      .icon-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+      }
+
+      @media (max-width: 880px) {
+        .demo-shell {
+          display: block;
+          width: 100%;
+          min-height: 100vh;
+          padding: 0;
+        }
+
+        .demo-copy {
+          display: none;
+        }
+
+        .phone-frame {
+          width: 100vw;
+          height: 100vh;
+          min-height: 100vh;
+          padding: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .phone-screen {
+          border-radius: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="demo-shell">
+      <section class="demo-copy">
+        <p class="eyebrow">Option B Demo</p>
+        <h1>老师端移动优先重排</h1>
+        <p>
+          这个 demo 按手机使用习惯重新组织路径：先选功能，再选场景，再查异议和话术。桌面端可以保持原有后台式布局，
+          手机端则切成更像工具 App 的单页流程。
+        </p>
+        <div class="demo-points">
+          <article class="demo-point">
+            <strong>路径更短</strong>
+            <span>登录后两个入口，老师不用在复杂页面里找功能。</span>
+          </article>
+          <article class="demo-point">
+            <strong>搜索固定</strong>
+            <span>进入场景后搜索框固定在顶部，随时查“没时间、价格、坐不住”。</span>
+          </article>
+          <article class="demo-point">
+            <strong>详情独立页</strong>
+            <span>手机端不再左右分栏，异议详情、注意事项、话术和物料上下浏览。</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="phone-frame" aria-label="手机端老师页面预览">
+        <div class="phone-screen">
+          <div class="mobile-app">
+            <header class="mobile-topbar">
+              <button class="icon-btn" id="backBtn" type="button" aria-label="返回">‹</button>
+              <div class="top-title">
+                <h2 id="screenTitle">异议处理训练仓</h2>
+                <p id="screenSubTitle">张诗琪老师</p>
+              </div>
+              <button class="icon-btn" id="refreshBtn" type="button" aria-label="刷新">↻</button>
+            </header>
+
+            <section class="content">
+              <div class="view active" id="portalView">
+                <article class="hero-card">
+                  <p class="eyebrow">Teacher Workspace</p>
+                  <h1>今天要处理哪类家长异议？</h1>
+                  <p>简单的事重复做</p>
+                </article>
+                <div class="entry-grid">
+                  <button class="entry-card" type="button" data-view="scenes">
+                    <div class="entry-icon">仓</div>
+                    <h3>异议处理仓库</h3>
+                    <p>话术仓库</p>
+                    <div class="tag-row">
+                      <span class="tag">话术搜索</span>
+                      <span class="tag-good">图片物料</span>
+                    </div>
+                  </button>
+                  <button class="entry-card" type="button" data-view="training">
+                    <div class="entry-icon">练</div>
+                    <h3>异议处理训练</h3>
+                    <p>进入 AI 模拟家长练习，训练后再做结构化复盘。</p>
+                    <div class="tag-row">
+                      <span class="tag-warn">后续模块</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="view" id="scenesView">
+                <article class="hero-card">
+                  <p class="eyebrow">Scenario</p>
+                  <h1>先选择业务场景</h1>
+                  <p>手机端先做场景入口，不直接展示全部异议，减少老师首次进入的认知压力。</p>
+                </article>
+                <div class="scene-grid" id="sceneGrid"></div>
+              </div>
+
+              <div class="view" id="listView">
+                <div class="search-bar">
+                  <input class="search-input" id="searchInput" placeholder="搜索关键词：价格、没时间、坐不住" />
+                  <div class="scene-tabs" id="sceneTabs"></div>
+                </div>
+                <div class="list-stack" id="objectionList"></div>
+              </div>
+
+              <div class="view" id="detailView">
+                <div class="back-row">
+                  <button class="secondary-btn" id="backToListBtn" type="button">返回异议列表</button>
+                </div>
+                <div class="detail-stack" id="detailPanel"></div>
+              </div>
+
+              <div class="view" id="trainingView">
+                <article class="hero-card">
+                  <p class="eyebrow">Training</p>
+                  <h1>训练模块入口</h1>
+                </article>
+                <div class="entry-grid">
+                  <article class="entry-card">
+                    <div class="entry-icon">AI</div>
+                    <h3>异议处理训练</h3>
+                    <p>请根据异议处理标准进行练习</p>
+                  </article>
+                </div>
+              </div>
+            </section>
+
+            <nav class="bottom-nav">
+              <button class="nav-btn active" type="button" data-nav="portal">首页</button>
+              <button class="nav-btn" type="button" data-nav="scenes">仓库</button>
+              <button class="nav-btn" type="button" data-nav="training">训练</button>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const scenes = [
+        {
+          id: "pre",
+          title: "课前进线",
+          tone: "轻解释，重确认",
+          desc: "用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。",
+        },
+        {
+          id: "mid",
+          title: "课中推进",
+          tone: "多观察，少催促",
+          desc: "体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。",
+        },
+        {
+          id: "close",
+          title: "结转促单",
+          tone: "给证据，给下一步",
+          desc: "结转报名阶段，重点处理价格、犹豫、对比和付款节奏。",
+        },
+      ];
+
+      const objections = [
+        {
+          id: "o1",
+          scene: "pre",
+          title: "孩子坐不住，担心体验课没效果",
+          concern: "家长担心孩子专注力不足，体验课浪费时间，也担心老师无法控场。",
+          keywords: ["坐不住", "专注力", "没效果"],
+          notices: ["不要直接承诺一定有效，要把体验课解释为观察孩子适配度。", "先接住家长担心，再给出课后反馈标准。"],
+          scripts: [
+            {
+              text: "您这个担心很正常，6 岁孩子本来就很难一直坐得很端正。明天这节体验课我不会只看他坐了多久，更会看他对哪个环节有兴趣、能不能跟着完成一个小作品。课后我也会跟您同步孩子适合什么节奏。",
+              materials: [
+                {
+                  type: "IMAGE",
+                  title: "体验课作品示例",
+                  url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=420&q=80",
+                  desc: "家长担心效果时，可配合展示。",
+                },
+              ],
+            },
+            {
+              text: "如果孩子中途有点坐不住，其实也正好能看出老师怎么带他回来。体验课的价值不是让孩子表现完美，而是帮您判断他能不能被课程吸引。",
+              materials: [],
+            },
+          ],
+        },
+        {
+          id: "o2",
+          scene: "pre",
+          title: "晚上不方便下载，想晚点再说",
+          concern: "家长当前行动意愿弱，可能需要更低成本的下一步。",
+          keywords: ["晚上下载", "不方便", "平板下载"],
+          notices: ["不要催促家长立刻操作，给出可延后的轻动作。", "重点确认具体时间点，避免对话断掉。"],
+          scripts: [
+            {
+              text: "没关系，您现在不方便操作的话，我们可以先把课程名额保留着。您晚上方便的时候下载就行，我到时候把步骤发您，几分钟就能完成。",
+              materials: [],
+            },
+          ],
+        },
+        {
+          id: "o3",
+          scene: "mid",
+          title: "孩子刚才好像没怎么听懂",
+          concern: "家长把短时表现等同于课程不适合，需要老师帮助复盘观察点。",
+          keywords: ["听不懂", "跟不上", "表现一般"],
+          notices: ["不要否定家长观察。", "把孩子的具体表现拆成兴趣、跟随、输出三个维度。"],
+          scripts: [
+            {
+              text: "您观察得很细，刚才有几个地方他确实需要老师多带一下。但我也看到他在作品环节是愿意跟着做的，所以我们可以看两个点：他是不是感兴趣，以及在老师提醒后能不能继续完成。",
+              materials: [],
+            },
+          ],
+        },
+        {
+          id: "o4",
+          scene: "close",
+          title: "价格有点贵，想再比较一下",
+          concern: "家长对价值和风险还没完全确认，需要补证据和降低决策压力。",
+          keywords: ["价格", "比较", "优惠"],
+          notices: ["不要直接陷入砍价。", "先回到孩子收获，再给家长一个明确下一步。"],
+          scripts: [
+            {
+              text: "您比较价格很正常，我也建议您不要只看单节多少钱，更要看孩子能不能持续产出。今天这节课他已经完成了一个小作品，这说明他不是完全排斥。我们可以先按短周期规划，看一阶段后再评估。",
+              materials: [],
+            },
+          ],
+        },
+      ];
+
+      const state = {
+        view: "portal",
+        scene: "pre",
+        selectedId: "o1",
+        keyword: "",
+      };
+
+      const nodes = {
+        title: document.getElementById("screenTitle"),
+        subTitle: document.getElementById("screenSubTitle"),
+        backBtn: document.getElementById("backBtn"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        views: {
+          portal: document.getElementById("portalView"),
+          scenes: document.getElementById("scenesView"),
+          list: document.getElementById("listView"),
+          detail: document.getElementById("detailView"),
+          training: document.getElementById("trainingView"),
+        },
+        sceneGrid: document.getElementById("sceneGrid"),
+        sceneTabs: document.getElementById("sceneTabs"),
+        objectionList: document.getElementById("objectionList"),
+        detailPanel: document.getElementById("detailPanel"),
+        searchInput: document.getElementById("searchInput"),
+        backToListBtn: document.getElementById("backToListBtn"),
+        navButtons: Array.from(document.querySelectorAll("[data-nav]")),
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => {
+          const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+          return map[char];
+        });
+      }
+
+      function sceneName(sceneId) {
+        return scenes.find((scene) => scene.id === sceneId)?.title || sceneId;
+      }
+
+      function filteredItems() {
+        const keyword = state.keyword.trim().toLowerCase();
+        return objections.filter((item) => {
+          if (item.scene !== state.scene) return false;
+          if (!keyword) return true;
+          return [item.title, item.concern, ...(item.keywords || []), ...(item.notices || []), ...item.scripts.map((script) => script.text)]
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword);
+        });
+      }
+
+      function setView(view) {
+        state.view = view;
+        Object.entries(nodes.views).forEach(([key, node]) => node.classList.toggle("active", key === view));
+        nodes.navButtons.forEach((button) => {
+          const nav = button.dataset.nav;
+          button.classList.toggle("active", nav === view || (nav === "scenes" && ["list", "detail"].includes(view)));
+        });
+        const titleMap = {
+          portal: ["异议处理训练仓", "张诗琪老师"],
+          scenes: ["异议处理仓库", "选择业务场景"],
+          list: [sceneName(state.scene), "搜索异议和话术"],
+          detail: ["异议详情", sceneName(state.scene)],
+          training: ["异议处理训练", "移动端入口预览"],
+        };
+        nodes.title.textContent = titleMap[view][0];
+        nodes.subTitle.textContent = titleMap[view][1];
+        nodes.backBtn.style.visibility = view === "portal" ? "hidden" : "visible";
+      }
+
+      function renderScenes() {
+        nodes.sceneGrid.innerHTML = scenes
+          .map((scene) => {
+            const count = objections.filter((item) => item.scene === scene.id).length;
+            return `
+              <button class="scene-card" type="button" data-scene="${scene.id}">
+                <p class="eyebrow">${escapeHtml(scene.tone)}</p>
+                <h3>${escapeHtml(scene.title)}</h3>
+                <p>${escapeHtml(scene.desc)}</p>
+                <div class="tag-row">
+                  <span class="tag">${count} 条异议</span>
+                  <span class="tag-good">进入查询</span>
+                </div>
+              </button>
+            `;
+          })
+          .join("");
+        nodes.sceneGrid.querySelectorAll("[data-scene]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.scene = button.dataset.scene;
+            state.keyword = "";
+            nodes.searchInput.value = "";
+            state.selectedId = filteredItems()[0]?.id || "";
+            renderList();
+            setView("list");
+          });
+        });
+      }
+
+      function renderTabs() {
+        nodes.sceneTabs.innerHTML = scenes
+          .map(
+            (scene) => `
+              <button class="tab-btn ${scene.id === state.scene ? "active" : ""}" type="button" data-tab-scene="${scene.id}">
+                ${escapeHtml(scene.title)}
+              </button>
+            `
+          )
+          .join("");
+        nodes.sceneTabs.querySelectorAll("[data-tab-scene]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.scene = button.dataset.tabScene;
+            state.selectedId = filteredItems()[0]?.id || "";
+            renderList();
+          });
+        });
+      }
+
+      function renderList() {
+        renderTabs();
+        const items = filteredItems();
+        nodes.objectionList.innerHTML = items.length
+          ? items
+              .map(
+                (item) => `
+                  <button class="objection-card" type="button" data-objection="${item.id}">
+                    <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+                    <h3>${escapeHtml(item.title)}</h3>
+                    <p>${escapeHtml(item.concern)}</p>
+                    <div class="tag-row">
+                      ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join("")}
+                    </div>
+                  </button>
+                `
+              )
+              .join("")
+          : '<div class="empty-state">当前没有匹配内容，可以换一个关键词试试。</div>';
+        nodes.objectionList.querySelectorAll("[data-objection]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.selectedId = button.dataset.objection;
+            renderDetail();
+            setView("detail");
+          });
+        });
+      }
+
+      function renderDetail() {
+        const item = objections.find((objection) => objection.id === state.selectedId) || filteredItems()[0];
+        if (!item) {
+          nodes.detailPanel.innerHTML = '<div class="empty-state">暂无详情。</div>';
+          return;
+        }
+
+        nodes.detailPanel.innerHTML = `
+          <article class="detail-card">
+            <p class="eyebrow">${escapeHtml(sceneName(item.scene))}</p>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.concern)}</p>
+            <div class="tag-row">
+              ${(item.keywords || []).map((keyword) => `<span class="tag-warn">${escapeHtml(keyword)}</span>`).join("")}
+            </div>
+          </article>
+
+          <article class="notice-card">
+            <h3>注意事项</h3>
+            <div class="notice-list">
+              ${(item.notices || []).map((notice) => `<p>${escapeHtml(notice)}</p>`).join("")}
+            </div>
+          </article>
+
+          ${(item.scripts || [])
+            .map(
+              (script, index) => `
+                <article class="script-card">
+                  <p class="eyebrow">Script ${index + 1}</p>
+                  <h3>推荐话术 ${index + 1}</h3>
+                  <p>${escapeHtml(script.text)}</p>
+                  ${(script.materials || [])
+                    .map(
+                      (material) => `
+                        <article class="material-card">
+                          ${
+                            material.type === "IMAGE"
+                              ? `<img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title)}" />`
+                              : '<div class="material-file">物</div>'
+                          }
+                          <div>
+                            <h3>${escapeHtml(material.title)}</h3>
+                            <p>${escapeHtml(material.desc || "可配合当前话术发给家长。")}</p>
+                            <div class="script-actions">
+                              <a class="secondary-btn" href="${escapeHtml(material.url)}" target="_blank" rel="noreferrer">打开物料</a>
+                            </div>
+                          </div>
+                        </article>
+                      `
+                    )
+                    .join("")}
+                  <div class="script-actions">
+                    <button class="primary-btn" type="button" data-copy="${escapeHtml(script.text)}">复制话术</button>
+                  </div>
+                </article>
+              `
+            )
+            .join("")}
+        `;
+
+        nodes.detailPanel.querySelectorAll("[data-copy]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(button.dataset.copy || "");
+              button.textContent = "已复制";
+              setTimeout(() => {
+                button.textContent = "复制话术";
+              }, 1200);
+            } catch {
+              button.textContent = "请手动复制";
+            }
+          });
+        });
+      }
+
+      document.querySelectorAll("[data-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const view = button.dataset.view;
+          if (view === "scenes") {
+            renderScenes();
+          }
+          setView(view);
+        });
+      });
+
+      nodes.navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const view = button.dataset.nav;
+          if (view === "scenes") renderScenes();
+          setView(view);
+        });
+      });
+
+      nodes.backBtn.addEventListener("click", () => {
+        if (state.view === "detail") {
+          setView("list");
+          return;
+        }
+        if (state.view === "list") {
+          setView("scenes");
+          return;
+        }
+        setView("portal");
+      });
+
+      nodes.backToListBtn.addEventListener("click", () => setView("list"));
+      nodes.refreshBtn.addEventListener("click", () => {
+        renderScenes();
+        renderList();
+        renderDetail();
+      });
+      nodes.searchInput.addEventListener("input", () => {
+        state.keyword = nodes.searchInput.value;
+        renderList();
+      });
+
+      renderScenes();
+      renderList();
+      renderDetail();
+      setView("portal");
+    </script>
+  </body>
+</html>

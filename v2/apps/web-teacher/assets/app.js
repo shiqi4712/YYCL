@@ -669,10 +669,16 @@
 
   async function endTrainingAndReview() {
     if (!state.training.sessionId) return;
-    if (state.training.pendingTeacherCount > 0) {
-      await requestParentReply();
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+      state.training.replyTimer = null;
     }
+    state.training.pendingTeacherCount = 0;
+    state.training.replyInFlight = false;
+    setReplyWait('');
     nodes.trainingEndButton.disabled = true;
+    nodes.trainingMessageInput.disabled = true;
+    nodes.trainingForceReplyButton.disabled = true;
     nodes.trainingStatusChip.textContent = '生成复盘中';
 
     try {

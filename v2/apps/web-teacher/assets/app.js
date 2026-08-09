@@ -615,7 +615,7 @@
       state.training.messages.push(normalizeTrainingMessage(result.message));
       state.training.pendingTeacherCount = 0;
       nodes.trainingStatusChip.textContent =
-        result.status === 'COMPLETED' ? '已完成，可生成复盘' : `${result.emotionState || '家长'} · ${result.resolutionScore ?? 0}分`;
+        result.status === 'COMPLETED' ? '已完成，可生成复盘' : result.emotionState || '家长思考中';
       renderTrainingMessages();
       if (result.status === 'COMPLETED') {
         completed = true;
@@ -644,7 +644,7 @@
     ];
 
     nodes.trainingReviewPanel.classList.remove('hidden');
-    nodes.trainingReviewScore.textContent = `${review.overallScore || 0} 分`;
+    nodes.trainingReviewScore.textContent = '提升建议';
     nodes.trainingReviewContent.innerHTML = `
       <article class="review-summary">
         <h3>${escapeHtml(review.summary || '训练复盘已生成')}</h3>
@@ -658,10 +658,9 @@
               <article class="dimension-card">
                 <div>
                   <h3>${label}</h3>
-                  <p>${escapeHtml(item.reason || '暂无扣分说明')}</p>
+                  <p>${escapeHtml(item.reason || '暂无复盘说明')}</p>
                   <small>${escapeHtml(item.suggestion || '暂无改进建议')}</small>
                 </div>
-                <strong>${Number(item.score || 0)}/20</strong>
               </article>
             `;
           })

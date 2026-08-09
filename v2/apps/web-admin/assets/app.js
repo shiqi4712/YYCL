@@ -91,6 +91,13 @@
     return role === 'TRAINER' ? '管理员' : '老师';
   }
 
+  function formatDateTime(value) {
+    if (!value) return '暂无';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '暂无';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
   function parseCommaLine(line) {
     const cells = [];
     let current = '';
@@ -697,6 +704,13 @@
   function renderAccounts() {
     const keyword = nodes.accountSearchInput.value.trim().toLowerCase();
     const role = nodes.roleFilter.value;
+    const teacherUsers = state.users.filter((user) => user.role === 'TEACHER');
+    const scoredTeachers = teacherUsers.filter((user) => typeof user.averageScore === 'number');
+    const totalSessions = teacherUsers.reduce((sum, user) => sum + (user.sessionCount || 0), 0);
+    const totalScoredSessions = teacherUsers.reduce((sum, user) => sum + (user.scoredCount || 0), 0);
+    const teamAverageScore = scoredTeachers.length
+      ? Math.round(scoredTeachers.reduce((sum, user) => sum + (user.averageScore || 0), 0) / scoredTeachers.length)
+      : null;
     const users = state.users.filter((user) => {
       if (role !== 'all' && user.role !== role) return false;
       if (!keyword) return true;
@@ -704,8 +718,8 @@
     });
     nodes.accountMetrics.innerHTML = [
       ['账号总数', state.users.length, '系统内老师和管理员账号'],
-      ['老师账号', state.users.filter((user) => user.role === 'TEACHER').length, '可登录老师端'],
-      ['管理员', state.users.filter((user) => user.role === 'TRAINER').length, '可维护后台内容'],
+      ['训练总次数', totalSessions, '所有老师累计进入训练次数'],
+      ['团队平均分', teamAverageScore === null ? '暂无' : `${teamAverageScore}`, `已评分训练 ${totalScoredSessions} 次`],
     ]
       .map(
         ([label, value, desc]) => `
@@ -721,9 +735,26 @@
                 <div>
                   <p class="eyebrow">${escapeHtml(roleLabel(user.role))}</p>
                   <h3>${escapeHtml(user.displayName || user.username)}</h3>
-                  <p>账号：${escapeHtml(user.username)} · 练习 ${escapeHtml(user.sessionCount || 0)} 次</p>
+                  <p>账号：${escapeHtml(user.username)}</p>
+                  ${
+                    user.role === 'TEACHER'
+                      ? `
+                        <div class="training-stat-grid">
+                          <div><strong>${escapeHtml(user.sessionCount || 0)}</strong><span>训练次数</span></div>
+                          <div><strong>${escapeHtml(user.completedCount || 0)}</strong><span>完成次数</span></div>
+                          <div><strong>${user.averageScore === null || user.averageScore === undefined ? '暂无' : escapeHtml(user.averageScore)}</strong><span>平均分</span></div>
+                        </div>
+                        <p>最近训练：${escapeHtml(formatDateTime(user.lastTrainedAt))}</p>
+                      `
+                      : '<p>管理员账号不参与老师训练统计。</p>'
+                  }
                   <div class="tag-row">
                     <span class="${user.isActive ? 'tag-good' : 'tag-danger'}">${user.isActive ? '启用中' : '已停用'}</span>
+                    ${
+                      user.role === 'TEACHER'
+                        ? `<span class="tag">${escapeHtml(user.scoredCount || 0)} 次已评分</span>`
+                        : ''
+                    }
                   </div>
                 </div>
                 <div class="account-actions">

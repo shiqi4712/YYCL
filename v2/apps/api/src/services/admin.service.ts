@@ -155,7 +155,7 @@ export async function listUsers(role?: string) {
     orderBy: { createdAt: 'desc' },
     include: {
       sessions: {
-        select: { id: true, totalScore: true, startedAt: true },
+        select: { id: true, status: true, totalScore: true, startedAt: true },
       },
     },
   })
@@ -172,6 +172,13 @@ export async function listUsers(role?: string) {
           ) / scored.length
         )
       : null
+    const completedCount = user.sessions.filter(
+      (session: (typeof user.sessions)[number]) => session.status === 'COMPLETED'
+    ).length
+    const lastTrainedAt = [...user.sessions].sort(
+      (a: (typeof user.sessions)[number], b: (typeof user.sessions)[number]) =>
+        b.startedAt.getTime() - a.startedAt.getTime()
+    )[0]?.startedAt ?? null
 
     return {
       id: user.id,
@@ -181,7 +188,10 @@ export async function listUsers(role?: string) {
       isActive: user.isActive,
       createdAt: user.createdAt,
       sessionCount: user.sessions.length,
+      completedCount,
+      scoredCount: scored.length,
       averageScore,
+      lastTrainedAt,
     }
   })
 }

@@ -80,9 +80,11 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .training-topic-list, .training-scenario-list { display: grid; gap: 12px; }
 .training-topic-card, .training-scenario-row { padding: 18px; border-radius: var(--radius-lg); background: var(--surface-soft); box-shadow: var(--shadow-soft); transition: all 300ms ease-in-out; }
 .training-topic-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.training-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; align-items: center; }
 .training-topic-card h3 { font-size: 22px; font-weight: 680; letter-spacing: -.04em; }
 .training-topic-card p, .training-scenario-row p { margin-top: 8px; color: var(--muted); line-height: 1.68; }
 .training-scenario-list { margin-top: 14px; }
+.training-scenario-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }
 .training-scenario-row h4 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.03em; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .tag, .tag-good, .tag-warn, .tag-danger { display: inline-flex; align-items: center; min-height: 31px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }

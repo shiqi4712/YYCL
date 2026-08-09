@@ -434,19 +434,34 @@ export async function updateTopicSop(topicId: string, payload: unknown) {
 export async function deleteTopic(topicId: string) {
   const topic = await prisma.trainingTopic.findUnique({
     where: { id: topicId },
-    include: { scenarios: true },
+    include: {
+      scenarios: {
+        include: {
+          sessions: {
+            select: { id: true },
+          },
+        },
+      },
+    },
   })
 
   if (!topic) {
     throw new HttpError(404, 'Topic not found')
   }
 
-  if (topic.scenarios.length > 0) {
-    throw new HttpError(400, 'Delete scenarios first')
+  const scenarioWithSessions = topic.scenarios.find(
+    (scenario: (typeof topic.scenarios)[number]) => scenario.sessions.length > 0
+  )
+  if (scenarioWithSessions) {
+    throw new HttpError(400, '该主题下已有训练记录，不能删除，可先下架相关场景')
   }
 
-  await prisma.trainingTopic.delete({ where: { id: topicId } })
-  return { id: topicId }
+  await prisma.$transaction(async (tx: typeof prisma) => {
+    await tx.trainingScenario.deleteMany({ where: { topicId } })
+    await tx.trainingTopic.delete({ where: { id: topicId } })
+  })
+
+  return { id: topicId, deletedScenarios: topic.scenarios.length }
 }
 
 export async function createScenario(createdById: string, payload: unknown) {

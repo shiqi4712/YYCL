@@ -506,7 +506,10 @@
                     <h3>${escapeHtml(topic.title)}</h3>
                     <p>${escapeHtml(topic.description)}</p>
                   </div>
-                  <span class="${topic.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${topic.status === 'ACTIVE' ? '已启用' : '已停用'}</span>
+                  <div class="training-actions">
+                    <span class="${topic.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${topic.status === 'ACTIVE' ? '已启用' : '已停用'}</span>
+                    <button class="secondary-btn compact-btn danger-action" type="button" data-delete-topic="${escapeHtml(topic.id)}" data-topic-title="${escapeHtml(topic.title)}">删除主题</button>
+                  </div>
                 </div>
                 <div class="training-scenario-list">
                   ${(topic.scenarios || []).length
@@ -523,6 +526,7 @@
                                   <span class="${scenario.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${scenario.status === 'ACTIVE' ? '已上架' : '已下架'}</span>
                                 </div>
                               </div>
+                              <button class="secondary-btn compact-btn danger-action" type="button" data-delete-scenario="${escapeHtml(scenario.id)}" data-scenario-title="${escapeHtml(scenario.title)}">删除</button>
                             </article>
                           `
                         )
@@ -534,6 +538,32 @@
           )
           .join('')
       : '<div class="empty-state">暂无训练主题，请先上传训练场景表格导入。</div>';
+
+    nodes.trainingTopicList.querySelectorAll('[data-delete-topic]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const title = button.dataset.topicTitle || '该训练主题';
+        if (!window.confirm(`确认删除「${title}」吗？主题下没有训练记录的场景会一起删除。`)) return;
+        try {
+          await api(`/api/admin/topics/${button.dataset.deleteTopic}`, { method: 'DELETE' });
+          await loadTrainingTopics();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+    });
+
+    nodes.trainingTopicList.querySelectorAll('[data-delete-scenario]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const title = button.dataset.scenarioTitle || '该训练场景';
+        if (!window.confirm(`确认删除「${title}」吗？已有训练记录的场景不能删除。`)) return;
+        try {
+          await api(`/api/admin/scenarios/${button.dataset.deleteScenario}`, { method: 'DELETE' });
+          await loadTrainingTopics();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+    });
   }
 
   async function loadTrainingTopics() {

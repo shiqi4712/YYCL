@@ -13,6 +13,7 @@
     scene: 'pre',
     objections: [],
     selectedObjectionId: '',
+    topics: [],
     users: [],
     scripts: [],
     materials: [],
@@ -27,6 +28,7 @@
     profileChip: document.getElementById('adminProfileChip'),
     moduleButtons: Array.from(document.querySelectorAll('[data-module]')),
     contentModule: document.getElementById('contentModule'),
+    trainingModule: document.getElementById('trainingModule'),
     accountModule: document.getElementById('accountModule'),
     contentMetrics: document.getElementById('adminContentMetrics'),
     sceneList: document.getElementById('adminSceneList'),
@@ -43,6 +45,13 @@
     importForm: document.getElementById('adminObjectionImportForm'),
     importStatus: document.getElementById('adminObjectionImportStatus'),
     downloadObjectionTemplateButton: document.getElementById('adminDownloadObjectionTemplateButton'),
+    trainingMetrics: document.getElementById('adminTrainingMetrics'),
+    trainingTopicList: document.getElementById('adminTrainingTopicList'),
+    trainingTopicSelect: document.getElementById('adminTrainingTopicSelect'),
+    trainingImportForm: document.getElementById('adminTrainingImportForm'),
+    trainingImportStatus: document.getElementById('adminTrainingImportStatus'),
+    refreshTrainingButton: document.getElementById('adminRefreshTrainingButton'),
+    downloadTrainingTemplateButton: document.getElementById('adminDownloadTrainingTemplateButton'),
     accountMetrics: document.getElementById('adminAccountMetrics'),
     accountSearchInput: document.getElementById('adminAccountSearchInput'),
     roleFilter: document.getElementById('adminRoleFilter'),
@@ -451,8 +460,85 @@
 
   function renderModules() {
     nodes.contentModule.classList.toggle('hidden', state.module !== 'content');
+    nodes.trainingModule.classList.toggle('hidden', state.module !== 'training');
     nodes.accountModule.classList.toggle('hidden', state.module !== 'accounts');
     nodes.moduleButtons.forEach((button) => button.classList.toggle('active', button.dataset.module === state.module));
+  }
+
+  function difficultyLabel(value) {
+    const map = { BASIC: '基础', STANDARD: '标准', ADVANCED: '进阶' };
+    return map[value] || '标准';
+  }
+
+  function renderTrainingManagement() {
+    const scenarioCount = state.topics.reduce((sum, topic) => sum + (topic.scenarioCount || 0), 0);
+    const stepCount = state.topics.reduce(
+      (sum, topic) =>
+        sum +
+        (topic.scenarios || []).reduce((scenarioSum, scenario) => scenarioSum + (scenario.steps || []).length, 0),
+      0
+    );
+    nodes.trainingMetrics.innerHTML = [
+      ['训练主题', state.topics.length, '后台维护的训练主题数量'],
+      ['训练场景', scenarioCount, '老师端可选择的模拟训练场景'],
+      ['异议步骤', stepCount, 'AI 内部推进的多轮异议链路'],
+    ]
+      .map(
+        ([label, value, desc]) => `
+          <article class="metric-card"><p class="eyebrow">${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><p>${escapeHtml(desc)}</p></article>
+        `
+      )
+      .join('');
+
+    nodes.trainingTopicSelect.innerHTML = [
+      '<option value="">创建新训练主题</option>',
+      ...state.topics.map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.title)}</option>`),
+    ].join('');
+
+    nodes.trainingTopicList.innerHTML = state.topics.length
+      ? state.topics
+          .map(
+            (topic) => `
+              <article class="training-topic-card">
+                <div class="training-topic-head">
+                  <div>
+                    <p class="eyebrow">${topic.status === 'ACTIVE' ? 'Active Topic' : 'Inactive Topic'}</p>
+                    <h3>${escapeHtml(topic.title)}</h3>
+                    <p>${escapeHtml(topic.description)}</p>
+                  </div>
+                  <span class="${topic.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${topic.status === 'ACTIVE' ? '已启用' : '已停用'}</span>
+                </div>
+                <div class="training-scenario-list">
+                  ${(topic.scenarios || []).length
+                    ? topic.scenarios
+                        .map(
+                          (scenario) => `
+                            <article class="training-scenario-row">
+                              <div>
+                                <h4>${escapeHtml(scenario.title)}</h4>
+                                <p>${escapeHtml(scenario.description)}</p>
+                                <div class="tag-row">
+                                  <span class="tag">${escapeHtml(difficultyLabel(scenario.difficulty))}</span>
+                                  <span class="tag-warn">${escapeHtml((scenario.steps || []).length)} 步异议</span>
+                                  <span class="${scenario.status === 'ACTIVE' ? 'tag-good' : 'tag-danger'}">${scenario.status === 'ACTIVE' ? '已上架' : '已下架'}</span>
+                                </div>
+                              </div>
+                            </article>
+                          `
+                        )
+                        .join('')
+                    : '<div class="empty-state compact-empty">该主题下暂无训练场景。</div>'}
+                </div>
+              </article>
+            `
+          )
+          .join('')
+      : '<div class="empty-state">暂无训练主题，请先上传训练场景表格导入。</div>';
+  }
+
+  async function loadTrainingTopics() {
+    state.topics = await api('/api/admin/topics');
+    renderTrainingManagement();
   }
 
   function renderContentMetrics() {
@@ -610,7 +696,10 @@
                     <span class="${user.isActive ? 'tag-good' : 'tag-danger'}">${user.isActive ? '启用中' : '已停用'}</span>
                   </div>
                 </div>
-                <button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
+                <div class="account-actions">
+                  <button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
+                  <button class="secondary-btn compact-btn danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.displayName || user.username)}">删除</button>
+                </div>
               </article>
             `
           )
@@ -623,6 +712,18 @@
           body: JSON.stringify({ isActive: button.dataset.next === 'true' }),
         });
         await loadUsers();
+      });
+    });
+    nodes.accountList.querySelectorAll('[data-delete-user]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const userName = button.dataset.userName || '该账号';
+        if (!window.confirm(`确认删除「${userName}」吗？已有训练记录或创建过内容的账号将无法删除。`)) return;
+        try {
+          await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: 'DELETE' });
+          await loadUsers();
+        } catch (error) {
+          alert(error.message);
+        }
       });
     });
   }
@@ -640,7 +741,7 @@
   }
 
   async function refreshAll() {
-    await Promise.all([loadProfile(), loadObjections(), loadUsers()]);
+    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers()]);
     renderModules();
   }
 
@@ -800,6 +901,53 @@
         '您这个担心很正常，体验课就是用来观察孩子能不能被老师带起来，以及他对课程有没有兴趣。',
         '孩子作品示例|https://example.com/work.png|家长担心效果时可配合发送',
         '不要直接保证一定有效，也不要评价孩子不配合。',
+        'ACTIVE',
+      ],
+    ]);
+  });
+  nodes.refreshTrainingButton.addEventListener('click', loadTrainingTopics);
+  nodes.trainingImportForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(nodes.trainingImportForm);
+    const file = formData.get('document');
+    nodes.trainingImportStatus.textContent = '正在导入训练场景...';
+    try {
+      if (!(file instanceof File) || !file.size) {
+        throw new Error('请先选择训练场景表格');
+      }
+      const result = await uploadApi('/api/admin/scenarios/import/document', formData);
+      nodes.trainingImportStatus.textContent = `导入完成：创建 ${result.created} 个训练场景`;
+      nodes.trainingImportForm.reset();
+      await loadTrainingTopics();
+    } catch (error) {
+      nodes.trainingImportStatus.textContent = error.message;
+    }
+  });
+  nodes.downloadTrainingTemplateButton.addEventListener('click', () => {
+    downloadCsv('异议训练导入模板.csv', [
+      ['场景标题', '场景说明', '家长情况', '开场话术', '难度', '异议顺序', '异议标题', '异议内容', '评估重点', '状态'],
+      [
+        '体验课新人训-价格敏感家长',
+        '家长认可体验课，但对正式课价格和效果仍有顾虑。',
+        '李妈妈，孩子 7 岁，体验课后孩子兴趣不错，但家长担心投入产出。',
+        '李妈妈：老师，孩子今天玩得挺开心，但正式课价格是不是有点高？',
+        'STANDARD',
+        '1',
+        '价格偏高',
+        '你们课程太贵了。',
+        '判断老师是否先共情价格顾虑，再建立比较标准并说明孩子收获。',
+        'ACTIVE',
+      ],
+      [
+        '体验课新人训-价格敏感家长',
+        '家长认可体验课，但对正式课价格和效果仍有顾虑。',
+        '李妈妈，孩子 7 岁，体验课后孩子兴趣不错，但家长担心投入产出。',
+        '李妈妈：老师，孩子今天玩得挺开心，但正式课价格是不是有点高？',
+        'STANDARD',
+        '2',
+        '要和家人商量',
+        '我还得和孩子爸爸商量一下。',
+        '判断老师是否识别真实决策点，并推动明确下一步反馈时间。',
         'ACTIVE',
       ],
     ]);

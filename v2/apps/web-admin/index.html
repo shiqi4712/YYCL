@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260728-teacher-xlsx-import" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260809-training-import" />
   </head>
   <body>
     <div class="admin-shell">
@@ -38,6 +38,7 @@
             <div class="topbar-actions">
               <div class="module-switch">
                 <button class="module-btn active" type="button" data-module="content">异议内容管理</button>
+                <button class="module-btn" type="button" data-module="training">异议训练管理</button>
                 <button class="module-btn" type="button" data-module="accounts">用户账号管理</button>
               </div>
               <div class="profile-chip" id="adminProfileChip"></div>
@@ -197,6 +198,55 @@
             </section>
           </section>
 
+          <section class="hidden" id="trainingModule">
+            <section class="metric-grid" id="adminTrainingMetrics"></section>
+            <section class="training-management-panel">
+              <section class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Training Topics</p>
+                    <h2>训练主题与场景</h2>
+                  </div>
+                  <button class="secondary-btn compact-btn" id="adminRefreshTrainingButton" type="button">刷新训练内容</button>
+                </div>
+                <div class="training-topic-list" id="adminTrainingTopicList"></div>
+              </section>
+
+              <aside class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Scenario Import</p>
+                    <h2>导入异议训练</h2>
+                  </div>
+                </div>
+                <form class="form-stack" id="adminTrainingImportForm">
+                  <label>
+                    <span>导入到已有主题</span>
+                    <select name="topicId" id="adminTrainingTopicSelect">
+                      <option value="">创建新训练主题</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>新训练主题名称</span>
+                    <input name="topicTitle" placeholder="例如：体验课新人训" />
+                  </label>
+                  <label>
+                    <span>新训练主题说明</span>
+                    <textarea name="topicDescription" placeholder="例如：围绕体验课前后常见家长异议进行多轮模拟训练。"></textarea>
+                  </label>
+                  <label>
+                    <span>上传训练场景表格</span>
+                    <input name="document" type="file" accept=".xlsx,.xls,.csv,.txt,.md" />
+                  </label>
+                  <p class="helper-text">同一个场景可写多行，每行是一条异议步骤。表头建议：场景标题、场景说明、家长情况、开场话术、难度、异议顺序、异议标题、异议内容、评估重点、状态。</p>
+                  <button class="primary-btn" type="submit">上传并导入训练</button>
+                  <button class="secondary-btn" id="adminDownloadTrainingTemplateButton" type="button">下载训练导入模板</button>
+                  <p class="status-text" id="adminTrainingImportStatus"></p>
+                </form>
+              </aside>
+            </section>
+          </section>
+
           <section class="hidden" id="accountModule">
             <section class="metric-grid" id="adminAccountMetrics"></section>
             <section class="account-layout">
@@ -273,6 +323,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260728-teacher-xlsx-import"></script>
+    <script src="/assets/admin/app.js?v=20260809-training-import"></script>
   </body>
 </html>

@@ -306,6 +306,37 @@ export async function updateUserStatus(userId: string, isActive: boolean) {
   }
 }
 
+export async function deleteUser(userId: string, currentUserId: string) {
+  if (userId === currentUserId) {
+    throw new HttpError(400, '不能删除当前登录账号')
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      sessions: { select: { id: true } },
+      createdTopics: { select: { id: true } },
+      createdScenarios: { select: { id: true } },
+      createdObjections: { select: { id: true } },
+    },
+  })
+
+  if (!user) {
+    throw new HttpError(404, 'User not found')
+  }
+
+  if (user.sessions.length > 0) {
+    throw new HttpError(400, '该账号已有训练记录，不能删除，可先停用账号')
+  }
+
+  if (user.createdTopics.length || user.createdScenarios.length || user.createdObjections.length) {
+    throw new HttpError(400, '该账号创建过后台内容，不能删除，可先停用账号')
+  }
+
+  await prisma.user.delete({ where: { id: userId } })
+  return { id: userId }
+}
+
 export async function listTopicsForAdmin() {
   const topics = await prisma.trainingTopic.findMany({
     orderBy: { createdAt: 'desc' },

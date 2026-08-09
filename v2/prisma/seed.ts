@@ -90,14 +90,14 @@ async function main() {
     where: { username: 'shiqi' },
     update: {
       passwordHash: shiqiPassword,
-      displayName: 'shiqi',
+      displayName: '诗琪',
       role: 'TRAINER',
       isActive: true,
     },
     create: {
       username: 'shiqi',
       passwordHash: shiqiPassword,
-      displayName: 'shiqi',
+      displayName: '诗琪',
       role: 'TRAINER',
       isActive: true,
     },

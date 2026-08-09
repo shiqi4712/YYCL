@@ -81,6 +81,15 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .training-stat-grid div { padding: 12px; border-radius: 16px; background: rgba(255,255,255,.88); box-shadow: var(--shadow-soft); }
 .training-stat-grid strong { display: block; color: var(--text); font-size: 24px; line-height: 1; letter-spacing: -.04em; }
 .training-stat-grid span { display: block; margin-top: 6px; color: var(--faint); font-size: 12px; font-weight: 700; }
+.training-session-panel { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.72); box-shadow: var(--shadow-soft); }
+.training-session-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; color: var(--muted); font-size: 13px; }
+.training-session-head strong { color: var(--text); font-size: 15px; }
+.training-session-list { display: grid; gap: 8px; max-height: 360px; overflow: auto; padding-right: 4px; }
+.training-session-row { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 12px; border-radius: 16px; background: rgba(245,245,247,.9); }
+.training-session-row h4 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.02em; }
+.training-session-row p { margin-top: 4px; font-size: 13px; line-height: 1.5; }
+.training-session-row small { display: inline-flex; margin-top: 6px; color: var(--faint); font-size: 12px; }
+.training-session-row > strong { flex: 0 0 auto; color: var(--blue); font-size: 18px; letter-spacing: -.03em; }
 .training-topic-list, .training-scenario-list { display: grid; gap: 12px; }
 .training-topic-card, .training-scenario-row { padding: 18px; border-radius: var(--radius-lg); background: var(--surface-soft); box-shadow: var(--shadow-soft); transition: all 300ms ease-in-out; }
 .training-topic-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }

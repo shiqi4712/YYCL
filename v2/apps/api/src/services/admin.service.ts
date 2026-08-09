@@ -196,6 +196,49 @@ export async function listUsers(role?: string) {
   })
 }
 
+export async function listTeacherTrainingSessions(teacherId: string) {
+  const teacher = await prisma.user.findUnique({
+    where: { id: teacherId },
+    select: { id: true, role: true },
+  })
+
+  if (!teacher || teacher.role !== 'TEACHER') {
+    throw new HttpError(404, 'Teacher not found')
+  }
+
+  const sessions = await prisma.trainingSession.findMany({
+    where: { teacherId },
+    orderBy: { startedAt: 'desc' },
+    include: {
+      scenario: {
+        select: {
+          title: true,
+          topic: {
+            select: { title: true },
+          },
+        },
+      },
+      review: {
+        select: {
+          overallScore: true,
+          createdAt: true,
+        },
+      },
+    },
+  })
+
+  return sessions.map((session: (typeof sessions)[number]) => ({
+    id: session.id,
+    topicTitle: session.scenario.topic.title,
+    scenarioTitle: session.scenario.title,
+    status: session.status,
+    score: session.review?.overallScore ?? session.totalScore ?? null,
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    reviewedAt: session.review?.createdAt ?? null,
+  }))
+}
+
 export async function createUser(payload: unknown) {
   const input = userCreateSchema.parse(payload)
   const existing = await prisma.user.findUnique({ where: { username: input.username } })

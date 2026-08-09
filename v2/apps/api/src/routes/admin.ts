@@ -23,6 +23,7 @@ import {
   getDashboardSummary,
   importTeacherUsers,
   importScenarios,
+  listTeacherTrainingSessions,
   listTopicsForAdmin,
   listUsers,
   updateScenario,
@@ -393,6 +394,14 @@ router.get('/users', requireRole('TRAINER'), async (req, res, next) => {
   try {
     const role = typeof req.query.role === 'string' ? req.query.role : undefined
     res.json(ok(await listUsers(role)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users/:userId/training-sessions', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await listTeacherTrainingSessions(req.params.userId)))
   } catch (error) {
     next(error)
   }

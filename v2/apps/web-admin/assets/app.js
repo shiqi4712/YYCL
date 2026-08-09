@@ -15,6 +15,8 @@
     selectedObjectionId: '',
     topics: [],
     users: [],
+    trainingSessionsByUser: {},
+    expandedTrainingUserId: '',
     scripts: [],
     materials: [],
     materialType: 'LINK',
@@ -96,6 +98,22 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '暂无';
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function formatDateTimeFull(value) {
+    if (!value) return '暂无';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '暂无';
+    return `${formatDateTime(value)} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function trainingStatusLabel(status) {
+    const map = {
+      ACTIVE: '训练中',
+      ENDED: '已结束',
+      COMPLETED: '已完成',
+    };
+    return map[status] || status || '未知';
   }
 
   function parseCommaLine(line) {
@@ -701,6 +719,44 @@
     renderObjections();
   }
 
+  function renderTeacherTrainingSessions(user) {
+    if (state.expandedTrainingUserId !== user.id) return '';
+
+    const sessions = state.trainingSessionsByUser[user.id];
+    if (!sessions) {
+      return '<div class="training-session-panel"><div class="empty-state compact-empty">正在加载训练记录...</div></div>';
+    }
+
+    return `
+      <div class="training-session-panel">
+        <div class="training-session-head">
+          <strong>每次训练分数</strong>
+          <span>${escapeHtml(sessions.length)} 条记录</span>
+        </div>
+        ${
+          sessions.length
+            ? `<div class="training-session-list">
+                ${sessions
+                  .map(
+                    (session) => `
+                      <article class="training-session-row">
+                        <div>
+                          <h4>${escapeHtml(session.scenarioTitle || '未命名训练')}</h4>
+                          <p>${escapeHtml(session.topicTitle || '训练主题')} · ${escapeHtml(formatDateTimeFull(session.startedAt))}</p>
+                          <small>${escapeHtml(trainingStatusLabel(session.status))}</small>
+                        </div>
+                        <strong>${session.score === null || session.score === undefined ? '未评分' : `${escapeHtml(session.score)} 分`}</strong>
+                      </article>
+                    `
+                  )
+                  .join('')}
+              </div>`
+            : '<div class="empty-state compact-empty">该老师暂无训练记录。</div>'
+        }
+      </div>
+    `;
+  }
+
   function renderAccounts() {
     const keyword = nodes.accountSearchInput.value.trim().toLowerCase();
     const role = nodes.roleFilter.value;
@@ -756,8 +812,16 @@
                         : ''
                     }
                   </div>
+                  ${user.role === 'TEACHER' ? renderTeacherTrainingSessions(user) : ''}
                 </div>
                 <div class="account-actions">
+                  ${
+                    user.role === 'TEACHER'
+                      ? `<button class="secondary-btn compact-btn" type="button" data-view-training-sessions="${escapeHtml(user.id)}">${
+                          state.expandedTrainingUserId === user.id ? '收起记录' : '查看训练记录'
+                        }</button>`
+                      : ''
+                  }
                   <button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
                   <button class="secondary-btn compact-btn danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.displayName || user.username)}">删除</button>
                 </div>
@@ -766,6 +830,30 @@
           )
           .join('')
       : '<div class="empty-state">暂无匹配账号。</div>';
+    nodes.accountList.querySelectorAll('[data-view-training-sessions]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const userId = button.dataset.viewTrainingSessions;
+        if (!userId) return;
+        if (state.expandedTrainingUserId === userId) {
+          state.expandedTrainingUserId = '';
+          renderAccounts();
+          return;
+        }
+
+        state.expandedTrainingUserId = userId;
+        renderAccounts();
+
+        if (!state.trainingSessionsByUser[userId]) {
+          try {
+            state.trainingSessionsByUser[userId] = await api(`/api/admin/users/${userId}/training-sessions`);
+          } catch (error) {
+            state.trainingSessionsByUser[userId] = [];
+            alert(error.message);
+          }
+          renderAccounts();
+        }
+      });
+    });
     nodes.accountList.querySelectorAll('[data-toggle-user]').forEach((button) => {
       button.addEventListener('click', async () => {
         await api(`/api/admin/users/${button.dataset.toggleUser}/status`, {

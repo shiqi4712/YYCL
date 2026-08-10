@@ -64,6 +64,23 @@ function sortSteps<T extends { order: number }>(steps: T[]) {
   return [...steps].sort((a, b) => a.order - b.order)
 }
 
+function parseReviewMeta(tagsJson: string) {
+  const fallback = { tags: [] as string[], dimensions: null as unknown }
+
+  try {
+    const parsed = JSON.parse(tagsJson)
+    if (Array.isArray(parsed)) {
+      return { tags: parsed, dimensions: null }
+    }
+    return {
+      tags: Array.isArray(parsed?.tags) ? parsed.tags : [],
+      dimensions: parsed?.dimensions ?? null,
+    }
+  } catch {
+    return fallback
+  }
+}
+
 function mapTopic(topic: {
   id: string
   trainingModule: string
@@ -221,22 +238,54 @@ export async function listTeacherTrainingSessions(teacherId: string) {
       review: {
         select: {
           overallScore: true,
+          summary: true,
+          strengths: true,
+          weaknesses: true,
+          nextAction: true,
+          tagsJson: true,
           createdAt: true,
+          stepReviews: {
+            orderBy: { stepOrder: 'asc' },
+            select: {
+              stepOrder: true,
+              stepTitle: true,
+              score: true,
+              verdict: true,
+              strengths: true,
+              issue: true,
+              recommendation: true,
+            },
+          },
         },
       },
     },
   })
 
-  return sessions.map((session: (typeof sessions)[number]) => ({
-    id: session.id,
-    topicTitle: session.scenario.topic.title,
-    scenarioTitle: session.scenario.title,
-    status: session.status,
-    score: session.review?.overallScore ?? session.totalScore ?? null,
-    startedAt: session.startedAt,
-    endedAt: session.endedAt,
-    reviewedAt: session.review?.createdAt ?? null,
-  }))
+  return sessions.map((session: (typeof sessions)[number]) => {
+    const reviewMeta = session.review ? parseReviewMeta(session.review.tagsJson) : null
+
+    return {
+      id: session.id,
+      topicTitle: session.scenario.topic.title,
+      scenarioTitle: session.scenario.title,
+      status: session.status,
+      score: session.review?.overallScore ?? session.totalScore ?? null,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      reviewedAt: session.review?.createdAt ?? null,
+      review: session.review
+        ? {
+            summary: session.review.summary,
+            strengths: session.review.strengths,
+            weaknesses: session.review.weaknesses,
+            nextAction: session.review.nextAction,
+            tags: reviewMeta?.tags ?? [],
+            dimensions: reviewMeta?.dimensions ?? null,
+            steps: session.review.stepReviews,
+          }
+        : null,
+    }
+  })
 }
 
 export async function createUser(payload: unknown) {

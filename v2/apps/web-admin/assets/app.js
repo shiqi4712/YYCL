@@ -740,12 +740,15 @@
                   .map(
                     (session) => `
                       <article class="training-session-row">
-                        <div>
-                          <h4>${escapeHtml(session.scenarioTitle || '未命名训练')}</h4>
-                          <p>${escapeHtml(session.topicTitle || '训练主题')} · ${escapeHtml(formatDateTimeFull(session.startedAt))}</p>
-                          <small>${escapeHtml(trainingStatusLabel(session.status))}</small>
+                        <div class="training-session-main">
+                          <div>
+                            <h4>${escapeHtml(session.scenarioTitle || '未命名训练')}</h4>
+                            <p>${escapeHtml(session.topicTitle || '训练主题')} · ${escapeHtml(formatDateTimeFull(session.startedAt))}</p>
+                            <small>${escapeHtml(trainingStatusLabel(session.status))}</small>
+                          </div>
+                          <strong>${session.score === null || session.score === undefined ? '未评分' : `${escapeHtml(session.score)} 分`}</strong>
                         </div>
-                        <strong>${session.score === null || session.score === undefined ? '未评分' : `${escapeHtml(session.score)} 分`}</strong>
+                        ${renderTrainingEvaluation(session)}
                       </article>
                     `
                   )
@@ -754,6 +757,80 @@
             : '<div class="empty-state compact-empty">该老师暂无训练记录。</div>'
         }
       </div>
+    `;
+  }
+
+  function renderTrainingEvaluation(session) {
+    if (!session.review) {
+      return '<div class="training-evaluation empty-evaluation">本次训练尚未生成 AI 评价。</div>';
+    }
+
+    const dimensions = session.review.dimensions || {};
+    const dimensionLabels = [
+      ['empathy', '共情'],
+      ['standard', '建立标准'],
+      ['enablement', '赋能'],
+      ['caseProof', '给案例'],
+      ['close', '缔结'],
+    ];
+
+    return `
+      <section class="training-evaluation">
+        <div class="evaluation-summary-grid">
+          <article>
+            <p class="eyebrow">AI 总评</p>
+            <p>${escapeHtml(session.review.summary || '暂无总评')}</p>
+          </article>
+          <article>
+            <p class="eyebrow">下一步建议</p>
+            <p>${escapeHtml(session.review.nextAction || '暂无下一步建议')}</p>
+          </article>
+          <article>
+            <p class="eyebrow">做得好的地方</p>
+            <p>${escapeHtml(session.review.strengths || '暂无优势说明')}</p>
+          </article>
+          <article>
+            <p class="eyebrow">需要提升</p>
+            <p>${escapeHtml(session.review.weaknesses || '暂无问题说明')}</p>
+          </article>
+        </div>
+        <div class="evaluation-dimensions">
+          ${dimensionLabels
+            .map(([key, label]) => {
+              const item = dimensions[key] || {};
+              return `
+                <article>
+                  <strong>${escapeHtml(label)}：${escapeHtml(item.score ?? 0)}/20</strong>
+                  <p>${escapeHtml(item.reason || '暂无评价说明')}</p>
+                  <small>${escapeHtml(item.suggestion || '暂无改进建议')}</small>
+                </article>
+              `;
+            })
+            .join('')}
+        </div>
+        ${
+          (session.review.steps || []).length
+            ? `
+              <div class="evaluation-steps">
+                <p class="eyebrow">分步骤评价</p>
+                ${(session.review.steps || [])
+                  .map(
+                    (step) => `
+                      <article>
+                        <strong>${escapeHtml(step.stepOrder || '')}. ${escapeHtml(step.stepTitle || '训练步骤')}：${escapeHtml(step.score ?? 0)} 分</strong>
+                        <p>${escapeHtml(step.verdict || '暂无判断')}</p>
+                        <small>优势：${escapeHtml(step.strengths || '暂无')} ｜ 问题：${escapeHtml(step.issue || '暂无')} ｜ 建议：${escapeHtml(
+                          step.recommendation || '暂无'
+                        )}</small>
+                      </article>
+                    `
+                  )
+                  .join('')}
+              </div>
+            `
+            : ''
+        }
+      </section>
     `;
   }
 

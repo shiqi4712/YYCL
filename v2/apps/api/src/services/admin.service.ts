@@ -44,7 +44,7 @@ const scenarioCreateSchema = z.object({
   topicId: z.string().min(1),
   title: z.string().min(1).max(60),
   description: z.string().min(1).max(300),
-  parentPersona: z.string().min(1).max(40),
+  parentPersona: z.string().min(1).max(500),
   openingLine: z.string().min(1).max(300),
   difficulty: difficultySchema,
   status: statusSchema.default('ACTIVE'),

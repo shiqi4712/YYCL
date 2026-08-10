@@ -116,6 +116,16 @@
     return map[status] || status || '未知';
   }
 
+  function scoreLevel(score) {
+    const value = Number(score);
+    if (!Number.isFinite(value)) return '未评分';
+    if (value >= 90) return '优秀';
+    if (value >= 80) return '良好';
+    if (value >= 70) return '达标';
+    if (value >= 60) return '需提升';
+    return '重点辅导';
+  }
+
   function parseCommaLine(line) {
     const cells = [];
     let current = '';
@@ -776,6 +786,21 @@
 
     return `
       <section class="training-evaluation">
+        <div class="evaluation-score-card">
+          <div>
+            <p class="eyebrow">评分情况</p>
+            <strong>${escapeHtml(session.score ?? 0)} 分</strong>
+            <span>${escapeHtml(scoreLevel(session.score))}</span>
+          </div>
+          <div class="evaluation-score-list">
+            ${dimensionLabels
+              .map(([key, label]) => {
+                const item = dimensions[key] || {};
+                return `<span>${escapeHtml(label)} ${escapeHtml(item.score ?? 0)}/20</span>`;
+              })
+              .join('')}
+          </div>
+        </div>
         <div class="evaluation-summary-grid">
           <article>
             <p class="eyebrow">AI 总评</p>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理训练仓</title>
-    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260809-training-chat" />
+    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260907-training-lite" />
   </head>
   <body>
     <div class="page-shell">
@@ -120,14 +120,15 @@
           </section>
 
           <section class="training-view hidden" id="trainingView">
-            <article class="shell-card section-card" id="trainingPicker">
+            <article class="shell-card section-card training-picker" id="trainingPicker">
               <div class="section-head">
                 <div>
                   <p class="eyebrow">Training</p>
-                  <h2>选择训练场景</h2>
+                  <h2>异议处理训练</h2>
                 </div>
-                <span class="tag-warn">先选场景，再进入对话</span>
+                <span class="tag-warn">选择场景开始</span>
               </div>
+              <p class="training-picker-intro">选择一个家长异议场景，进入模拟对话。训练结束后，系统会生成复盘建议，方便后续提升。</p>
               <div class="training-scenario-grid" id="trainingScenarioList"></div>
               <p class="status-text" id="trainingLoadStatus"></p>
               <section class="training-history">
@@ -149,8 +150,8 @@
               <aside class="shell-card section-card training-context">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">Context</p>
-                    <h2 id="trainingScenarioTitle">训练场景</h2>
+                    <p class="eyebrow">Scenario</p>
+                    <h2 id="trainingScenarioTitle">训练信息</h2>
                   </div>
                   <button class="secondary-btn compact-btn" id="trainingBackButton" type="button">重新选场景</button>
                 </div>
@@ -162,7 +163,7 @@
                 <div class="section-head">
                   <div>
                     <p class="eyebrow">Parent Chat</p>
-                    <h2>模拟家长对话</h2>
+                    <h2>家长对话</h2>
                   </div>
                   <span class="tag" id="trainingStatusChip">训练中</span>
                 </div>
@@ -200,6 +201,6 @@
       </main>
     </div>
 
-    <script src="/assets/teacher/app.js?v=20260809-training-chat"></script>
+    <script src="/assets/teacher/app.js?v=20260907-training-lite"></script>
   </body>
 </html>

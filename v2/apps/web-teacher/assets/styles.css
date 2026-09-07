@@ -614,6 +614,254 @@ select:focus {
   letter-spacing: -0.04em;
 }
 
+.training-view {
+  --training-accent: #c81e2d;
+  --training-accent-dark: #971722;
+  --training-soft: #fff2f4;
+  --training-line: #e4e8ef;
+  --training-panel: #f8f9fb;
+  --training-ink: #202838;
+  color: var(--training-ink);
+}
+
+.training-view .shell-card {
+  border: 1px solid rgba(228, 232, 239, 0.92);
+  box-shadow: 0 14px 32px rgba(36, 44, 62, 0.05);
+}
+
+.training-view .primary-btn {
+  background: var(--training-accent);
+  box-shadow: 0 10px 22px rgba(200, 30, 45, 0.16);
+}
+
+.training-view .tag,
+.training-view .tag-good,
+.training-view .tag-warn {
+  color: var(--training-accent-dark);
+  background: var(--training-soft);
+}
+
+.training-picker {
+  padding: 24px;
+}
+
+.training-picker-intro {
+  max-width: 760px;
+  margin: -6px 0 18px;
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.training-view .training-scenario-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.training-view .training-scenario-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 92px;
+  padding: 12px 14px;
+  border: 1px solid var(--training-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.scenario-index {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--training-accent-dark);
+  background: var(--training-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.training-view .training-scenario-card h3 {
+  margin-top: 0;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.training-view .training-scenario-card p:not(.eyebrow) {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.scenario-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.scenario-meta span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #667085;
+  background: #f2f4f7;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.training-history {
+  border-top: 1px solid var(--training-line);
+}
+
+.training-view .training-history-layout {
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.training-view .training-history-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: auto;
+  padding: 14px;
+  border: 1px solid var(--training-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.training-view .training-history-card h3 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.training-view .training-history-card p:not(.eyebrow) {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.training-history-card > span {
+  color: var(--training-accent-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.training-view .training-history-card.active {
+  border-color: rgba(200, 30, 45, 0.32);
+  background: var(--training-soft);
+  box-shadow: none;
+}
+
+.training-view .training-chat {
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.training-view .training-context,
+.training-view .training-dialog,
+.training-view .training-review {
+  border-radius: 22px;
+}
+
+.training-view .training-context {
+  position: sticky;
+  top: 112px;
+  padding: 20px;
+}
+
+.training-view .context-card,
+.training-view .review-summary,
+.training-view .review-note-card,
+.training-view .dimension-card {
+  border: 1px solid var(--training-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.training-view .context-card {
+  padding: 14px;
+}
+
+.training-view .training-dialog {
+  display: flex;
+  min-height: calc(100dvh - 150px);
+  max-height: calc(100dvh - 72px);
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.training-view .message-list {
+  flex: 1;
+  height: auto;
+  min-height: 380px;
+  margin-top: 10px;
+  padding: 18px;
+  border: 1px solid var(--training-line);
+  border-radius: 18px;
+  background: var(--training-panel);
+}
+
+.training-view .chat-bubble {
+  max-width: min(76%, 620px);
+  padding: 12px 14px;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(32, 40, 56, 0.06);
+}
+
+.training-view .teacher-bubble {
+  background: var(--training-accent);
+}
+
+.training-view .parent-bubble {
+  border: 1px solid rgba(228, 232, 239, 0.86);
+}
+
+.training-view .chat-composer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--training-line);
+}
+
+.training-view .chat-composer textarea {
+  min-height: 92px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.training-view .composer-actions {
+  justify-content: flex-start;
+}
+
+.training-view .composer-actions .primary-btn {
+  margin-left: auto;
+}
+
+.training-view .submit-training-btn {
+  min-height: 48px;
+  border-radius: 14px;
+  background: #252e40;
+  box-shadow: none;
+}
+
 .script-materials {
   display: grid;
   gap: 10px;
@@ -880,9 +1128,35 @@ select:focus {
 
   .training-dialog {
     min-height: auto;
+    max-height: none;
+  }
+
+  .training-view .training-dialog {
+    min-height: auto;
+    max-height: none;
+  }
+
+  .training-view .training-context {
+    position: static;
+  }
+
+  .training-view .training-scenario-card,
+  .training-view .training-history-card {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-index,
+  .scenario-meta {
+    display: none;
   }
 
   .message-list {
+    height: 58vh;
+    min-height: 420px;
+    padding: 14px;
+  }
+
+  .training-view .message-list {
     height: 58vh;
     min-height: 420px;
     padding: 14px;

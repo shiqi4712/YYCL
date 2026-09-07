@@ -447,14 +447,17 @@
 
     nodes.trainingScenarioList.innerHTML = scenarios
       .map(
-        (scenario) => `
+        (scenario, index) => `
           <button class="training-scenario-card" type="button" data-training-scenario="${escapeHtml(scenario.id)}">
-            <p class="eyebrow">${escapeHtml(scenario.topicTitle || '训练主题')}</p>
-            <h3>${escapeHtml(scenario.title)}</h3>
-            <p>${escapeHtml(scenario.description)}</p>
-            <div class="tag-row">
-              <span class="tag">${escapeHtml(scenario.difficulty || '标准')}</span>
-              <span class="${scenario.sopConfigured ? 'tag-good' : 'tag-warn'}">${scenario.sopConfigured ? '已导入 SOP' : '暂无 SOP'}</span>
+            <span class="scenario-index">${String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <p class="eyebrow">${escapeHtml(scenario.topicTitle || '训练主题')}</p>
+              <h3>${escapeHtml(scenario.title)}</h3>
+              <p>${escapeHtml(scenario.description)}</p>
+            </div>
+            <div class="scenario-meta">
+              <span>${escapeHtml(scenario.difficulty || '标准')}</span>
+              <span>${scenario.sopConfigured ? '已配置' : '待完善'}</span>
             </div>
           </button>
         `
@@ -484,10 +487,12 @@
           <button class="training-history-card ${
             session.id === state.training.selectedHistorySessionId ? 'active' : ''
           }" type="button" data-history-session="${escapeHtml(session.id)}">
-            <p class="eyebrow">${escapeHtml(formatDateTime(session.endedAt || session.startedAt))}</p>
-            <h3>${escapeHtml(session.scenario?.title || '未命名训练')}</h3>
-            <p>${escapeHtml(session.summary || '已生成复盘，点击查看提升建议。')}</p>
-            <span class="tag-good">查看复盘</span>
+            <div>
+              <p class="eyebrow">${escapeHtml(formatDateTime(session.endedAt || session.startedAt))}</p>
+              <h3>${escapeHtml(session.scenario?.title || '未命名训练')}</h3>
+              <p>${escapeHtml(session.summary || '点击查看本次提升建议。')}</p>
+            </div>
+            <span>查看</span>
           </button>
         `
       )
@@ -530,10 +535,6 @@
       <article class="context-card">
         <p class="eyebrow">异议场景</p>
         <p>${escapeHtml(scenario.description || '管理员暂未填写场景说明。')}</p>
-      </article>
-      <article class="context-card">
-        <p class="eyebrow">练习提示</p>
-        <p>老师可以连续发送多段话，系统会等待你说完后再让家长回复。需要发送物料时，可在话术里写 +物料、+案例、+图片 或 +链接。</p>
       </article>
     `;
   }

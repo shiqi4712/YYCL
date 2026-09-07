@@ -17,6 +17,7 @@
     users: [],
     trainingSessionsByUser: {},
     expandedTrainingUserId: '',
+    aiConfig: null,
     scripts: [],
     materials: [],
     materialType: 'LINK',
@@ -32,6 +33,7 @@
     contentModule: document.getElementById('contentModule'),
     trainingModule: document.getElementById('trainingModule'),
     accountModule: document.getElementById('accountModule'),
+    aiModule: document.getElementById('aiModule'),
     contentMetrics: document.getElementById('adminContentMetrics'),
     sceneList: document.getElementById('adminSceneList'),
     libraryTitle: document.getElementById('adminLibraryTitle'),
@@ -62,6 +64,12 @@
     accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
     teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
+    aiMetrics: document.getElementById('adminAiMetrics'),
+    aiConfigForm: document.getElementById('adminAiConfigForm'),
+    aiConfigStatus: document.getElementById('adminAiConfigStatus'),
+    aiConfigSaveStatus: document.getElementById('adminAiConfigSaveStatus'),
+    aiKeyState: document.getElementById('adminAiKeyState'),
+    aiKeyPreview: document.getElementById('adminAiKeyPreview'),
     scriptDraftInput: document.getElementById('adminScriptDraftInput'),
     scriptList: document.getElementById('adminScriptList'),
     addScriptButton: document.getElementById('adminAddScriptButton'),
@@ -497,7 +505,46 @@
     nodes.contentModule.classList.toggle('hidden', state.module !== 'content');
     nodes.trainingModule.classList.toggle('hidden', state.module !== 'training');
     nodes.accountModule.classList.toggle('hidden', state.module !== 'accounts');
+    nodes.aiModule.classList.toggle('hidden', state.module !== 'ai');
     nodes.moduleButtons.forEach((button) => button.classList.toggle('active', button.dataset.module === state.module));
+  }
+
+  function renderAiConfig() {
+    const config = state.aiConfig || {
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-v4-flash',
+      thinking: 'disabled',
+      isEnabled: false,
+      hasApiKey: false,
+      apiKeyPreview: '',
+      updatedAt: '',
+    };
+    const isReady = config.isEnabled && config.hasApiKey;
+
+    nodes.aiConfigStatus.textContent = isReady ? '已启用' : config.hasApiKey ? '已保存未启用' : '未配置';
+    nodes.aiConfigStatus.className = isReady ? 'tag-good' : config.hasApiKey ? 'tag-warn' : 'tag-danger';
+    nodes.aiKeyState.textContent = config.hasApiKey ? '已配置' : '未配置';
+    nodes.aiKeyPreview.textContent = config.apiKeyPreview
+      ? `当前密钥：${config.apiKeyPreview}，完整 Key 不会回显。`
+      : '保存后仅展示脱敏预览，不展示完整 Key。';
+
+    nodes.aiMetrics.innerHTML = [
+      ['运行状态', isReady ? '启用中' : '未启用', isReady ? '训练会调用 DeepSeek' : '训练暂不请求大模型'],
+      ['模型', config.model || 'deepseek-v4-flash', '用于家长模拟、异议判定和训练复盘'],
+      ['更新时间', formatDateTimeFull(config.updatedAt), '最近一次后台保存配置时间'],
+    ]
+      .map(
+        ([label, value, desc]) => `
+          <article class="metric-card"><p class="eyebrow">${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><p>${escapeHtml(desc)}</p></article>
+        `
+      )
+      .join('');
+
+    nodes.aiConfigForm.elements.isEnabled.checked = Boolean(config.isEnabled);
+    nodes.aiConfigForm.elements.apiKey.value = '';
+    nodes.aiConfigForm.elements.baseUrl.value = config.baseUrl || 'https://api.deepseek.com';
+    nodes.aiConfigForm.elements.model.value = config.model || 'deepseek-v4-flash';
+    nodes.aiConfigForm.elements.thinking.value = config.thinking || 'disabled';
   }
 
   function difficultyLabel(value) {
@@ -984,6 +1031,11 @@
     renderAccounts();
   }
 
+  async function loadAiConfig() {
+    state.aiConfig = await api('/api/admin/ai-config');
+    renderAiConfig();
+  }
+
   async function loadProfile() {
     state.profile = await api('/api/admin/me');
     nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
@@ -992,7 +1044,7 @@
   }
 
   async function refreshAll() {
-    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers()]);
+    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers(), loadAiConfig()]);
     renderModules();
   }
 
@@ -1239,6 +1291,27 @@
       await loadUsers();
     } catch (error) {
       nodes.teacherImportStatus.textContent = error.message;
+    }
+  });
+  nodes.aiConfigForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(nodes.aiConfigForm);
+    nodes.aiConfigSaveStatus.textContent = '正在保存 AI 配置...';
+    try {
+      state.aiConfig = await api('/api/admin/ai-config', {
+        method: 'PUT',
+        body: JSON.stringify({
+          isEnabled: Boolean(formData.get('isEnabled')),
+          apiKey: String(formData.get('apiKey') || '').trim(),
+          baseUrl: String(formData.get('baseUrl') || '').trim() || 'https://api.deepseek.com',
+          model: String(formData.get('model') || '').trim() || 'deepseek-v4-flash',
+          thinking: String(formData.get('thinking') || 'disabled'),
+        }),
+      });
+      nodes.aiConfigSaveStatus.textContent = 'AI 配置已保存';
+      renderAiConfig();
+    } catch (error) {
+      nodes.aiConfigSaveStatus.textContent = error.message;
     }
   });
 

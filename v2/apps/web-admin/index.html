@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260809-training-import" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260907-ai-config" />
   </head>
   <body>
     <div class="admin-shell">
@@ -40,6 +40,7 @@
                 <button class="module-btn active" type="button" data-module="content">异议内容管理</button>
                 <button class="module-btn" type="button" data-module="training">异议训练管理</button>
                 <button class="module-btn" type="button" data-module="accounts">用户账号管理</button>
+                <button class="module-btn" type="button" data-module="ai">AI 模型配置</button>
               </div>
               <div class="profile-chip" id="adminProfileChip"></div>
               <button class="secondary-btn" id="adminLogoutButton" type="button">退出登录</button>
@@ -320,9 +321,78 @@
               </section>
             </section>
           </section>
+
+          <section class="hidden" id="aiModule">
+            <section class="metric-grid" id="adminAiMetrics"></section>
+            <section class="ai-config-layout">
+              <section class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">DeepSeek Runtime</p>
+                    <h2>AI 模型配置</h2>
+                  </div>
+                  <span class="tag-warn" id="adminAiConfigStatus">未配置</span>
+                </div>
+                <form class="form-stack" id="adminAiConfigForm">
+                  <label class="switch-row">
+                    <span>
+                      <strong>启用 DeepSeek</strong>
+                      <small>关闭后训练会回到系统内置模拟逻辑，不会请求大模型。</small>
+                    </span>
+                    <input name="isEnabled" type="checkbox" />
+                  </label>
+                  <label>
+                    <span>DeepSeek API Key</span>
+                    <input name="apiKey" type="password" placeholder="填写新的 API Key；留空则保留已保存密钥" autocomplete="new-password" />
+                  </label>
+                  <label>
+                    <span>Base URL</span>
+                    <input name="baseUrl" placeholder="https://api.deepseek.com" />
+                  </label>
+                  <label>
+                    <span>模型名称</span>
+                    <input name="model" placeholder="deepseek-v4-flash" />
+                  </label>
+                  <label>
+                    <span>思考模式</span>
+                    <select name="thinking">
+                      <option value="disabled">关闭</option>
+                      <option value="enabled">开启</option>
+                    </select>
+                  </label>
+                  <button class="primary-btn" type="submit">保存 AI 配置</button>
+                  <p class="status-text" id="adminAiConfigSaveStatus"></p>
+                </form>
+              </section>
+
+              <aside class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Safety</p>
+                    <h2>当前配置状态</h2>
+                  </div>
+                </div>
+                <div class="ai-status-card">
+                  <div>
+                    <span>密钥状态</span>
+                    <strong id="adminAiKeyState">未配置</strong>
+                    <p id="adminAiKeyPreview">保存后仅展示脱敏预览，不展示完整 Key。</p>
+                  </div>
+                  <div>
+                    <span>调用说明</span>
+                    <p>老师训练中需要 AI 回复、异议判定和训练复盘时，会读取这里保存的配置。</p>
+                  </div>
+                  <div>
+                    <span>安全提醒</span>
+                    <p>后端不再读取固定 DeepSeek 环境变量；如需更换 Key，只需在这里保存新的 Key。</p>
+                  </div>
+                </div>
+              </aside>
+            </section>
+          </section>
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260809-training-import"></script>
+    <script src="/assets/admin/app.js?v=20260907-ai-config"></script>
   </body>
 </html>

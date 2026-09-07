@@ -1,4 +1,4 @@
-import { env } from '../env'
+import { getActiveDeepSeekConfig } from '../services/ai-config.service'
 
 interface DeepSeekReplyInput {
   parentName: string
@@ -58,8 +58,16 @@ interface DeepSeekResolutionInput {
   }>
 }
 
-export function isDeepSeekEnabled() {
-  return env.aiProvider.toLowerCase() === 'deepseek' && Boolean(env.deepseekApiKey)
+export async function isDeepSeekEnabled() {
+  return Boolean(await getActiveDeepSeekConfig())
+}
+
+async function requireDeepSeekConfig() {
+  const config = await getActiveDeepSeekConfig()
+  if (!config) {
+    throw new Error('DeepSeek is not configured')
+  }
+  return config
 }
 
 function buildParentPrompt(input: DeepSeekReplyInput) {
@@ -96,6 +104,7 @@ function buildParentPrompt(input: DeepSeekReplyInput) {
 }
 
 export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
+  const config = await requireDeepSeekConfig()
   const messages: DeepSeekChatMessage[] = [
     {
       role: 'system',
@@ -112,19 +121,19 @@ export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
     },
   ]
 
-  const response = await fetch(`${env.deepseekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.deepseekApiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: env.deepseekModel,
+      model: config.model,
       messages,
       temperature: 0.85,
       max_tokens: 360,
       thinking: {
-        type: env.deepseekThinking,
+        type: config.thinking,
       },
     }),
   })
@@ -171,14 +180,15 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
 }
 
 export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput) {
-  const response = await fetch(`${env.deepseekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const config = await requireDeepSeekConfig()
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.deepseekApiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: env.deepseekModel,
+      model: config.model,
       messages: [
         {
           role: 'system',
@@ -193,7 +203,7 @@ export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput)
       max_tokens: 500,
       response_format: { type: 'json_object' },
       thinking: {
-        type: env.deepseekThinking,
+        type: config.thinking,
       },
     }),
   })
@@ -262,14 +272,15 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
 }
 
 export async function buildDeepSeekReview(input: DeepSeekReviewInput) {
-  const response = await fetch(`${env.deepseekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const config = await requireDeepSeekConfig()
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.deepseekApiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: env.deepseekModel,
+      model: config.model,
       messages: [
         {
           role: 'system',
@@ -284,7 +295,7 @@ export async function buildDeepSeekReview(input: DeepSeekReviewInput) {
       max_tokens: 1600,
       response_format: { type: 'json_object' },
       thinking: {
-        type: env.deepseekThinking,
+        type: config.thinking,
       },
     }),
   })

@@ -130,7 +130,7 @@ async function buildParentReply(input: {
     content: string
   }>
 }) {
-  if (isDeepSeekEnabled()) {
+  if (await isDeepSeekEnabled()) {
     try {
       return await buildDeepSeekReply(input)
     } catch (error) {
@@ -157,7 +157,7 @@ async function evaluateObjectionResolved(input: {
     stepOrder: number
   }>
 }) {
-  if (isDeepSeekEnabled()) {
+  if (await isDeepSeekEnabled()) {
     try {
       return await evaluateDeepSeekResolution(input)
     } catch (error) {
@@ -520,7 +520,7 @@ export async function generateReview(sessionId: string, teacherId: string) {
     (message: (typeof session.messages)[number]) => message.role === 'TEACHER'
   )
 
-  if (isDeepSeekEnabled()) {
+  if (await isDeepSeekEnabled()) {
     try {
       const aiReview = await buildDeepSeekReview({
         scenarioTitle: session.scenario.title,

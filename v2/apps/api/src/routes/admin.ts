@@ -12,6 +12,10 @@ import { requireRole } from '../middleware/require-role'
 import type { AuthedRequest } from '../types'
 import { HttpError } from '../utils/http-error'
 import {
+  getAiConfigForAdmin,
+  updateAiConfigForAdmin,
+} from '../services/ai-config.service'
+import {
   createScenario,
   createTopic,
   createUser,
@@ -385,6 +389,22 @@ router.get('/me', async (req: AuthedRequest, res, next) => {
 router.get('/dashboard', requireRole('TRAINER'), async (_req, res, next) => {
   try {
     res.json(ok(await getDashboardSummary()))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/ai-config', requireRole('TRAINER'), async (_req, res, next) => {
+  try {
+    res.json(ok(await getAiConfigForAdmin()))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await updateAiConfigForAdmin(req.body)))
   } catch (error) {
     next(error)
   }

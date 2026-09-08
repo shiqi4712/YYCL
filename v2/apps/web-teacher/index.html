@@ -147,13 +147,21 @@
             </article>
 
             <section class="training-chat hidden" id="trainingChat">
-              <aside class="shell-card section-card training-context">
+              <aside class="shell-card section-card training-context mobile-collapsed" id="trainingContextPanel">
                 <div class="section-head">
                   <div>
                     <p class="eyebrow">Scenario</p>
                     <h2 id="trainingScenarioTitle">训练信息</h2>
                   </div>
-                  <button class="secondary-btn compact-btn" id="trainingBackButton" type="button">重新选场景</button>
+                  <div class="training-context-actions">
+                    <button
+                      class="secondary-btn compact-btn mobile-context-toggle"
+                      id="trainingContextToggle"
+                      type="button"
+                      aria-expanded="false"
+                    >查看训练信息</button>
+                    <button class="secondary-btn compact-btn" id="trainingBackButton" type="button">重新选场景</button>
+                  </div>
                 </div>
                 <div class="context-list" id="trainingContextList"></div>
                 <button class="secondary-btn" id="trainingEndButton" type="button">结束训练并生成复盘</button>
@@ -201,6 +209,6 @@
       </main>
     </div>
 
-    <script src="/assets/teacher/app.js?v=20260908-score-visibility"></script>
+    <script src="/assets/teacher/app.js?v=20260908-responsive-training"></script>
   </body>
 </html>

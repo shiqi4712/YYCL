@@ -56,6 +56,8 @@
     trainingChat: document.getElementById('trainingChat'),
     trainingScenarioTitle: document.getElementById('trainingScenarioTitle'),
     trainingContextList: document.getElementById('trainingContextList'),
+    trainingContextPanel: document.getElementById('trainingContextPanel'),
+    trainingContextToggle: document.getElementById('trainingContextToggle'),
     trainingBackButton: document.getElementById('trainingBackButton'),
     trainingEndButton: document.getElementById('trainingEndButton'),
     trainingStatusChip: document.getElementById('trainingStatusChip'),
@@ -203,7 +205,7 @@
     nodes.repositoryHomeView.classList.toggle('hidden', view !== 'repository');
     nodes.repositoryDetailView.classList.toggle('hidden', view !== 'repositoryDetail');
     nodes.trainingView.classList.toggle('hidden', view !== 'training');
-    nodes.hero.classList.toggle('hidden', view === 'repositoryDetail');
+    nodes.hero.classList.toggle('hidden', view === 'repositoryDetail' || view === 'training');
     nodes.backButton.classList.toggle('hidden', view === 'portal');
     const titleMap = {
       portal: '功能首页',
@@ -421,6 +423,9 @@
     if (nodes.trainingMessageInput) {
       nodes.trainingMessageInput.value = '';
     }
+    nodes.trainingContextPanel.classList.add('mobile-collapsed');
+    nodes.trainingContextToggle.textContent = '查看训练信息';
+    nodes.trainingContextToggle.setAttribute('aria-expanded', 'false');
   }
 
   function flattenTrainingScenarios() {
@@ -885,6 +890,11 @@
     nodes.trainingBackButton.addEventListener('click', () => {
       resetTrainingRuntime();
       renderTrainingPicker();
+    });
+    nodes.trainingContextToggle.addEventListener('click', () => {
+      const isCollapsed = nodes.trainingContextPanel.classList.toggle('mobile-collapsed');
+      nodes.trainingContextToggle.textContent = isCollapsed ? '查看训练信息' : '收起训练信息';
+      nodes.trainingContextToggle.setAttribute('aria-expanded', String(!isCollapsed));
     });
     nodes.trainingMessageForm.addEventListener('submit', sendTrainingMessage);
     nodes.trainingForceReplyButton.addEventListener('click', requestParentReply);

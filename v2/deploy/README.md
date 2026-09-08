@@ -106,7 +106,7 @@ APP_NAME="YYCL V2 API"
 DATABASE_URL="mysql://yycl_user:强密码@127.0.0.1:3306/yycl?connection_limit=5&pool_timeout=20"
 ```
 
-DeepSeek V4 家长模拟不再通过后端 `.env` 固定配置。部署完成后，请登录管理后台，在“AI 模型配置”中保存 API Key、Base URL、模型名称、思考模式和同时训练人数（1-30 人）；未在后台启用 DeepSeek 或接口异常时，系统会自动回退到本地模拟家长，避免训练中断。
+AI 家长模拟不再通过后端 `.env` 固定配置。部署完成后，请登录管理后台，在“AI 模型配置”中选择 DeepSeek、Kimi、OpenAI、通义千问、智谱 GLM、豆包或其他兼容服务，并保存 API Key、Base URL、模型名称、思考模式和同时训练人数（1-30 人）；未启用模型或接口异常时，系统会自动回退到本地模拟家长，避免训练中断。
 
 ## 常用命令
 

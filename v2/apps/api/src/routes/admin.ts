@@ -394,9 +394,9 @@ router.get('/dashboard', requireRole('TRAINER'), async (_req, res, next) => {
   }
 })
 
-router.get('/ai-config', requireRole('TRAINER'), async (_req, res, next) => {
+router.get('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
   try {
-    res.json(ok(await getAiConfigForAdmin()))
+    res.json(ok(await getAiConfigForAdmin(req.query.provider)))
   } catch (error) {
     next(error)
   }

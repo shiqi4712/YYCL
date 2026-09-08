@@ -1,4 +1,4 @@
-import { buildDeepSeekReply, buildDeepSeekReview, evaluateDeepSeekResolution, isDeepSeekEnabled } from '../lib/deepseek-ai'
+import { buildAiReply, buildAiReview, evaluateAiResolution, isAiModelEnabled } from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { getConfiguredConcurrentUserLimit } from './ai-config.service'
@@ -132,11 +132,11 @@ async function buildParentReply(input: {
     content: string
   }>
 }) {
-  if (await isDeepSeekEnabled()) {
+  if (await isAiModelEnabled()) {
     try {
-      return await buildDeepSeekReply(input)
+      return await buildAiReply(input)
     } catch (error) {
-      console.error('DeepSeek reply failed, fallback to mock:', error)
+      console.error('AI reply failed, fallback to mock:', error)
     }
   }
 
@@ -159,11 +159,11 @@ async function evaluateObjectionResolved(input: {
     stepOrder: number
   }>
 }) {
-  if (await isDeepSeekEnabled()) {
+  if (await isAiModelEnabled()) {
     try {
-      return await evaluateDeepSeekResolution(input)
+      return await evaluateAiResolution(input)
     } catch (error) {
-      console.error('DeepSeek resolution failed, fallback to mock:', error)
+      console.error('AI resolution failed, fallback to mock:', error)
     }
   }
 
@@ -593,9 +593,9 @@ export async function generateReview(sessionId: string, teacherId: string) {
     (message: (typeof session.messages)[number]) => message.role === 'TEACHER'
   )
 
-  if (await isDeepSeekEnabled()) {
+  if (await isAiModelEnabled()) {
     try {
-      const aiReview = await buildDeepSeekReview({
+      const aiReview = await buildAiReview({
         scenarioTitle: session.scenario.title,
         scenarioDescription: session.scenario.description,
         sopContent: session.scenario.topic.sopContent,
@@ -658,7 +658,7 @@ export async function generateReview(sessionId: string, teacherId: string) {
 
       return getSessionDetail(sessionId, teacherId).then((detail) => detail.review)
     } catch (error) {
-      console.error('DeepSeek review failed, fallback to mock:', error)
+      console.error('AI review failed, fallback to mock:', error)
     }
   }
 

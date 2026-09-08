@@ -2,7 +2,9 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { HttpError } from '../utils/http-error'
 
+const aiProviderSchema = z.enum(['deepseek', 'kimi', 'openai', 'qwen', 'glm', 'doubao', 'custom'])
 const aiConfigSchema = z.object({
+  provider: aiProviderSchema.default('deepseek'),
   isEnabled: z.boolean().default(false),
   apiKey: z.string().trim().max(5000).optional(),
   baseUrl: z.string().trim().url().max(191).default('https://api.deepseek.com'),
@@ -11,6 +13,16 @@ const aiConfigSchema = z.object({
   maxConcurrentUsers: z.coerce.number().int().min(1).max(30).default(10),
 })
 
+const providerDefaults: Record<z.infer<typeof aiProviderSchema>, { baseUrl: string; model: string }> = {
+  deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
+  kimi: { baseUrl: 'https://api.moonshot.cn/v1', model: '' },
+  openai: { baseUrl: 'https://api.openai.com/v1', model: '' },
+  qwen: { baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: '' },
+  doubao: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: '' },
+  custom: { baseUrl: '', model: '' },
+}
+
 function maskApiKey(apiKey?: string | null) {
   if (!apiKey) return null
   const text = apiKey.trim()
@@ -18,54 +30,61 @@ function maskApiKey(apiKey?: string | null) {
   return `${text.slice(0, 4)}****${text.slice(-4)}`
 }
 
-async function getOrCreateDeepSeekConfig() {
-  const existing = await prisma.aiConfig.findUnique({
-    where: { provider: 'deepseek' },
-  })
-
-  if (existing) return existing
-
-  return prisma.aiConfig.create({
-    data: {
-      provider: 'deepseek',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-v4-flash',
-      thinking: 'disabled',
-      maxConcurrentUsers: 10,
-      isEnabled: false,
-    },
-  })
+function toAdminConfig(config: any, provider: z.infer<typeof aiProviderSchema>) {
+  const defaults = providerDefaults[provider]
+  return {
+    provider,
+    baseUrl: config?.baseUrl ?? defaults.baseUrl,
+    model: config?.model ?? defaults.model,
+    thinking: config?.thinking ?? 'disabled',
+    maxConcurrentUsers: config?.maxConcurrentUsers ?? 10,
+    isEnabled: Boolean(config?.isEnabled),
+    hasApiKey: Boolean(config?.apiKey),
+    apiKeyPreview: maskApiKey(config?.apiKey),
+    updatedAt: config?.updatedAt ?? null,
+  }
 }
 
-export async function getAiConfigForAdmin() {
-  const config = await getOrCreateDeepSeekConfig()
-
-  return {
-    provider: config.provider,
-    baseUrl: config.baseUrl,
-    model: config.model,
-    thinking: config.thinking,
-    maxConcurrentUsers: config.maxConcurrentUsers,
-    isEnabled: config.isEnabled,
-    hasApiKey: Boolean(config.apiKey),
-    apiKeyPreview: maskApiKey(config.apiKey),
-    updatedAt: config.updatedAt,
+export async function getAiConfigForAdmin(providerValue?: unknown) {
+  const requestedProvider = aiProviderSchema.safeParse(providerValue)
+  if (requestedProvider.success) {
+    const config = await prisma.aiConfig.findUnique({
+      where: { provider: requestedProvider.data },
+    })
+    return toAdminConfig(config, requestedProvider.data)
   }
+
+  const config = await prisma.aiConfig.findFirst({
+    orderBy: [{ isEnabled: 'desc' }, { updatedAt: 'desc' }],
+  })
+  const provider = aiProviderSchema.safeParse(config?.provider)
+  return toAdminConfig(config, provider.success ? provider.data : 'deepseek')
 }
 
 export async function updateAiConfigForAdmin(payload: unknown) {
   const input = aiConfigSchema.parse(payload)
-  const existing = await getOrCreateDeepSeekConfig()
+  const existing = await prisma.aiConfig.findUnique({
+    where: { provider: input.provider },
+  })
   const apiKey = input.apiKey?.trim()
-  const nextApiKey = apiKey ? apiKey : existing.apiKey
+  const nextApiKey = apiKey || existing?.apiKey
 
   if (input.isEnabled && !nextApiKey) {
-    throw new HttpError(400, '启用 DeepSeek 前请先填写 API Key')
+    throw new HttpError(400, '启用 AI 模型前请先填写 API Key')
   }
 
-  const config = await prisma.aiConfig.update({
-    where: { id: existing.id },
-    data: {
+  const saveConfig = prisma.aiConfig.upsert({
+    where: { provider: input.provider },
+    create: {
+      provider: input.provider,
+      apiKey: apiKey || null,
+      baseUrl: input.baseUrl.replace(/\/$/, ''),
+      model: input.model,
+      thinking: input.thinking,
+      maxConcurrentUsers: input.maxConcurrentUsers,
+      isEnabled: input.isEnabled,
+    },
+    update: {
       baseUrl: input.baseUrl.replace(/\/$/, ''),
       model: input.model,
       thinking: input.thinking,
@@ -75,38 +94,45 @@ export async function updateAiConfigForAdmin(payload: unknown) {
     },
   })
 
-  return {
-    provider: config.provider,
-    baseUrl: config.baseUrl,
-    model: config.model,
-    thinking: config.thinking,
-    maxConcurrentUsers: config.maxConcurrentUsers,
-    isEnabled: config.isEnabled,
-    hasApiKey: Boolean(config.apiKey),
-    apiKeyPreview: maskApiKey(config.apiKey),
-    updatedAt: config.updatedAt,
+  let config
+  if (input.isEnabled) {
+    const [, savedConfig] = await prisma.$transaction([
+      prisma.aiConfig.updateMany({
+        where: { provider: { not: input.provider } },
+        data: { isEnabled: false },
+      }),
+      saveConfig,
+    ])
+    config = savedConfig
+  } else {
+    config = await saveConfig
   }
+
+  return toAdminConfig(config, input.provider)
 }
 
-export async function getActiveDeepSeekConfig() {
-  const config = await prisma.aiConfig.findUnique({
-    where: {
-      provider: 'deepseek',
-    },
+export async function getActiveAiConfig() {
+  const config = await prisma.aiConfig.findFirst({
+    where: { isEnabled: true },
+    orderBy: { updatedAt: 'desc' },
   })
 
   if (!config?.isEnabled || !config.apiKey) return null
+  const provider = aiProviderSchema.safeParse(config.provider)
 
   return {
+    provider: provider.success ? provider.data : 'custom',
     apiKey: config.apiKey,
-    baseUrl: config.baseUrl || 'https://api.deepseek.com',
-    model: config.model || 'deepseek-v4-flash',
+    baseUrl: config.baseUrl,
+    model: config.model,
     thinking: config.thinking || 'disabled',
     maxConcurrentUsers: config.maxConcurrentUsers || 10,
   }
 }
 
 export async function getConfiguredConcurrentUserLimit() {
-  const config = await getOrCreateDeepSeekConfig()
-  return Math.max(1, Math.min(30, config.maxConcurrentUsers || 10))
+  const config = await prisma.aiConfig.findFirst({
+    orderBy: [{ isEnabled: 'desc' }, { updatedAt: 'desc' }],
+  })
+  return Math.max(1, Math.min(30, config?.maxConcurrentUsers || 10))
 }

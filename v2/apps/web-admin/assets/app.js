@@ -5,6 +5,15 @@
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
     { id: 'close', title: '结转促单', desc: '结转报名阶段，重点处理价格、犹豫、对比、决策人和付款节奏。', tone: '给证据，给下一步' },
   ];
+  const aiProviderLabels = {
+    deepseek: 'DeepSeek',
+    kimi: 'Kimi / Moonshot',
+    openai: 'OpenAI',
+    qwen: '通义千问',
+    glm: '智谱 GLM',
+    doubao: '豆包',
+    custom: '其他兼容接口',
+  };
 
   const state = {
     token: localStorage.getItem(storageKey) || '',
@@ -511,6 +520,7 @@
 
   function renderAiConfig() {
     const config = state.aiConfig || {
+      provider: 'deepseek',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-v4-flash',
       thinking: 'disabled',
@@ -530,8 +540,8 @@
       : '保存后仅展示脱敏预览，不展示完整 Key。';
 
     nodes.aiMetrics.innerHTML = [
-      ['运行状态', isReady ? '启用中' : '未启用', isReady ? '训练会调用 DeepSeek' : '训练暂不请求大模型'],
-      ['模型', config.model || 'deepseek-v4-flash', '用于家长模拟、异议判定和训练复盘'],
+      ['运行状态', isReady ? '启用中' : '未启用', isReady ? '训练会调用当前 AI 模型' : '训练暂不请求大模型'],
+      ['服务商', aiProviderLabels[config.provider] || '其他兼容接口', config.model || '请填写模型名称'],
       ['同时训练', `${config.maxConcurrentUsers || 10} 人`, '管理员配置的同时训练人数上限，最多 30 人'],
     ]
       .map(
@@ -542,10 +552,12 @@
       .join('');
 
     nodes.aiConfigForm.elements.isEnabled.checked = Boolean(config.isEnabled);
+    nodes.aiConfigForm.elements.provider.value = config.provider || 'deepseek';
     nodes.aiConfigForm.elements.apiKey.value = '';
-    nodes.aiConfigForm.elements.baseUrl.value = config.baseUrl || 'https://api.deepseek.com';
-    nodes.aiConfigForm.elements.model.value = config.model || 'deepseek-v4-flash';
+    nodes.aiConfigForm.elements.baseUrl.value = config.baseUrl || '';
+    nodes.aiConfigForm.elements.model.value = config.model || '';
     nodes.aiConfigForm.elements.thinking.value = config.thinking || 'disabled';
+    nodes.aiConfigForm.elements.thinking.disabled = config.provider !== 'deepseek';
     nodes.aiConfigForm.elements.maxConcurrentUsers.value = config.maxConcurrentUsers || 10;
   }
 
@@ -1033,8 +1045,9 @@
     renderAccounts();
   }
 
-  async function loadAiConfig() {
-    state.aiConfig = await api('/api/admin/ai-config');
+  async function loadAiConfig(provider) {
+    const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
+    state.aiConfig = await api(`/api/admin/ai-config${query}`);
     renderAiConfig();
   }
 
@@ -1304,15 +1317,26 @@
         method: 'PUT',
         body: JSON.stringify({
           isEnabled: Boolean(formData.get('isEnabled')),
+          provider: String(formData.get('provider') || 'deepseek'),
           apiKey: String(formData.get('apiKey') || '').trim(),
-          baseUrl: String(formData.get('baseUrl') || '').trim() || 'https://api.deepseek.com',
-          model: String(formData.get('model') || '').trim() || 'deepseek-v4-flash',
+          baseUrl: String(formData.get('baseUrl') || '').trim(),
+          model: String(formData.get('model') || '').trim(),
           thinking: String(formData.get('thinking') || 'disabled'),
           maxConcurrentUsers: Number(formData.get('maxConcurrentUsers') || 10),
         }),
       });
       nodes.aiConfigSaveStatus.textContent = 'AI 配置已保存';
       renderAiConfig();
+    } catch (error) {
+      nodes.aiConfigSaveStatus.textContent = error.message;
+    }
+  });
+  nodes.aiConfigForm.elements.provider.addEventListener('change', async (event) => {
+    const provider = event.target.value || 'deepseek';
+    nodes.aiConfigSaveStatus.textContent = '正在读取该服务商配置...';
+    try {
+      await loadAiConfig(provider);
+      nodes.aiConfigSaveStatus.textContent = '';
     } catch (error) {
       nodes.aiConfigSaveStatus.textContent = error.message;
     }

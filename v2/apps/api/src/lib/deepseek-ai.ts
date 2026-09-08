@@ -1,4 +1,4 @@
-import { getActiveDeepSeekConfig } from '../services/ai-config.service'
+import { getActiveAiConfig } from '../services/ai-config.service'
 
 interface DeepSeekReplyInput {
   parentName: string
@@ -58,16 +58,59 @@ interface DeepSeekResolutionInput {
   }>
 }
 
-export async function isDeepSeekEnabled() {
-  return Boolean(await getActiveDeepSeekConfig())
+export async function isAiModelEnabled() {
+  return Boolean(await getActiveAiConfig())
 }
 
-async function requireDeepSeekConfig() {
-  const config = await getActiveDeepSeekConfig()
+async function requireAiConfig() {
+  const config = await getActiveAiConfig()
   if (!config) {
-    throw new Error('DeepSeek is not configured')
+    throw new Error('AI model is not configured')
   }
   return config
+}
+
+function buildChatCompletionsUrl(baseUrl: string) {
+  const normalized = baseUrl.replace(/\/$/, '')
+  return normalized.endsWith('/chat/completions') ? normalized : `${normalized}/chat/completions`
+}
+
+function buildProviderOptions(config: { provider: string; thinking: string }) {
+  if (config.provider !== 'deepseek') return {}
+  return {
+    thinking: {
+      type: config.thinking,
+    },
+  }
+}
+
+function buildGenerationOptions(
+  config: { provider: string; model: string; thinking: string },
+  temperature: number,
+  maxTokens: number
+) {
+  const usesOpenAiReasoningParameters =
+    config.provider === 'openai' && /^(gpt-5|o\d)/i.test(config.model)
+
+  return {
+    ...(usesOpenAiReasoningParameters
+      ? { max_completion_tokens: maxTokens }
+      : { temperature, max_tokens: maxTokens }),
+    ...buildProviderOptions(config),
+  }
+}
+
+function parseJsonResponse(content: string) {
+  const cleaned = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end < start) {
+    throw new Error('AI response does not contain a JSON object')
+  }
+  return JSON.parse(cleaned.slice(start, end + 1))
 }
 
 function buildParentPrompt(input: DeepSeekReplyInput) {
@@ -103,8 +146,8 @@ function buildParentPrompt(input: DeepSeekReplyInput) {
   ].join('\n')
 }
 
-export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
-  const config = await requireDeepSeekConfig()
+export async function buildAiReply(input: DeepSeekReplyInput) {
+  const config = await requireAiConfig()
   const messages: DeepSeekChatMessage[] = [
     {
       role: 'system',
@@ -121,7 +164,7 @@ export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
     },
   ]
 
-  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -130,23 +173,19 @@ export async function buildDeepSeekReply(input: DeepSeekReplyInput) {
     body: JSON.stringify({
       model: config.model,
       messages,
-      temperature: 0.85,
-      max_tokens: 360,
-      thinking: {
-        type: config.thinking,
-      },
+      ...buildGenerationOptions(config, 0.85, 360),
     }),
   })
 
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `DeepSeek request failed: ${response.status}`)
+    throw new Error(payload?.error?.message || `AI request failed: ${response.status}`)
   }
 
   const content = payload?.choices?.[0]?.message?.content
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('DeepSeek response is empty')
+    throw new Error('AI response is empty')
   }
 
   return content.trim()
@@ -179,9 +218,9 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
   ].join('\n')
 }
 
-export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput) {
-  const config = await requireDeepSeekConfig()
-  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+export async function evaluateAiResolution(input: DeepSeekResolutionInput) {
+  const config = await requireAiConfig()
+  const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -199,27 +238,22 @@ export async function evaluateDeepSeekResolution(input: DeepSeekResolutionInput)
           content: buildResolutionPrompt(input),
         },
       ],
-      temperature: 0.1,
-      max_tokens: 500,
-      response_format: { type: 'json_object' },
-      thinking: {
-        type: config.thinking,
-      },
+      ...buildGenerationOptions(config, 0.1, 500),
     }),
   })
 
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `DeepSeek resolution failed: ${response.status}`)
+    throw new Error(payload?.error?.message || `AI resolution failed: ${response.status}`)
   }
 
   const content = payload?.choices?.[0]?.message?.content
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('DeepSeek resolution response is empty')
+    throw new Error('AI resolution response is empty')
   }
 
-  const parsed = JSON.parse(content)
+  const parsed = parseJsonResponse(content)
   const resolutionScore = Number(parsed.resolutionScore)
   const normalizedScore = Number.isFinite(resolutionScore)
     ? Math.max(0, Math.min(100, Math.round(resolutionScore)))
@@ -271,9 +305,9 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
   ].join('\n')
 }
 
-export async function buildDeepSeekReview(input: DeepSeekReviewInput) {
-  const config = await requireDeepSeekConfig()
-  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+export async function buildAiReview(input: DeepSeekReviewInput) {
+  const config = await requireAiConfig()
+  const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -291,25 +325,20 @@ export async function buildDeepSeekReview(input: DeepSeekReviewInput) {
           content: buildReviewPrompt(input),
         },
       ],
-      temperature: 0.2,
-      max_tokens: 1600,
-      response_format: { type: 'json_object' },
-      thinking: {
-        type: config.thinking,
-      },
+      ...buildGenerationOptions(config, 0.2, 1600),
     }),
   })
 
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `DeepSeek review failed: ${response.status}`)
+    throw new Error(payload?.error?.message || `AI review failed: ${response.status}`)
   }
 
   const content = payload?.choices?.[0]?.message?.content
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('DeepSeek review response is empty')
+    throw new Error('AI review response is empty')
   }
 
-  return JSON.parse(content)
+  return parseJsonResponse(content)
 }

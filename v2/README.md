@@ -58,6 +58,6 @@ npm run dev
 
 ## 说明
 
-AI 对话默认使用 mock 规则引擎，便于本地联调与演示。生产环境不再在后端 `.env` 固定 DeepSeek Key，请登录管理后台的“AI 模型配置”页面单独保存 DeepSeek API Key、Base URL、模型名称、思考模式和同时训练人数（1-30 人）。
+AI 对话默认使用 mock 规则引擎，便于本地联调与演示。生产环境请登录管理后台的“AI 模型配置”页面，按服务商分别保存 API Key、Base URL、模型名称、思考模式和同时训练人数（1-30 人）。系统支持 DeepSeek、Kimi、OpenAI、通义千问、智谱 GLM、豆包及其他兼容 OpenAI Chat Completions 协议的模型。
 
-未在后台启用 DeepSeek 或接口异常时，系统会自动回退到 mock 规则引擎。
+未在后台启用 AI 模型或接口异常时，系统会自动回退到 mock 规则引擎。

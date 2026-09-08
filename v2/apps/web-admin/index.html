@@ -328,7 +328,7 @@
               <section class="shell-card section-card">
                 <div class="section-head">
                   <div>
-                    <p class="eyebrow">DeepSeek Runtime</p>
+                    <p class="eyebrow">AI Runtime</p>
                     <h2>AI 模型配置</h2>
                   </div>
                   <span class="tag-warn" id="adminAiConfigStatus">未配置</span>
@@ -336,22 +336,34 @@
                 <form class="form-stack" id="adminAiConfigForm">
                   <label class="switch-row">
                     <span>
-                      <strong>启用 DeepSeek</strong>
+                      <strong>启用当前模型</strong>
                       <small>关闭后训练会回到系统内置模拟逻辑，不会请求大模型。</small>
                     </span>
                     <input name="isEnabled" type="checkbox" />
                   </label>
                   <label>
-                    <span>DeepSeek API Key</span>
+                    <span>模型服务商</span>
+                    <select name="provider">
+                      <option value="deepseek">DeepSeek</option>
+                      <option value="kimi">Kimi / Moonshot</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="qwen">通义千问</option>
+                      <option value="glm">智谱 GLM</option>
+                      <option value="doubao">豆包</option>
+                      <option value="custom">其他 OpenAI 兼容接口</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>API Key</span>
                     <input name="apiKey" type="password" placeholder="填写新的 API Key；留空则保留已保存密钥" autocomplete="new-password" />
                   </label>
                   <label>
                     <span>Base URL</span>
-                    <input name="baseUrl" placeholder="https://api.deepseek.com" />
+                    <input name="baseUrl" placeholder="填写服务商的 OpenAI 兼容接口地址" required />
                   </label>
                   <label>
                     <span>模型名称</span>
-                    <input name="model" placeholder="deepseek-v4-flash" />
+                    <input name="model" placeholder="填写服务商控制台中的模型 ID" required />
                   </label>
                   <label>
                     <span>思考模式</span>
@@ -359,11 +371,12 @@
                       <option value="disabled">关闭</option>
                       <option value="enabled">开启</option>
                     </select>
+                    <small>当前仅对 DeepSeek 发送专用思考模式参数，其他服务商使用标准兼容请求。</small>
                   </label>
                   <label>
                     <span>同时训练人数</span>
                     <input name="maxConcurrentUsers" type="number" min="1" max="30" step="1" value="10" required />
-                    <small>设置本次 DeepSeek 配置需要覆盖的老师人数，最多 30 人。超过人数时，老师会收到稍后再试的提示。</small>
+                    <small>设置当前模型需要覆盖的老师人数，最多 30 人。超过人数时，老师会收到稍后再试的提示。</small>
                   </label>
                   <button class="primary-btn" type="submit">保存 AI 配置</button>
                   <p class="status-text" id="adminAiConfigSaveStatus"></p>
@@ -385,11 +398,11 @@
                   </div>
                   <div>
                     <span>调用说明</span>
-                    <p>老师训练中需要 AI 回复、异议判定和训练复盘时，会读取这里保存的配置与同时训练人数。</p>
+                    <p>支持 DeepSeek、Kimi、OpenAI、通义千问、智谱 GLM、豆包及其他兼容 OpenAI Chat Completions 协议的模型。</p>
                   </div>
                   <div>
                     <span>安全提醒</span>
-                    <p>后端不再读取固定 DeepSeek 环境变量；如需更换 Key，只需在这里保存新的 Key。</p>
+                    <p>不同服务商的 Key 分开保存，完整 Key 不会回显；同一时间仅启用一个模型。</p>
                   </div>
                 </div>
               </aside>
@@ -398,6 +411,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260908-ai-capacity"></script>
+    <script src="/assets/admin/app.js?v=20260908-multi-model"></script>
   </body>
 </html>

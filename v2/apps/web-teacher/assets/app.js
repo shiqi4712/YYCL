@@ -440,31 +440,48 @@
   }
 
   function renderTrainingPicker() {
-    const scenarios = flattenTrainingScenarios();
+    const topics = state.training.topics.filter((topic) => (topic.scenarios || []).length);
     nodes.trainingPicker.classList.remove('hidden');
     nodes.trainingChat.classList.add('hidden');
     nodes.trainingReviewPanel.classList.add('hidden');
 
-    if (!scenarios.length) {
+    if (!topics.length) {
       nodes.trainingScenarioList.innerHTML = renderEmptyState('当前暂无可训练场景，请管理员先在后台录入训练主题和场景。');
       return;
     }
 
-    nodes.trainingScenarioList.innerHTML = scenarios
+    nodes.trainingScenarioList.innerHTML = topics
       .map(
-        (scenario, index) => `
-          <button class="training-scenario-card" type="button" data-training-scenario="${escapeHtml(scenario.id)}">
-            <span class="scenario-index">${String(index + 1).padStart(2, '0')}</span>
-            <div>
-              <p class="eyebrow">${escapeHtml(scenario.topicTitle || '训练主题')}</p>
-              <h3>${escapeHtml(scenario.title)}</h3>
-              <p>${escapeHtml(scenario.description)}</p>
+        (topic) => `
+          <section class="training-topic-group">
+            <div class="training-topic-summary">
+              <div>
+                <p class="eyebrow">训练主题</p>
+                <h3>${escapeHtml(topic.title || '未命名主题')}</h3>
+                ${topic.description ? `<p>${escapeHtml(topic.description)}</p>` : ''}
+              </div>
+              <span class="tag">${escapeHtml((topic.scenarios || []).length)} 个场景</span>
             </div>
-            <div class="scenario-meta">
-              <span>${escapeHtml(scenario.difficulty || '标准')}</span>
-              <span>${scenario.sopConfigured ? '已配置' : '待完善'}</span>
+            <div class="training-scenario-grid">
+              ${(topic.scenarios || [])
+                .map(
+                  (scenario, index) => `
+                    <button class="training-scenario-card" type="button" data-training-scenario="${escapeHtml(scenario.id)}">
+                      <span class="scenario-index">${String(index + 1).padStart(2, '0')}</span>
+                      <div>
+                        <h3>${escapeHtml(scenario.title)}</h3>
+                        <p>${escapeHtml(scenario.description)}</p>
+                      </div>
+                      <div class="scenario-meta">
+                        <span>${escapeHtml(scenario.difficulty || '标准')}</span>
+                        <span>${topic.sopConfigured ? '已配置' : '待完善'}</span>
+                      </div>
+                    </button>
+                  `
+                )
+                .join('')}
             </div>
-          </button>
+          </section>
         `
       )
       .join('');

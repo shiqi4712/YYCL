@@ -671,6 +671,38 @@ select:focus {
   gap: 10px;
 }
 
+.training-topic-groups {
+  display: grid;
+  gap: 20px;
+}
+
+.training-topic-group {
+  padding: 18px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.74);
+}
+
+.training-topic-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.training-topic-summary h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.training-topic-summary p:not(.eyebrow) {
+  max-width: 760px;
+  margin-top: 7px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
 .training-view .training-scenario-card {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) auto;
@@ -1262,6 +1294,20 @@ select:focus {
   .training-view .training-scenario-card,
   .training-view .training-history-card {
     grid-template-columns: 1fr;
+  }
+
+  .training-view .training-scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .training-topic-group {
+    padding: 14px;
+  }
+
+  .training-topic-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .scenario-index,

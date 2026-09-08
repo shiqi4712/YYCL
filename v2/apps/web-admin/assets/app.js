@@ -14,6 +14,12 @@
     doubao: '豆包',
     custom: '其他兼容接口',
   };
+  const pageSizes = {
+    objections: 8,
+    topics: 4,
+    users: 8,
+    sessions: 3,
+  };
 
   const state = {
     token: localStorage.getItem(storageKey) || '',
@@ -26,6 +32,12 @@
     users: [],
     trainingSessionsByUser: {},
     expandedTrainingUserId: '',
+    pages: {
+      objections: 1,
+      topics: 1,
+      users: 1,
+      sessionsByUser: {},
+    },
     aiConfig: null,
     appSettings: null,
     scripts: [],
@@ -50,6 +62,7 @@
     objectionSearchInput: document.getElementById('adminObjectionSearchInput'),
     objectionStatusFilter: document.getElementById('adminObjectionStatusFilter'),
     objectionList: document.getElementById('adminObjectionList'),
+    objectionPagination: document.getElementById('adminObjectionPagination'),
     objectionForm: document.getElementById('adminObjectionForm'),
     editorTitle: document.getElementById('adminEditorTitle'),
     editorStatus: document.getElementById('adminEditorStatus'),
@@ -61,6 +74,7 @@
     downloadObjectionTemplateButton: document.getElementById('adminDownloadObjectionTemplateButton'),
     trainingMetrics: document.getElementById('adminTrainingMetrics'),
     trainingTopicList: document.getElementById('adminTrainingTopicList'),
+    trainingTopicPagination: document.getElementById('adminTrainingTopicPagination'),
     trainingTopicSelect: document.getElementById('adminTrainingTopicSelect'),
     trainingImportForm: document.getElementById('adminTrainingImportForm'),
     trainingImportStatus: document.getElementById('adminTrainingImportStatus'),
@@ -70,6 +84,7 @@
     accountSearchInput: document.getElementById('adminAccountSearchInput'),
     roleFilter: document.getElementById('adminRoleFilter'),
     accountList: document.getElementById('adminAccountList'),
+    accountPagination: document.getElementById('adminAccountPagination'),
     accountForm: document.getElementById('adminAccountForm'),
     accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
@@ -120,6 +135,54 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '暂无';
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function paginate(items, requestedPage, pageSize) {
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    const page = Math.min(Math.max(1, Number(requestedPage) || 1), totalPages);
+    const start = (page - 1) * pageSize;
+    return {
+      items: items.slice(start, start + pageSize),
+      page,
+      totalPages,
+      totalItems: items.length,
+      start,
+    };
+  }
+
+  function paginationPages(page, totalPages) {
+    const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+    const end = Math.min(totalPages, start + 4);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }
+
+  function renderPagination(container, pageData, onPageChange) {
+    if (!container) return;
+    if (!pageData.totalItems) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const end = Math.min(pageData.start + pageData.items.length, pageData.totalItems);
+    container.innerHTML = `
+      <span class="pagination-summary">第 ${pageData.start + 1}-${end} 条，共 ${pageData.totalItems} 条</span>
+      ${
+        pageData.totalPages > 1
+          ? `<div class="pagination-actions">
+              <button class="pagination-btn" type="button" data-page="${pageData.page - 1}" ${pageData.page === 1 ? 'disabled' : ''}>上一页</button>
+              ${paginationPages(pageData.page, pageData.totalPages)
+                .map(
+                  (page) => `<button class="pagination-btn ${page === pageData.page ? 'active' : ''}" type="button" data-page="${page}" aria-label="第 ${page} 页" ${page === pageData.page ? 'aria-current="page"' : ''}>${page}</button>`
+                )
+                .join('')}
+              <button class="pagination-btn" type="button" data-page="${pageData.page + 1}" ${pageData.page === pageData.totalPages ? 'disabled' : ''}>下一页</button>
+            </div>`
+          : ''
+      }
+    `;
+    container.querySelectorAll('[data-page]').forEach((button) => {
+      button.addEventListener('click', () => onPageChange(Number(button.dataset.page)));
+    });
   }
 
   function formatDateTimeFull(value) {
@@ -603,8 +666,10 @@
       ...state.topics.map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.title)}</option>`),
     ].join('');
 
-    nodes.trainingTopicList.innerHTML = state.topics.length
-      ? state.topics
+    const pageData = paginate(state.topics, state.pages.topics, pageSizes.topics);
+    state.pages.topics = pageData.page;
+    nodes.trainingTopicList.innerHTML = pageData.items.length
+      ? pageData.items
           .map(
             (topic) => `
               <article class="training-topic-card">
@@ -646,6 +711,12 @@
           )
           .join('')
       : '<div class="empty-state">暂无训练主题，请先上传训练场景表格导入。</div>';
+
+    renderPagination(nodes.trainingTopicPagination, pageData, (page) => {
+      state.pages.topics = page;
+      renderTrainingManagement();
+      nodes.trainingTopicList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     nodes.trainingTopicList.querySelectorAll('[data-delete-topic]').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -715,6 +786,7 @@
     nodes.sceneList.querySelectorAll('[data-scene]').forEach((button) => {
       button.addEventListener('click', async () => {
         state.scene = button.dataset.scene;
+        state.pages.objections = 1;
         await loadObjections();
       });
     });
@@ -722,15 +794,18 @@
 
   function renderObjections() {
     nodes.libraryTitle.textContent = `${sceneName(state.scene)}内容库`;
+    const pageData = paginate(state.objections, state.pages.objections, pageSizes.objections);
+    state.pages.objections = pageData.page;
     if (!state.objections.length) {
       nodes.objectionList.innerHTML = '<div class="empty-state">当前没有匹配内容，可以新增或上传文档导入。</div>';
+      renderPagination(nodes.objectionPagination, pageData, () => {});
       fillObjectionForm(null);
       return;
     }
-    if (!state.objections.some((item) => item.id === state.selectedObjectionId)) {
-      state.selectedObjectionId = state.objections[0].id;
+    if (!pageData.items.some((item) => item.id === state.selectedObjectionId)) {
+      state.selectedObjectionId = pageData.items[0]?.id || '';
     }
-    nodes.objectionList.innerHTML = state.objections
+    nodes.objectionList.innerHTML = pageData.items
       .map(
         (item) => `
           <article class="objection-card ${item.id === state.selectedObjectionId ? 'active' : ''}" data-objection="${escapeHtml(item.id)}">
@@ -745,6 +820,12 @@
         `
       )
       .join('');
+    renderPagination(nodes.objectionPagination, pageData, (page) => {
+      state.pages.objections = page;
+      state.selectedObjectionId = '';
+      renderObjections();
+      nodes.objectionList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     nodes.objectionList.querySelectorAll('[data-objection]').forEach((card) => {
       card.addEventListener('click', () => {
         state.selectedObjectionId = card.dataset.objection;
@@ -794,6 +875,12 @@
     const keyword = nodes.objectionSearchInput.value.trim();
     if (keyword) params.set('keyword', keyword);
     state.objections = await api(`/api/admin/objections?${params.toString()}`);
+    if (preferredId) {
+      const preferredIndex = state.objections.findIndex((item) => item.id === preferredId);
+      if (preferredIndex >= 0) {
+        state.pages.objections = Math.floor(preferredIndex / pageSizes.objections) + 1;
+      }
+    }
     state.selectedObjectionId = state.objections.some((item) => item.id === previousSelectedId)
       ? previousSelectedId
       : state.objections[0]?.id || '';
@@ -810,6 +897,9 @@
       return '<div class="training-session-panel"><div class="empty-state compact-empty">正在加载训练记录...</div></div>';
     }
 
+    const pageData = paginate(sessions, state.pages.sessionsByUser[user.id], pageSizes.sessions);
+    state.pages.sessionsByUser[user.id] = pageData.page;
+
     return `
       <div class="training-session-panel">
         <div class="training-session-head">
@@ -819,7 +909,7 @@
         ${
           sessions.length
             ? `<div class="training-session-list">
-                ${sessions
+                ${pageData.items
                   .map(
                     (session) => `
                       <article class="training-session-row">
@@ -836,7 +926,18 @@
                     `
                   )
                   .join('')}
-              </div>`
+              </div>
+              ${
+                pageData.totalPages > 1
+                  ? `<div class="pagination session-pagination">
+                      <span class="pagination-summary">第 ${pageData.page}/${pageData.totalPages} 页</span>
+                      <div class="pagination-actions">
+                        <button class="pagination-btn" type="button" data-session-page="${pageData.page - 1}" data-session-user="${escapeHtml(user.id)}" ${pageData.page === 1 ? 'disabled' : ''}>上一页</button>
+                        <button class="pagination-btn" type="button" data-session-page="${pageData.page + 1}" data-session-user="${escapeHtml(user.id)}" ${pageData.page === pageData.totalPages ? 'disabled' : ''}>下一页</button>
+                      </div>
+                    </div>`
+                  : ''
+              }`
             : '<div class="empty-state compact-empty">该老师暂无训练记录。</div>'
         }
       </div>
@@ -947,6 +1048,8 @@
       if (!keyword) return true;
       return [user.username, user.displayName, roleLabel(user.role)].join(' ').toLowerCase().includes(keyword);
     });
+    const pageData = paginate(users, state.pages.users, pageSizes.users);
+    state.pages.users = pageData.page;
     nodes.accountMetrics.innerHTML = [
       ['账号总数', state.users.length, '系统内老师和管理员账号'],
       ['训练总次数', totalSessions, '所有老师累计进入训练次数'],
@@ -958,8 +1061,8 @@
         `
       )
       .join('');
-    nodes.accountList.innerHTML = users.length
-      ? users
+    nodes.accountList.innerHTML = pageData.items.length
+      ? pageData.items
           .map(
             (user) => `
               <article class="account-card">
@@ -1005,6 +1108,20 @@
           )
           .join('')
       : '<div class="empty-state">暂无匹配账号。</div>';
+    renderPagination(nodes.accountPagination, pageData, (page) => {
+      state.pages.users = page;
+      state.expandedTrainingUserId = '';
+      renderAccounts();
+      nodes.accountList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    nodes.accountList.querySelectorAll('[data-session-page]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const userId = button.dataset.sessionUser;
+        if (!userId) return;
+        state.pages.sessionsByUser[userId] = Number(button.dataset.sessionPage) || 1;
+        renderAccounts();
+      });
+    });
     nodes.accountList.querySelectorAll('[data-view-training-sessions]').forEach((button) => {
       button.addEventListener('click', async () => {
         const userId = button.dataset.viewTrainingSessions;
@@ -1119,10 +1236,24 @@
     setToken('');
     toggleApp(false);
   });
-  nodes.objectionSearchInput.addEventListener('input', () => window.setTimeout(loadObjections, 180));
-  nodes.objectionStatusFilter.addEventListener('change', loadObjections);
-  nodes.accountSearchInput.addEventListener('input', renderAccounts);
-  nodes.roleFilter.addEventListener('change', renderAccounts);
+  nodes.objectionSearchInput.addEventListener('input', () => {
+    state.pages.objections = 1;
+    window.setTimeout(loadObjections, 180);
+  });
+  nodes.objectionStatusFilter.addEventListener('change', () => {
+    state.pages.objections = 1;
+    loadObjections();
+  });
+  nodes.accountSearchInput.addEventListener('input', () => {
+    state.pages.users = 1;
+    state.expandedTrainingUserId = '';
+    renderAccounts();
+  });
+  nodes.roleFilter.addEventListener('change', () => {
+    state.pages.users = 1;
+    state.expandedTrainingUserId = '';
+    renderAccounts();
+  });
   nodes.newObjectionButton.addEventListener('click', () => {
     state.selectedObjectionId = '';
     nodes.objectionSearchInput.value = '';
@@ -1226,6 +1357,7 @@
       const result = await uploadApi('/api/admin/objections/import/document', formData);
       nodes.importStatus.textContent = `导入完成：${result.created} 条`;
       nodes.importForm.reset();
+      state.pages.objections = 1;
       await loadObjections();
     } catch (error) {
       nodes.importStatus.textContent = error.message;
@@ -1260,6 +1392,7 @@
       const result = await uploadApi('/api/admin/scenarios/import/document', formData);
       nodes.trainingImportStatus.textContent = `导入完成：创建 ${result.created} 个训练场景`;
       nodes.trainingImportForm.reset();
+      state.pages.topics = 1;
       await loadTrainingTopics();
     } catch (error) {
       nodes.trainingImportStatus.textContent = error.message;
@@ -1310,6 +1443,7 @@
       });
       nodes.accountForm.reset();
       nodes.accountStatus.textContent = '账号已创建';
+      state.pages.users = 1;
       await loadUsers();
     } catch (error) {
       nodes.accountStatus.textContent = error.message;
@@ -1327,6 +1461,7 @@
       const result = await uploadApi('/api/admin/users/import/document', formData);
       nodes.teacherImportStatus.textContent = `导入完成：创建 ${result.created} 个，跳过 ${result.skipped} 个`;
       nodes.teacherImportForm.reset();
+      state.pages.users = 1;
       await loadUsers();
     } catch (error) {
       nodes.teacherImportStatus.textContent = error.message;

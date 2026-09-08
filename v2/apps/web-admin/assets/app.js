@@ -514,6 +514,7 @@
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-v4-flash',
       thinking: 'disabled',
+      maxConcurrentUsers: 10,
       isEnabled: false,
       hasApiKey: false,
       apiKeyPreview: '',
@@ -531,7 +532,7 @@
     nodes.aiMetrics.innerHTML = [
       ['运行状态', isReady ? '启用中' : '未启用', isReady ? '训练会调用 DeepSeek' : '训练暂不请求大模型'],
       ['模型', config.model || 'deepseek-v4-flash', '用于家长模拟、异议判定和训练复盘'],
-      ['更新时间', formatDateTimeFull(config.updatedAt), '最近一次后台保存配置时间'],
+      ['同时训练', `${config.maxConcurrentUsers || 10} 人`, '管理员配置的同时训练人数上限，最多 30 人'],
     ]
       .map(
         ([label, value, desc]) => `
@@ -545,6 +546,7 @@
     nodes.aiConfigForm.elements.baseUrl.value = config.baseUrl || 'https://api.deepseek.com';
     nodes.aiConfigForm.elements.model.value = config.model || 'deepseek-v4-flash';
     nodes.aiConfigForm.elements.thinking.value = config.thinking || 'disabled';
+    nodes.aiConfigForm.elements.maxConcurrentUsers.value = config.maxConcurrentUsers || 10;
   }
 
   function difficultyLabel(value) {
@@ -1306,6 +1308,7 @@
           baseUrl: String(formData.get('baseUrl') || '').trim() || 'https://api.deepseek.com',
           model: String(formData.get('model') || '').trim() || 'deepseek-v4-flash',
           thinking: String(formData.get('thinking') || 'disabled'),
+          maxConcurrentUsers: Number(formData.get('maxConcurrentUsers') || 10),
         }),
       });
       nodes.aiConfigSaveStatus.textContent = 'AI 配置已保存';

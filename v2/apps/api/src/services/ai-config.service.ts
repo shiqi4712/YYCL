@@ -8,6 +8,7 @@ const aiConfigSchema = z.object({
   baseUrl: z.string().trim().url().max(191).default('https://api.deepseek.com'),
   model: z.string().trim().min(1).max(191).default('deepseek-v4-flash'),
   thinking: z.enum(['disabled', 'enabled']).default('disabled'),
+  maxConcurrentUsers: z.coerce.number().int().min(1).max(30).default(10),
 })
 
 function maskApiKey(apiKey?: string | null) {
@@ -30,6 +31,7 @@ async function getOrCreateDeepSeekConfig() {
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-v4-flash',
       thinking: 'disabled',
+      maxConcurrentUsers: 10,
       isEnabled: false,
     },
   })
@@ -43,6 +45,7 @@ export async function getAiConfigForAdmin() {
     baseUrl: config.baseUrl,
     model: config.model,
     thinking: config.thinking,
+    maxConcurrentUsers: config.maxConcurrentUsers,
     isEnabled: config.isEnabled,
     hasApiKey: Boolean(config.apiKey),
     apiKeyPreview: maskApiKey(config.apiKey),
@@ -66,6 +69,7 @@ export async function updateAiConfigForAdmin(payload: unknown) {
       baseUrl: input.baseUrl.replace(/\/$/, ''),
       model: input.model,
       thinking: input.thinking,
+      maxConcurrentUsers: input.maxConcurrentUsers,
       isEnabled: input.isEnabled,
       ...(apiKey ? { apiKey } : {}),
     },
@@ -76,6 +80,7 @@ export async function updateAiConfigForAdmin(payload: unknown) {
     baseUrl: config.baseUrl,
     model: config.model,
     thinking: config.thinking,
+    maxConcurrentUsers: config.maxConcurrentUsers,
     isEnabled: config.isEnabled,
     hasApiKey: Boolean(config.apiKey),
     apiKeyPreview: maskApiKey(config.apiKey),
@@ -97,5 +102,11 @@ export async function getActiveDeepSeekConfig() {
     baseUrl: config.baseUrl || 'https://api.deepseek.com',
     model: config.model || 'deepseek-v4-flash',
     thinking: config.thinking || 'disabled',
+    maxConcurrentUsers: config.maxConcurrentUsers || 10,
   }
+}
+
+export async function getConfiguredConcurrentUserLimit() {
+  const config = await getOrCreateDeepSeekConfig()
+  return Math.max(1, Math.min(30, config.maxConcurrentUsers || 10))
 }

@@ -467,7 +467,14 @@
     nodes.trainingScenarioList.querySelectorAll('[data-training-scenario]').forEach((button) => {
       button.addEventListener('click', async () => {
         const scenarioId = button.getAttribute('data-training-scenario') || '';
-        await startTrainingScenario(scenarioId);
+        button.disabled = true;
+        try {
+          await startTrainingScenario(scenarioId);
+        } catch (error) {
+          nodes.trainingLoadStatus.textContent = error.message || '暂时无法开始训练，请稍后再试';
+        } finally {
+          button.disabled = false;
+        }
       });
     });
   }

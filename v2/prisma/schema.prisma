@@ -27,15 +27,16 @@ model User {
 }
 
 model AiConfig {
-  id        String   @id @default(cuid()) @db.VarChar(32)
-  provider  String   @default("deepseek") @db.VarChar(32)
-  apiKey    String?  @db.LongText
-  baseUrl   String   @default("https://api.deepseek.com") @db.VarChar(191)
-  model     String   @default("deepseek-v4-flash") @db.VarChar(191)
-  thinking  String   @default("disabled") @db.VarChar(32)
-  isEnabled Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid()) @db.VarChar(32)
+  provider           String   @default("deepseek") @db.VarChar(32)
+  apiKey             String?  @db.LongText
+  baseUrl            String   @default("https://api.deepseek.com") @db.VarChar(191)
+  model              String   @default("deepseek-v4-flash") @db.VarChar(191)
+  thinking           String   @default("disabled") @db.VarChar(32)
+  maxConcurrentUsers Int      @default(10)
+  isEnabled          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([provider])
   @@map("ai_configs")
@@ -133,6 +134,8 @@ model TrainingSession {
   messages SessionMessage[]
   review   SessionReview?
 
+  @@index([teacherId, status])
+  @@index([status, updatedAt])
   @@map("training_sessions")
 }
 

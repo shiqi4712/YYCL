@@ -1,6 +1,7 @@
 import { buildDeepSeekReply, buildDeepSeekReview, evaluateDeepSeekResolution, isDeepSeekEnabled } from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
+import { getConfiguredConcurrentUserLimit } from './ai-config.service'
 import { HttpError } from '../utils/http-error'
 
 const TRAINING_STATUS = {
@@ -13,6 +14,7 @@ const AI_THINKING_DELAY_MS = 10_000
 const MIN_TEACHER_MESSAGES_TO_ADVANCE = 3
 const STRONG_RESOLUTION_SCORE = 82
 const ACCEPTABLE_RESOLUTION_SCORE = 72
+const ACTIVE_TRAINING_WINDOW_MS = 30 * 60 * 1000
 
 function mapMessageRole(role: string) {
   return role === 'AI' ? 'ai' : 'teacher'
@@ -204,10 +206,13 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
 }
 
 export async function createSession(teacherId: string, scenarioId: string) {
-  const scenario = await prisma.trainingScenario.findUnique({
-    where: { id: scenarioId },
-    include: { topic: true, steps: { orderBy: { order: 'asc' } } },
-  })
+  const [scenario, maxConcurrentUsers] = await Promise.all([
+    prisma.trainingScenario.findUnique({
+      where: { id: scenarioId },
+      include: { topic: true, steps: { orderBy: { order: 'asc' } } },
+    }),
+    getConfiguredConcurrentUserLimit(),
+  ])
 
   if (!scenario || scenario.status !== 'ACTIVE') {
     throw new HttpError(404, '训练场景不存在')
@@ -217,25 +222,87 @@ export async function createSession(teacherId: string, scenarioId: string) {
     throw new HttpError(400, '当前场景还没有配置异议步骤')
   }
 
-  const session = await prisma.trainingSession.create({
-    data: {
-      teacherId,
-      scenarioId,
-      currentStepOrder: 1,
-      status: TRAINING_STATUS.ACTIVE,
-      messages: {
-        create: {
-          role: 'AI',
-          content: scenario.openingLine,
-          stepOrder: 1,
-        },
+  const createSessionWithCapacity = () =>
+    prisma.$transaction(
+      async (tx: any) => {
+        const staleBefore = new Date(Date.now() - ACTIVE_TRAINING_WINDOW_MS)
+        const now = new Date()
+
+        await tx.trainingSession.updateMany({
+          where: {
+            status: TRAINING_STATUS.ACTIVE,
+            updatedAt: { lt: staleBefore },
+          },
+          data: {
+            status: TRAINING_STATUS.ENDED,
+            endedAt: now,
+          },
+        })
+
+        await tx.trainingSession.updateMany({
+          where: {
+            teacherId,
+            status: TRAINING_STATUS.ACTIVE,
+          },
+          data: {
+            status: TRAINING_STATUS.ENDED,
+            endedAt: now,
+          },
+        })
+
+        const activeTeachers = await tx.trainingSession.findMany({
+          where: {
+            status: TRAINING_STATUS.ACTIVE,
+            updatedAt: { gte: staleBefore },
+          },
+          distinct: ['teacherId'],
+          select: { teacherId: true },
+        })
+
+        if (activeTeachers.length >= maxConcurrentUsers) {
+          throw new HttpError(
+            429,
+            `当前同时训练人数已达到 ${maxConcurrentUsers} 人，请稍后再试`
+          )
+        }
+
+        return tx.trainingSession.create({
+          data: {
+            teacherId,
+            scenarioId,
+            currentStepOrder: 1,
+            status: TRAINING_STATUS.ACTIVE,
+            messages: {
+              create: {
+                role: 'AI',
+                content: scenario.openingLine,
+                stepOrder: 1,
+              },
+            },
+          },
+          include: {
+            messages: true,
+            scenario: { include: { steps: { orderBy: { order: 'asc' } } } },
+          },
+        })
       },
-    },
-    include: {
-      messages: true,
-      scenario: { include: { steps: { orderBy: { order: 'asc' } } } },
-    },
-  })
+      { isolationLevel: 'Serializable' }
+    )
+
+  let session: any
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      session = await createSessionWithCapacity()
+      break
+    } catch (error) {
+      const errorCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code || '')
+          : ''
+      if (errorCode !== 'P2034' || attempt === 2) throw error
+      await sleep(50 * (attempt + 1))
+    }
+  }
 
   return {
     sessionId: session.id,
@@ -341,14 +408,20 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     throw new HttpError(500, '训练步骤异常')
   }
 
-  const teacherMessage = await prisma.sessionMessage.create({
-    data: {
-      sessionId,
-      role: 'TEACHER',
-      content,
-      stepOrder: currentStep.order,
-    },
-  })
+  const [teacherMessage] = await prisma.$transaction([
+    prisma.sessionMessage.create({
+      data: {
+        sessionId,
+        role: 'TEACHER',
+        content,
+        stepOrder: currentStep.order,
+      },
+    }),
+    prisma.trainingSession.update({
+      where: { id: sessionId },
+      data: { updatedAt: new Date() },
+    }),
+  ])
 
   return {
     message: {

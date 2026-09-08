@@ -1,4 +1,11 @@
-import { buildAiReply, buildAiReview, evaluateAiResolution, isAiModelEnabled } from '../lib/deepseek-ai'
+import {
+  buildAiReply,
+  buildAiReview,
+  evaluateAiResolution,
+  isAiModelEnabled,
+  type AiReplyInput,
+  type ParentReplyPhase,
+} from '../lib/deepseek-ai'
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { getConfiguredConcurrentUserLimit } from './ai-config.service'
@@ -114,24 +121,7 @@ function buildMockDimensions(messages: string[]) {
   }
 }
 
-async function buildParentReply(input: {
-  parentName: string
-  scenarioTitle: string
-  scenarioDescription: string
-  sopContent?: string | null
-  parentPersona: string
-  teacherMessage: string
-  currentStepTitle: string
-  currentObjection: string
-  nextObjection?: string
-  isFinalStep: boolean
-  resolved: boolean
-  canAdvance: boolean
-  history: Array<{
-    role: string
-    content: string
-  }>
-}) {
+async function buildParentReply(input: AiReplyInput) {
   if (await isAiModelEnabled()) {
     try {
       return await buildAiReply(input)
@@ -506,26 +496,23 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
 
   const finalStatus = canAdvance && !nextStep ? TRAINING_STATUS.COMPLETED : TRAINING_STATUS.ACTIVE
   const nextStepOrder = canAdvance && nextStep ? nextStep.order : currentStep.order
+  const replyPhase: ParentReplyPhase = canAdvance ? (nextStep ? 'transition' : 'close') : 'continue'
+  const replyStep = canAdvance && nextStep ? nextStep : currentStep
 
   const reply = await buildParentReply({
-    parentName: session.scenario.parentPersona,
     scenarioTitle: session.scenario.title,
     scenarioDescription: session.scenario.description,
-    sopContent: session.scenario.topic.sopContent,
     parentPersona: session.scenario.parentPersona,
-    teacherMessage: currentStepTeacherMessages.slice(-3).join('\n'),
     history: [
       ...session.messages.map((message: (typeof session.messages)[number]) => ({
         role: message.role,
         content: message.content,
       })),
     ],
-    currentStepTitle: currentStep.title,
-    currentObjection: currentStep.objectionText,
-    nextObjection: nextStep?.objectionText,
-    isFinalStep: !nextStep,
-    resolved: evaluation.resolved,
-    canAdvance,
+    currentStepTitle: replyStep.title,
+    currentObjection: replyStep.objectionText,
+    phase: replyPhase,
+    emotionState: evaluation.emotionState,
   })
 
   await prisma.trainingSession.update({

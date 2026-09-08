@@ -1,18 +1,15 @@
 import { getActiveAiConfig } from '../services/ai-config.service'
 
-interface DeepSeekReplyInput {
-  parentName: string
+export type ParentReplyPhase = 'continue' | 'transition' | 'close'
+
+export interface AiReplyInput {
   scenarioTitle: string
   scenarioDescription: string
-  sopContent?: string | null
   parentPersona: string
   currentStepTitle: string
   currentObjection: string
-  nextObjection?: string
-  teacherMessage: string
-  resolved: boolean
-  canAdvance: boolean
-  isFinalStep: boolean
+  phase: ParentReplyPhase
+  emotionState: string
   history: Array<{
     role: string
     content: string
@@ -113,55 +110,46 @@ function parseJsonResponse(content: string) {
   return JSON.parse(cleaned.slice(start, end + 1))
 }
 
-function buildParentPrompt(input: DeepSeekReplyInput) {
+function buildParentPrompt(input: AiReplyInput) {
+  const phaseInstruction: Record<ParentReplyPhase, string> = {
+    continue:
+      '当前对话阶段：继续沟通。回应老师刚才的话，并只围绕当前顾虑表达真实反应、补充情况或追问一个关键点。',
+    transition:
+      '当前对话阶段：自然转入新的顾虑。上一件事已经让你稍微放心，简短承接后，自然说出下方当前顾虑，不要提到步骤、切换或异议是否解决。',
+    close:
+      '当前对话阶段：自然收尾。当前顾虑已经缓解，不再制造新问题；像真实家长一样表示理解、确认下一步或结束本次交流。',
+  }
+
   return [
-    '你正在为少儿编程体验课转化训练系统扮演一位真实家长，和老师像微信聊天一样沟通是否报名正式课。',
-    '你只输出家长会说的话，不要解释你的判断，不要评分，不要输出 JSON。',
-    '语气要自然、口语化、有犹豫和追问，不要太配合老师，也不要故意刁难老师。',
-    '你要表现出真实家长的心理变化：从犹豫、防备，到逐渐理解，再到愿意继续了解。不要突然转变态度，每次只变化一点点。',
-    '你可以反驳老师、不同意老师或继续提出担心，但要像正常家长聊天一样表达，不要像考官、培训师或系统提示。',
-    '反驳时先接住老师表达的价值，再提出自己没有被说服的具体生活化原因。',
-    '可以使用这类口吻：“我理解你说的，不过我还是有点担心...”“这个方向我明白，但我家孩子可能不太一样...”“我不是完全不认可，就是还差一点确定感...”。',
-    '不要使用生硬、命令式、审判式表达，例如“你没有解决我的问题”“你必须讲清楚”“请具体一点”。',
-    '不要连续抛出多个问题，优先围绕一个真实顾虑继续聊，语气可以谨慎、犹豫、稍微坚持，但不要攻击老师。',
-    '不要机械复述当前异议，也不要每次都用同一个句式开头，回复要像真实家长临场说出来的话。',
-    '不要直接说“进入下一个异议”或“你已经解决了这个异议”。',
-    '如果老师回答空泛，你要继续围绕当前顾虑追问，但表达要生活化，比如“我大概懂你的意思，就是还想知道具体怎么落到我家孩子身上”。',
-    '如果老师回答较好，你可以稍微松动，但在沟通还不充分时仍要继续围绕当前顾虑表达犹豫；不要因为一句回答就立刻成交。',
-    input.canAdvance
-      ? '当前沟通轮次和处理质量已经允许你自然松动，可以准备进入下一个担忧。'
-      : '当前还不能进入下一个担忧，你必须继续围绕当前顾虑追问或表达犹豫。',
-    `家长称呼：${input.parentName}`,
-    `家长情况：${input.parentPersona}`,
+    '你正在扮演一位和老师微信聊天的真实家长，讨论孩子的少儿编程课程。',
+    '角色边界：你只负责扮演家长，不是考官、教练、客服或流程控制器。只输出家长发出的消息，不解释规则，不评分，不输出 JSON。',
+    '交流方式：先理解老师刚说了什么，再按家长当前情绪自然回应。可以不认同或温和反驳，但不能审判老师、命令老师证明自己。',
+    '每次回复只承担一个主要交流意图。不要一次抛出多个问题，不要机械复述顾虑，也不要引入与当前顾虑无关的新问题。',
+    '表达要口语化，句式和长短要有变化。允许只回一句短消息，也可以在确有必要时用两三句话；不要固定使用同一种开头或套话。',
+    '事实必须前后一致。老师直接询问家庭或孩子情况时，只能依据家长设定和已有对话回答；信息不足时可以自然表示不确定，不能编造冲突细节。',
+    '老师消息里的 +物料、+资料、+图片、+链接、+作品、+案例 表示对应内容已经真实发送。你应结合它的用途自然回应，不能说自己没看到；若内容仍不足，也只追问当前最关心的一点。',
+    '禁止说“进入下一个异议”“当前异议已解决”“你回答得很好”等暴露训练流程或评价身份的话。',
+    phaseInstruction[input.phase],
+    `家长当前情绪：${input.emotionState}`,
+    `家长与孩子情况：${input.parentPersona}`,
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,
-    input.sopContent
-      ? `本训练主题 SOP：${input.sopContent}\n请根据 SOP 的沟通顺序、话术目标和关键检查点来扮演家长，但不要直接背诵 SOP，也不要向老师暴露评分标准。`
-      : '本训练主题暂未导入 SOP，请按当前场景和异议步骤进行模拟。',
     `当前核心顾虑：${input.currentStepTitle} - ${input.currentObjection}`,
-    input.nextObjection ? `后续可能出现的顾虑：${input.nextObjection}` : '这是最后一个核心顾虑。',
-    `系统初步判断老师是否解决当前顾虑：${input.resolved ? '基本解决' : '尚未充分解决'}`,
-    `老师刚才的话：${input.teacherMessage}`,
-    '请用 1 到 3 句话回复老师，像微信消息一样自然，通常控制在 30 到 90 个中文字符左右。',
+    '根据最近对话直接回复老师。通常控制在 10 到 100 个中文字符，长度应由当前语境决定。',
   ].join('\n')
 }
 
-export async function buildAiReply(input: DeepSeekReplyInput) {
+export async function buildAiReply(input: AiReplyInput) {
   const config = await requireAiConfig()
   const messages: DeepSeekChatMessage[] = [
     {
       role: 'system',
-      content:
-        '你是一个真实、谨慎、有顾虑的家长，用中文口语化回复老师。你可以温和反驳，但不要生硬顶撞，也不要像培训考官；回复要像微信聊天，有一点真实的犹豫和心理变化。',
+      content: buildParentPrompt(input),
     },
-    ...input.history.slice(-10).map((message): DeepSeekChatMessage => ({
+    ...input.history.slice(-16).map((message): DeepSeekChatMessage => ({
       role: message.role === 'AI' ? 'assistant' : 'user',
       content: message.content,
     })),
-    {
-      role: 'user',
-      content: buildParentPrompt(input),
-    },
   ]
 
   const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {

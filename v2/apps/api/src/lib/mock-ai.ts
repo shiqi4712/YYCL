@@ -1,13 +1,4 @@
-interface MockAiInput {
-  parentName: string
-  teacherMessage: string
-  currentStepTitle: string
-  currentObjection: string
-  nextObjection?: string
-  isFinalStep: boolean
-  resolved: boolean
-  canAdvance?: boolean
-}
+import type { AiReplyInput } from './deepseek-ai'
 
 const resolveKeywords = [
   '理解',
@@ -47,16 +38,60 @@ export function detectResolved(messageOrMessages: string | string[]) {
   return score >= 4 || (score >= 3 && resolveKeywords.some((keyword) => text.includes(keyword)))
 }
 
-export function buildMockReply(input: MockAiInput) {
-  const prefix = `${input.parentName}：`
+function selectReply(options: string[], seed: string) {
+  const index = [...seed].reduce((total, character) => total + character.charCodeAt(0), 0) % options.length
+  return options[index]
+}
 
-  if (!input.resolved || !input.canAdvance) {
-    return `${prefix}嗯，你说的这个方向我能理解。我不是完全不认可，就是还差一点确定感，主要还是担心“${input.currentObjection}”。如果放到我家孩子身上，具体会怎么安排、能看到什么变化？`
+function latestTeacherMessage(input: AiReplyInput) {
+  return [...input.history].reverse().find((message) => message.role === 'TEACHER')?.content ?? ''
+}
+
+export function buildMockReply(input: AiReplyInput) {
+  const teacherMessage = latestTeacherMessage(input)
+  const materialSent = /\+(?:物料|资料|图片|链接|作品|案例)/.test(teacherMessage)
+
+  if (input.phase === 'close') {
+    return selectReply(
+      materialSent
+        ? ['我看到了，这样就清楚多了。那就按你说的来，后面的安排发我一下吧。', '这个资料挺直观的，我心里踏实一些了。接下来怎么安排？']
+        : ['这样解释我就清楚多了，可以按你说的继续，下一步怎么安排？', '好，那我先按这个思路来，后面的安排你发我看看。'],
+      teacherMessage
+    )
   }
 
-  if (input.isFinalStep) {
-    return `${prefix}这样说我就比刚才踏实一些了。那我可以先按你说的继续了解，你把下一步报名和上课安排发我看看吧。`
+  if (input.phase === 'transition') {
+    return selectReply(
+      [
+        `刚才这点我明白了。我另外还想问一下，${input.currentObjection}`,
+        `嗯，这样说我放心一些。不过还有件事我比较在意：${input.currentObjection}`,
+        `这个可以。那${input.currentObjection}，这块你们一般怎么处理？`,
+      ],
+      teacherMessage
+    )
   }
 
-  return `${prefix}你刚才这样解释，我大概明白了。不过我还有个点没想通，${input.nextObjection ?? '我可能还是想再考虑一下。'}这个你再跟我说说。`
+  if (materialSent) {
+    return selectReply(
+      [
+        `我看到你发的内容了，确实直观一些。不过放到我家孩子身上，${input.currentObjection}这点我还是有些拿不准。`,
+        `这个资料我看了，方向能理解。我更想知道针对我家孩子的情况，实际会怎么做？`,
+      ],
+      teacherMessage
+    )
+  }
+
+  return selectReply(
+    input.emotionState === '防备'
+      ? [
+          `道理我能听懂，但我更关心实际情况。${input.currentObjection}这个问题具体怎么解决？`,
+          `我知道你是这么考虑的，可我家孩子的情况不一定一样，这点我还是不太放心。`,
+        ]
+      : [
+          `这个方向我大概明白了，放到我家孩子身上会怎么安排？`,
+          `听起来有些道理，不过${input.currentObjection}这点我还想再确认一下。`,
+          `那实际上课时，老师会怎么判断孩子有没有改善呢？`,
+        ],
+    teacherMessage
+  )
 }

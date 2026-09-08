@@ -37,6 +37,7 @@ import {
   updateUserStatus,
 } from '../services/admin.service'
 import { ok } from '../utils/api'
+import { getAppSettings, updateAppSettings } from '../services/app-settings.service'
 import {
   createObjection,
   importObjections,
@@ -406,6 +407,22 @@ router.get('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
 router.put('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
   try {
     res.json(ok(await updateAiConfigForAdmin(req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/app-settings', requireRole('TRAINER'), async (_req, res, next) => {
+  try {
+    res.json(ok(await getAppSettings()))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/app-settings', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await updateAppSettings(req.body)))
   } catch (error) {
     next(error)
   }

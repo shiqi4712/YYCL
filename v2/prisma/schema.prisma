@@ -43,6 +43,14 @@ model AiConfig {
   @@map("ai_configs")
 }
 
+model AppSetting {
+  id                Int      @id @default(1)
+  showTeacherScores Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 model ObjectionItem {
   id           String   @id @default(cuid()) @db.VarChar(32)
   scene        String   @db.VarChar(32)

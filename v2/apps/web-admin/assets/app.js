@@ -27,6 +27,7 @@
     trainingSessionsByUser: {},
     expandedTrainingUserId: '',
     aiConfig: null,
+    appSettings: null,
     scripts: [],
     materials: [],
     materialType: 'LINK',
@@ -80,6 +81,9 @@
     aiConfigTestButton: document.getElementById('adminAiConfigTestButton'),
     aiKeyState: document.getElementById('adminAiKeyState'),
     aiKeyPreview: document.getElementById('adminAiKeyPreview'),
+    teacherScoreToggle: document.getElementById('adminTeacherScoreToggle'),
+    teacherScoreStatus: document.getElementById('adminTeacherScoreStatus'),
+    teacherScoreSaveStatus: document.getElementById('adminTeacherScoreSaveStatus'),
     scriptDraftInput: document.getElementById('adminScriptDraftInput'),
     scriptList: document.getElementById('adminScriptList'),
     addScriptButton: document.getElementById('adminAddScriptButton'),
@@ -560,6 +564,13 @@
     nodes.aiConfigForm.elements.thinking.value = config.thinking || 'disabled';
     nodes.aiConfigForm.elements.thinking.disabled = config.provider !== 'deepseek';
     nodes.aiConfigForm.elements.maxConcurrentUsers.value = config.maxConcurrentUsers || 10;
+  }
+
+  function renderAppSettings() {
+    const showTeacherScores = Boolean(state.appSettings?.showTeacherScores);
+    nodes.teacherScoreToggle.checked = showTeacherScores;
+    nodes.teacherScoreStatus.textContent = showTeacherScores ? '显示分数' : '隐藏分数';
+    nodes.teacherScoreStatus.className = showTeacherScores ? 'tag-good' : 'tag-warn';
   }
 
   function difficultyLabel(value) {
@@ -1059,6 +1070,11 @@
     renderAiConfig();
   }
 
+  async function loadAppSettings() {
+    state.appSettings = await api('/api/admin/app-settings');
+    renderAppSettings();
+  }
+
   async function loadProfile() {
     state.profile = await api('/api/admin/me');
     nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
@@ -1067,7 +1083,7 @@
   }
 
   async function refreshAll() {
-    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers(), loadAiConfig()]);
+    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers(), loadAiConfig(), loadAppSettings()]);
     renderModules();
   }
 
@@ -1366,6 +1382,26 @@
       nodes.aiConfigSaveStatus.textContent = `连接测试失败：${error.message}`;
     } finally {
       nodes.aiConfigTestButton.disabled = false;
+    }
+  });
+  nodes.teacherScoreToggle.addEventListener('change', async () => {
+    const showTeacherScores = nodes.teacherScoreToggle.checked;
+    nodes.teacherScoreToggle.disabled = true;
+    nodes.teacherScoreSaveStatus.textContent = '正在保存显示设置...';
+    try {
+      state.appSettings = await api('/api/admin/app-settings', {
+        method: 'PUT',
+        body: JSON.stringify({ showTeacherScores }),
+      });
+      renderAppSettings();
+      nodes.teacherScoreSaveStatus.textContent = showTeacherScores
+        ? '已开启，老师重新打开复盘后可查看分数。'
+        : '已关闭，老师端仅展示复盘建议。';
+    } catch (error) {
+      nodes.teacherScoreToggle.checked = !showTeacherScores;
+      nodes.teacherScoreSaveStatus.textContent = error.message;
+    } finally {
+      nodes.teacherScoreToggle.disabled = false;
     }
   });
   nodes.aiConfigForm.elements.provider.addEventListener('change', async (event) => {

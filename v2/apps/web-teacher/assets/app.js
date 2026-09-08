@@ -499,7 +499,7 @@
               <h3>${escapeHtml(session.scenario?.title || '未命名训练')}</h3>
               <p>${escapeHtml(session.summary || '点击查看本次提升建议。')}</p>
             </div>
-            <span>查看</span>
+            <span>${typeof session.reviewScore === 'number' ? `${session.reviewScore} 分` : '查看'}</span>
           </button>
         `
       )
@@ -695,6 +695,7 @@
 
   function buildTrainingReviewHtml(review) {
     const dimensions = review.dimensions || {};
+    const showScores = typeof review.overallScore === 'number';
     const dimensionLabels = [
       ['empathy', '共情'],
       ['standard', '建立标准'],
@@ -705,7 +706,10 @@
 
     return `
       <article class="review-summary">
-        <h3>${escapeHtml(review.summary || '训练复盘已生成')}</h3>
+        <div class="review-summary-head">
+          <h3>${escapeHtml(review.summary || '训练复盘已生成')}</h3>
+          ${showScores ? `<strong class="review-total-score">${review.overallScore} 分</strong>` : ''}
+        </div>
         <p>${escapeHtml(review.nextAction || '建议继续练习完整沟通节奏。')}</p>
       </article>
       ${
@@ -747,6 +751,7 @@
                   <p>${escapeHtml(item.reason || '暂无复盘说明')}</p>
                   <small>${escapeHtml(item.suggestion || '暂无改进建议')}</small>
                 </div>
+                ${typeof item.score === 'number' ? `<strong>${item.score} / 20</strong>` : ''}
               </article>
             `;
           })
@@ -776,7 +781,8 @@
   function renderTrainingReview(review) {
     if (!review) return;
     nodes.trainingReviewPanel.classList.remove('hidden');
-    nodes.trainingReviewScore.textContent = '提升建议';
+    nodes.trainingReviewScore.textContent =
+      typeof review.overallScore === 'number' ? `${review.overallScore} 分` : '提升建议';
     nodes.trainingReviewContent.innerHTML = buildTrainingReviewHtml(review);
   }
 

@@ -324,6 +324,23 @@
 
           <section class="hidden" id="aiModule">
             <section class="metric-grid" id="adminAiMetrics"></section>
+            <section class="shell-card section-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Training Display</p>
+                  <h2>老师端复盘设置</h2>
+                </div>
+                <span class="tag-warn" id="adminTeacherScoreStatus">隐藏分数</span>
+              </div>
+              <label class="switch-row">
+                <span>
+                  <strong>老师侧显示训练分数</strong>
+                  <small>开启后老师可查看总分和五项评分；关闭后只展示复盘建议，管理后台始终保留完整评分。</small>
+                </span>
+                <input id="adminTeacherScoreToggle" type="checkbox" />
+              </label>
+              <p class="status-text" id="adminTeacherScoreSaveStatus"></p>
+            </section>
             <section class="ai-config-layout">
               <section class="shell-card section-card">
                 <div class="section-head">
@@ -414,6 +431,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260908-account-delete"></script>
+    <script src="/assets/admin/app.js?v=20260908-score-visibility"></script>
   </body>
 </html>

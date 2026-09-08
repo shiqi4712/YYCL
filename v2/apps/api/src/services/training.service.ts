@@ -9,6 +9,7 @@ import {
 import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { getConfiguredConcurrentUserLimit } from './ai-config.service'
+import { getAppSettings } from './app-settings.service'
 import { HttpError } from '../utils/http-error'
 
 const TRAINING_STATUS = {
@@ -46,6 +47,18 @@ function parseReviewMeta(tagsJson: string) {
   } catch {
     return fallback
   }
+}
+
+function hideDimensionScores(dimensions: unknown) {
+  if (!dimensions || typeof dimensions !== 'object') return dimensions
+
+  return Object.fromEntries(
+    Object.entries(dimensions).map(([key, value]) => {
+      if (!value || typeof value !== 'object') return [key, value]
+      const { score: _score, ...visibleValue } = value as Record<string, unknown>
+      return [key, visibleValue]
+    })
+  )
 }
 
 function clampScore(value: unknown, fallback = 0) {
@@ -306,18 +319,21 @@ export async function createSession(teacherId: string, scenarioId: string) {
 }
 
 export async function listTeacherSessions(teacherId: string) {
-  const sessions = await prisma.trainingSession.findMany({
-    where: { teacherId },
-    orderBy: { startedAt: 'desc' },
-    include: {
-      scenario: {
-        select: { id: true, title: true },
+  const [sessions, settings] = await Promise.all([
+    prisma.trainingSession.findMany({
+      where: { teacherId },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        scenario: {
+          select: { id: true, title: true },
+        },
+        review: {
+          select: { overallScore: true, createdAt: true },
+        },
       },
-      review: {
-        select: { overallScore: true, createdAt: true },
-      },
-    },
-  })
+    }),
+    getAppSettings(),
+  ])
 
   return sessions.map((session: (typeof sessions)[number]) => ({
     id: session.id,
@@ -325,16 +341,19 @@ export async function listTeacherSessions(teacherId: string) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     currentStepOrder: session.currentStepOrder,
-    totalScore: session.totalScore,
+    ...(settings.showTeacherScores ? { totalScore: session.totalScore } : {}),
     summary: session.summary,
     scenario: session.scenario,
     reviewGenerated: Boolean(session.review),
-    reviewScore: session.review?.overallScore ?? null,
+    ...(settings.showTeacherScores ? { reviewScore: session.review?.overallScore ?? null } : {}),
   }))
 }
 
 export async function getSessionDetail(sessionId: string, teacherId: string) {
-  const session = await getOwnedSession(sessionId, teacherId)
+  const [session, settings] = await Promise.all([
+    getOwnedSession(sessionId, teacherId),
+    getAppSettings(),
+  ])
   const reviewMeta = session.review ? parseReviewMeta(session.review.tagsJson) : null
 
   return {
@@ -343,7 +362,7 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
     currentStepOrder: session.currentStepOrder,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
-    totalScore: session.totalScore,
+    ...(settings.showTeacherScores ? { totalScore: session.totalScore } : {}),
     summary: session.summary,
     scenario: {
       id: session.scenario.id,
@@ -361,18 +380,20 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
     review: session.review
       ? {
           id: session.review.id,
-          overallScore: session.review.overallScore,
+          ...(settings.showTeacherScores ? { overallScore: session.review.overallScore } : {}),
           summary: session.review.summary,
           strengths: session.review.strengths,
           weaknesses: session.review.weaknesses,
           nextAction: session.review.nextAction,
           tags: reviewMeta?.tags ?? [],
-          dimensions: reviewMeta?.dimensions ?? null,
+          dimensions: settings.showTeacherScores
+            ? reviewMeta?.dimensions ?? null
+            : hideDimensionScores(reviewMeta?.dimensions ?? null),
           steps: session.review.stepReviews.map((step: (typeof session.review.stepReviews)[number]) => ({
             id: step.id,
             stepOrder: step.stepOrder,
             stepTitle: step.stepTitle,
-            score: step.score,
+            ...(settings.showTeacherScores ? { score: step.score } : {}),
             verdict: step.verdict,
             strengths: step.strengths,
             issue: step.issue,

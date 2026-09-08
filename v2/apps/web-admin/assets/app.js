@@ -1030,10 +1030,17 @@
     nodes.accountList.querySelectorAll('[data-delete-user]').forEach((button) => {
       button.addEventListener('click', async () => {
         const userName = button.dataset.userName || '该账号';
-        if (!window.confirm(`确认删除「${userName}」吗？已有训练记录或创建过内容的账号将无法删除。`)) return;
+        if (!window.confirm(`确认删除「${userName}」吗？账号将立即无法登录，历史训练记录、评分和已创建内容会保留。`)) return;
         try {
-          await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: 'DELETE' });
+          const result = await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: 'DELETE' });
+          delete state.trainingSessionsByUser[button.dataset.deleteUser];
+          if (state.expandedTrainingUserId === button.dataset.deleteUser) {
+            state.expandedTrainingUserId = '';
+          }
           await loadUsers();
+          if (result.preservedTrainingRecords > 0) {
+            alert(`账号已删除，${result.preservedTrainingRecords} 条历史训练记录已保留。`);
+          }
         } catch (error) {
           alert(error.message);
         }

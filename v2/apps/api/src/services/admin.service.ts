@@ -168,7 +168,10 @@ export async function listUsers(role?: string) {
   }
 
   const users = await prisma.user.findMany({
-    where: role ? { role } : undefined,
+    where: {
+      deletedAt: null,
+      ...(role ? { role } : {}),
+    },
     orderBy: { createdAt: 'desc' },
     include: {
       sessions: {
@@ -389,7 +392,7 @@ export async function importTeacherUsers(payload: unknown) {
 }
 
 export async function updateUserStatus(userId: string, isActive: boolean) {
-  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null } })
   if (!user) {
     throw new HttpError(404, 'User not found')
   }
@@ -417,26 +420,35 @@ export async function deleteUser(userId: string, currentUserId: string) {
     where: { id: userId },
     include: {
       sessions: { select: { id: true } },
-      createdTopics: { select: { id: true } },
-      createdScenarios: { select: { id: true } },
-      createdObjections: { select: { id: true } },
     },
   })
 
-  if (!user) {
+  if (!user || user.deletedAt) {
     throw new HttpError(404, 'User not found')
   }
 
-  if (user.sessions.length > 0) {
-    throw new HttpError(400, '该账号已有训练记录，不能删除，可先停用账号')
-  }
+  const deletedAt = new Date()
+  const originalDisplayName = user.displayName || user.username
+  await prisma.$transaction([
+    prisma.trainingSession.updateMany({
+      where: { teacherId: userId, status: 'ACTIVE' },
+      data: { status: 'ENDED', endedAt: deletedAt },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        username: `deleted_${user.id}_${deletedAt.getTime()}`,
+        displayName: `（已删除）${originalDisplayName}`.slice(0, 191),
+        isActive: false,
+        deletedAt,
+      },
+    }),
+  ])
 
-  if (user.createdTopics.length || user.createdScenarios.length || user.createdObjections.length) {
-    throw new HttpError(400, '该账号创建过后台内容，不能删除，可先停用账号')
+  return {
+    id: userId,
+    preservedTrainingRecords: user.sessions.length,
   }
-
-  await prisma.user.delete({ where: { id: userId } })
-  return { id: userId }
 }
 
 export async function listTopicsForAdmin() {
@@ -818,7 +830,7 @@ export async function deleteScenarios(payload: unknown) {
 
 export async function getDashboardSummary() {
   const [totalTeachers, totalTopics, totalScenarios, totalSessions, teacherUsers] = await Promise.all([
-    prisma.user.count({ where: { role: 'TEACHER' } }),
+    prisma.user.count({ where: { role: 'TEACHER', deletedAt: null } }),
     prisma.trainingTopic.count(),
     prisma.trainingScenario.count(),
     prisma.trainingSession.count(),

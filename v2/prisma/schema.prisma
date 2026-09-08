@@ -15,6 +15,7 @@ model User {
   role         String   @db.VarChar(32)
   displayName  String?  @db.VarChar(191)
   isActive     Boolean  @default(true)
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

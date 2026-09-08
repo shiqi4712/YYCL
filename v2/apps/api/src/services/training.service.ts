@@ -541,11 +541,6 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
       stepOrder: aiMessage.stepOrder,
       createdAt: aiMessage.createdAt,
     },
-    resolvedCurrentStep: evaluation.resolved,
-    canAdvance,
-    resolutionScore: evaluation.resolutionScore,
-    emotionState: evaluation.emotionState,
-    reason: evaluation.reason,
     currentStepOrder: nextStepOrder,
     status: finalStatus,
   }

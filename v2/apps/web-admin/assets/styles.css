@@ -151,6 +151,7 @@ input:focus, textarea:focus, select:focus { border-color: rgba(10,132,255,.42); 
 .ai-status-card p { margin-top: 8px; color: var(--muted); line-height: 1.7; word-break: break-word; }
 .compact-empty { padding: 16px; font-size: 13px; }
 .status-text { min-height: 20px; color: var(--muted); font-size: 13px; }
+.ai-config-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .primary-btn:hover, .secondary-btn:hover, .metric-card:hover, .scene-card:hover, .objection-card:hover, .account-card:hover, .training-topic-card:hover, .training-scenario-row:hover { transform: translateY(-4px); box-shadow: 0 18px 34px rgba(15,23,42,.08); }
 .empty-state { padding: 24px; border-radius: 20px; background: var(--surface-soft); color: var(--muted); line-height: 1.8; }
 @media (max-width: 1240px) { .auth-screen, .metric-grid, .admin-layout, .account-layout, .import-panel, .account-import-panel, .training-management-panel, .ai-config-layout { grid-template-columns: 1fr; } }

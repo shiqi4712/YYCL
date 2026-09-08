@@ -61,6 +61,73 @@ export async function getAiConfigForAdmin(providerValue?: unknown) {
   return toAdminConfig(config, provider.success ? provider.data : 'deepseek')
 }
 
+function buildChatCompletionsUrl(baseUrl: string) {
+  const normalized = baseUrl.replace(/\/$/, '')
+  return normalized.endsWith('/chat/completions') ? normalized : `${normalized}/chat/completions`
+}
+
+export async function testAiConfigForAdmin(providerValue: unknown) {
+  const provider = aiProviderSchema.parse(providerValue)
+  const config = await prisma.aiConfig.findUnique({ where: { provider } })
+
+  if (!config?.apiKey) {
+    throw new HttpError(400, '请先保存该服务商的 API Key')
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  const startedAt = Date.now()
+
+  try {
+    const usesOpenAiReasoningParameters =
+      provider === 'openai' && /^(gpt-5|o\d)/i.test(config.model)
+    const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [{ role: 'user', content: '这是连通性测试，请只回复“连接成功”。' }],
+        ...(usesOpenAiReasoningParameters
+          ? { max_completion_tokens: 128 }
+          : { temperature: 0, max_tokens: 128 }),
+      }),
+      signal: controller.signal,
+    })
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      const providerMessage = payload?.error?.message
+      throw new HttpError(
+        502,
+        providerMessage ? `模型服务返回错误：${providerMessage}` : `模型服务返回 HTTP ${response.status}`
+      )
+    }
+
+    const content = payload?.choices?.[0]?.message?.content
+    if (typeof content !== 'string' || !content.trim()) {
+      throw new HttpError(502, '模型已响应，但没有返回有效文本，请检查模型名称')
+    }
+
+    return {
+      success: true,
+      provider,
+      model: config.model,
+      latencyMs: Date.now() - startedAt,
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new HttpError(504, '连接模型超时，请检查 Base URL、网络或服务商状态')
+    }
+    throw new HttpError(502, error instanceof Error ? `无法连接模型服务：${error.message}` : '无法连接模型服务')
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export async function updateAiConfigForAdmin(payload: unknown) {
   const input = aiConfigSchema.parse(payload)
   const existing = await prisma.aiConfig.findUnique({

@@ -13,6 +13,7 @@ import type { AuthedRequest } from '../types'
 import { HttpError } from '../utils/http-error'
 import {
   getAiConfigForAdmin,
+  testAiConfigForAdmin,
   updateAiConfigForAdmin,
 } from '../services/ai-config.service'
 import {
@@ -405,6 +406,14 @@ router.get('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
 router.put('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
   try {
     res.json(ok(await updateAiConfigForAdmin(req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/ai-config/test', requireRole('TRAINER'), async (req, res, next) => {
+  try {
+    res.json(ok(await testAiConfigForAdmin(req.body?.provider)))
   } catch (error) {
     next(error)
   }

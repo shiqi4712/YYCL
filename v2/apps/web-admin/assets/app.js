@@ -77,6 +77,7 @@
     aiConfigForm: document.getElementById('adminAiConfigForm'),
     aiConfigStatus: document.getElementById('adminAiConfigStatus'),
     aiConfigSaveStatus: document.getElementById('adminAiConfigSaveStatus'),
+    aiConfigTestButton: document.getElementById('adminAiConfigTestButton'),
     aiKeyState: document.getElementById('adminAiKeyState'),
     aiKeyPreview: document.getElementById('adminAiKeyPreview'),
     scriptDraftInput: document.getElementById('adminScriptDraftInput'),
@@ -1311,6 +1312,7 @@
   nodes.aiConfigForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(nodes.aiConfigForm);
+    let configSaved = false;
     nodes.aiConfigSaveStatus.textContent = '正在保存 AI 配置...';
     try {
       state.aiConfig = await api('/api/admin/ai-config', {
@@ -1325,10 +1327,38 @@
           maxConcurrentUsers: Number(formData.get('maxConcurrentUsers') || 10),
         }),
       });
-      nodes.aiConfigSaveStatus.textContent = 'AI 配置已保存';
+      configSaved = true;
       renderAiConfig();
+      if (state.aiConfig.hasApiKey) {
+        nodes.aiConfigSaveStatus.textContent = '配置已保存，正在测试模型连接...';
+        const tested = await api('/api/admin/ai-config/test', {
+          method: 'POST',
+          body: JSON.stringify({ provider: state.aiConfig.provider }),
+        });
+        nodes.aiConfigSaveStatus.textContent = `配置已保存，模型连接成功（${tested.latencyMs} ms）`;
+      } else {
+        nodes.aiConfigSaveStatus.textContent = 'AI 配置已保存，尚未填写 API Key';
+      }
     } catch (error) {
-      nodes.aiConfigSaveStatus.textContent = error.message;
+      nodes.aiConfigSaveStatus.textContent = configSaved
+        ? `配置已保存，但连接测试失败：${error.message}`
+        : error.message;
+    }
+  });
+  nodes.aiConfigTestButton.addEventListener('click', async () => {
+    const provider = nodes.aiConfigForm.elements.provider.value || 'deepseek';
+    nodes.aiConfigSaveStatus.textContent = '正在测试已保存的模型配置...';
+    nodes.aiConfigTestButton.disabled = true;
+    try {
+      const tested = await api('/api/admin/ai-config/test', {
+        method: 'POST',
+        body: JSON.stringify({ provider }),
+      });
+      nodes.aiConfigSaveStatus.textContent = `模型连接成功（${tested.latencyMs} ms）`;
+    } catch (error) {
+      nodes.aiConfigSaveStatus.textContent = `连接测试失败：${error.message}`;
+    } finally {
+      nodes.aiConfigTestButton.disabled = false;
     }
   });
   nodes.aiConfigForm.elements.provider.addEventListener('change', async (event) => {

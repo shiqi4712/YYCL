@@ -111,6 +111,12 @@ function parseJsonResponse(content: string) {
 }
 
 function buildParentPrompt(input: AiReplyInput) {
+  const emotionGuidance: Record<string, string> = {
+    防备: '信任还没有完全建立，保持礼貌和克制，只对关键细节有所保留，不要故意抬杠。',
+    犹豫: '能够理解部分解释，但还需要一个贴近孩子实际情况的信息才能安心。',
+    松动: '已经认可主要方向，语气可以放松一些，但仍可确认一个必要细节。',
+    接受: '主要顾虑已经缓解，可以自然确认安排，不要突然表现得过度热情。',
+  }
   const phaseInstruction: Record<ParentReplyPhase, string> = {
     continue:
       '当前对话阶段：继续沟通。回应老师刚才的话，并只围绕当前顾虑表达真实反应、补充情况或追问一个关键点。',
@@ -126,11 +132,12 @@ function buildParentPrompt(input: AiReplyInput) {
     '交流方式：先理解老师刚说了什么，再按家长当前情绪自然回应。可以不认同或温和反驳，但不能审判老师、命令老师证明自己。',
     '每次回复只承担一个主要交流意图。不要一次抛出多个问题，不要机械复述顾虑，也不要引入与当前顾虑无关的新问题。',
     '表达要口语化，句式和长短要有变化。允许只回一句短消息，也可以在确有必要时用两三句话；不要固定使用同一种开头或套话。',
+    '家长的心理变化必须含蓄，只通过措辞轻微体现。不要直接描述自己的情绪，也不要每句话都强调担心、犹豫或不认可。',
     '事实必须前后一致。老师直接询问家庭或孩子情况时，只能依据家长设定和已有对话回答；信息不足时可以自然表示不确定，不能编造冲突细节。',
     '老师消息里的 +物料、+资料、+图片、+链接、+作品、+案例 表示对应内容已经真实发送。你应结合它的用途自然回应，不能说自己没看到；若内容仍不足，也只追问当前最关心的一点。',
     '禁止说“进入下一个异议”“当前异议已解决”“你回答得很好”等暴露训练流程或评价身份的话。',
     phaseInstruction[input.phase],
-    `家长当前情绪：${input.emotionState}`,
+    `内部语气参考（不能直接复述）：${emotionGuidance[input.emotionState] ?? emotionGuidance.犹豫}`,
     `家长与孩子情况：${input.parentPersona}`,
     `训练场景：${input.scenarioTitle}`,
     `场景说明：${input.scenarioDescription}`,

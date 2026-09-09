@@ -22,6 +22,7 @@ import {
   createTopic,
   createUser,
   deleteUser,
+  deleteUsers,
   deleteScenario,
   deleteScenarios,
   deleteTopic,
@@ -37,6 +38,7 @@ import {
   updateTopic,
   updateTopicSop,
   updateUserTeam,
+  updateUsersTeam,
   updateUserStatus,
 } from '../services/admin.service'
 import { ok } from '../utils/api'
@@ -508,6 +510,22 @@ router.patch('/users/:userId/status', requireRole('TRAINER'), async (req: Authed
   try {
     const payload = statusSchema.parse(req.body)
     res.json(ok(await updateUserStatus(req.user!, req.params.userId, payload.isActive)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.patch('/users/batch/team', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await updateUsersTeam(req.user!, req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/users/batch/delete', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await deleteUsers(req.user!, req.body)))
   } catch (error) {
     next(error)
   }

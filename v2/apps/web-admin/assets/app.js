@@ -31,6 +31,7 @@
     topics: [],
     teams: [],
     users: [],
+    selectedTeacherIds: [],
     trainingSessionsByUser: {},
     expandedTrainingUserId: '',
     pages: {
@@ -90,6 +91,13 @@
     roleFilter: document.getElementById('adminRoleFilter'),
     accountList: document.getElementById('adminAccountList'),
     accountPagination: document.getElementById('adminAccountPagination'),
+    selectPageTeachers: document.getElementById('adminSelectPageTeachers'),
+    selectedTeacherCount: document.getElementById('adminSelectedTeacherCount'),
+    batchTeamField: document.getElementById('adminBatchTeamField'),
+    batchTeamSelect: document.getElementById('adminBatchTeamSelect'),
+    batchAssignTeamButton: document.getElementById('adminBatchAssignTeamButton'),
+    batchDeleteUsersButton: document.getElementById('adminBatchDeleteUsersButton'),
+    batchAccountStatus: document.getElementById('adminBatchAccountStatus'),
     accountForm: document.getElementById('adminAccountForm'),
     accountRoleField: document.getElementById('adminAccountRoleField'),
     accountTeamField: document.getElementById('adminAccountTeamField'),
@@ -994,6 +1002,18 @@
       : '<option value="">请先创建团队</option>';
     nodes.accountTeamSelect.disabled = !isSuperAdmin;
     nodes.accountTeamField.querySelector('span').textContent = isSuperAdmin ? '所属团队' : '当前团队';
+    const previousBatchTeamId = nodes.batchTeamSelect.value;
+    nodes.batchTeamSelect.innerHTML = state.teams.length
+      ? state.teams
+          .filter((team) => team.isActive)
+          .map((team) => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`)
+          .join('')
+      : '<option value="">请先创建团队</option>';
+    if (state.teams.some((team) => team.id === previousBatchTeamId)) {
+      nodes.batchTeamSelect.value = previousBatchTeamId;
+    }
+    nodes.batchTeamField.classList.toggle('hidden', !isSuperAdmin);
+    nodes.batchAssignTeamButton.classList.toggle('hidden', !isSuperAdmin);
     const previousAiTeamId = nodes.aiTeamSelect.value;
     nodes.aiTeamSelect.innerHTML = state.teams.length
       ? state.teams
@@ -1050,6 +1070,17 @@
     });
     const pageData = paginate(users, state.pages.users, pageSizes.users);
     state.pages.users = pageData.page;
+    const selectedIds = new Set(state.selectedTeacherIds);
+    const pageTeacherIds = pageData.items
+      .filter((user) => user.role === 'TEACHER')
+      .map((user) => user.id);
+    const selectedPageTeacherCount = pageTeacherIds.filter((userId) => selectedIds.has(userId)).length;
+    nodes.selectPageTeachers.disabled = pageTeacherIds.length === 0;
+    nodes.selectPageTeachers.checked = pageTeacherIds.length > 0 && selectedPageTeacherCount === pageTeacherIds.length;
+    nodes.selectPageTeachers.indeterminate = selectedPageTeacherCount > 0 && selectedPageTeacherCount < pageTeacherIds.length;
+    nodes.selectedTeacherCount.textContent = `已选择 ${selectedIds.size} 位老师`;
+    nodes.batchDeleteUsersButton.disabled = selectedIds.size === 0;
+    nodes.batchAssignTeamButton.disabled = selectedIds.size === 0 || !nodes.batchTeamSelect.value;
     nodes.accountMetrics.innerHTML = [
       ['账号总数', state.users.length, state.profile?.isSuperAdmin ? '系统内老师和管理员账号' : `${state.profile?.teamName || '本团队'}老师账号`],
       ['训练总次数', totalSessions, '所有老师累计进入训练次数'],
@@ -1065,8 +1096,15 @@
       ? pageData.items
           .map(
             (user) => `
-              <article class="account-card">
+              <article class="account-card ${selectedIds.has(user.id) ? 'is-selected' : ''}">
                 <div>
+                  ${
+                    user.role === 'TEACHER'
+                      ? `<label class="account-select"><input type="checkbox" data-select-user="${escapeHtml(user.id)}" ${
+                          selectedIds.has(user.id) ? 'checked' : ''
+                        } /><span>选择老师</span></label>`
+                      : ''
+                  }
                   <p class="eyebrow">${escapeHtml(roleLabel(user.role, user.isSuperAdmin))}</p>
                   <h3>${escapeHtml(user.displayName || user.username)}</h3>
                   <p>账号：${escapeHtml(user.username)}</p>
@@ -1096,15 +1134,16 @@
                 <div class="account-actions">
                   ${
                     state.profile?.isSuperAdmin && !user.isSuperAdmin
-                      ? `<select class="compact-select" data-user-team-select="${escapeHtml(user.id)}" aria-label="调整所属团队">
+                      ? `<select class="compact-select" data-user-team-select="${escapeHtml(user.id)}" data-original-team-id="${escapeHtml(
+                          user.teamId || ''
+                        )}" aria-label="调整所属团队">
                           ${state.teams
                             .filter((team) => team.isActive)
                             .map(
                               (team) => `<option value="${escapeHtml(team.id)}" ${team.id === user.teamId ? 'selected' : ''}>${escapeHtml(team.name)}</option>`
                             )
                             .join('')}
-                         </select>
-                         <button class="secondary-btn compact-btn" type="button" data-assign-team="${escapeHtml(user.id)}">调整团队</button>`
+                         </select>`
                       : ''
                   }
                   ${
@@ -1173,19 +1212,33 @@
         await loadUsers();
       });
     });
-    nodes.accountList.querySelectorAll('[data-assign-team]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        const userId = button.dataset.assignTeam;
-        const select = nodes.accountList.querySelector(`[data-user-team-select="${userId}"]`);
-        if (!userId || !select?.value) return;
+    nodes.accountList.querySelectorAll('[data-select-user]').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        const nextSelectedIds = new Set(state.selectedTeacherIds);
+        if (checkbox.checked) nextSelectedIds.add(checkbox.dataset.selectUser);
+        else nextSelectedIds.delete(checkbox.dataset.selectUser);
+        state.selectedTeacherIds = Array.from(nextSelectedIds);
+        renderAccounts();
+      });
+    });
+    nodes.accountList.querySelectorAll('[data-user-team-select]').forEach((select) => {
+      select.addEventListener('change', async () => {
+        const userId = select.dataset.userTeamSelect;
+        const previousTeamId = select.dataset.originalTeamId || '';
+        if (!userId || !select.value || select.value === previousTeamId) return;
+        select.disabled = true;
+        nodes.batchAccountStatus.textContent = '正在保存账号所属团队...';
         try {
           await api(`/api/admin/users/${userId}/team`, {
             method: 'PATCH',
             body: JSON.stringify({ teamId: select.value }),
           });
           await Promise.all([loadUsers(), loadTeams()]);
+          nodes.batchAccountStatus.textContent = '所属团队已保存，刷新页面后仍会保留。';
         } catch (error) {
-          alert(error.message);
+          select.value = previousTeamId;
+          select.disabled = false;
+          nodes.batchAccountStatus.textContent = error.message;
         }
       });
     });
@@ -1212,6 +1265,8 @@
 
   async function loadUsers() {
     state.users = await api('/api/admin/users');
+    const teacherIds = new Set(state.users.filter((user) => user.role === 'TEACHER').map((user) => user.id));
+    state.selectedTeacherIds = state.selectedTeacherIds.filter((userId) => teacherIds.has(userId));
     renderAccounts();
   }
 
@@ -1300,6 +1355,68 @@
     state.pages.users = 1;
     state.expandedTrainingUserId = '';
     renderAccounts();
+  });
+  nodes.selectPageTeachers.addEventListener('change', () => {
+    const keyword = nodes.accountSearchInput.value.trim().toLowerCase();
+    const role = nodes.roleFilter.value;
+    const visibleUsers = state.users.filter((user) => {
+      if (role !== 'all' && user.role !== role) return false;
+      if (!keyword) return true;
+      return [user.username, user.displayName, roleLabel(user.role, user.isSuperAdmin), user.teamName]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword);
+    });
+    const pageData = paginate(visibleUsers, state.pages.users, pageSizes.users);
+    const pageTeacherIds = pageData.items.filter((user) => user.role === 'TEACHER').map((user) => user.id);
+    const selectedIds = new Set(state.selectedTeacherIds);
+    pageTeacherIds.forEach((userId) => {
+      if (nodes.selectPageTeachers.checked) selectedIds.add(userId);
+      else selectedIds.delete(userId);
+    });
+    state.selectedTeacherIds = Array.from(selectedIds);
+    renderAccounts();
+  });
+  nodes.batchAssignTeamButton.addEventListener('click', async () => {
+    if (!state.selectedTeacherIds.length || !nodes.batchTeamSelect.value) return;
+    nodes.batchAccountStatus.textContent = '正在批量调整老师所属团队...';
+    nodes.batchAssignTeamButton.disabled = true;
+    try {
+      const result = await api('/api/admin/users/batch/team', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          userIds: state.selectedTeacherIds,
+          teamId: nodes.batchTeamSelect.value,
+        }),
+      });
+      state.selectedTeacherIds = [];
+      await Promise.all([loadUsers(), loadTeams()]);
+      nodes.batchAccountStatus.textContent = `已将 ${result.updatedCount} 位老师调整到“${result.teamName}”。`;
+    } catch (error) {
+      nodes.batchAccountStatus.textContent = error.message;
+      renderAccounts();
+    }
+  });
+  nodes.batchDeleteUsersButton.addEventListener('click', async () => {
+    const selectedIds = [...state.selectedTeacherIds];
+    if (!selectedIds.length) return;
+    if (!window.confirm(`确认删除已选择的 ${selectedIds.length} 位老师吗？账号将无法登录，历史训练记录和评分会继续保留。`)) return;
+    nodes.batchAccountStatus.textContent = '正在批量删除老师账号...';
+    nodes.batchDeleteUsersButton.disabled = true;
+    try {
+      const result = await api('/api/admin/users/batch/delete', {
+        method: 'POST',
+        body: JSON.stringify({ userIds: selectedIds }),
+      });
+      selectedIds.forEach((userId) => delete state.trainingSessionsByUser[userId]);
+      if (selectedIds.includes(state.expandedTrainingUserId)) state.expandedTrainingUserId = '';
+      state.selectedTeacherIds = [];
+      await Promise.all([loadUsers(), loadTeams()]);
+      nodes.batchAccountStatus.textContent = `已删除 ${result.deletedCount} 位老师，保留 ${result.preservedTrainingRecords} 条历史训练记录。`;
+    } catch (error) {
+      nodes.batchAccountStatus.textContent = error.message;
+      renderAccounts();
+    }
   });
   nodes.newObjectionButton.addEventListener('click', () => {
     state.selectedObjectionId = '';

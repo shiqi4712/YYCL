@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-team-ai-scope" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-account-batch" />
   </head>
   <body>
     <div class="admin-shell">
@@ -292,6 +292,22 @@
                     <option value="TRAINER">团队管理员</option>
                   </select>
                 </div>
+                <div class="batch-toolbar" id="adminAccountBatchToolbar">
+                  <label class="batch-select">
+                    <input id="adminSelectPageTeachers" type="checkbox" />
+                    <span>选择本页老师</span>
+                  </label>
+                  <span class="batch-count" id="adminSelectedTeacherCount">已选择 0 位老师</span>
+                  <div class="batch-actions">
+                    <label class="batch-team-field" id="adminBatchTeamField">
+                      <span class="sr-only">批量调整所属团队</span>
+                      <select id="adminBatchTeamSelect" aria-label="批量调整所属团队"></select>
+                    </label>
+                    <button class="secondary-btn compact-btn" id="adminBatchAssignTeamButton" type="button" disabled>批量调整团队</button>
+                    <button class="secondary-btn compact-btn danger-action" id="adminBatchDeleteUsersButton" type="button" disabled>批量删除</button>
+                  </div>
+                  <p class="status-text batch-status" id="adminBatchAccountStatus"></p>
+                </div>
                 <div class="account-list" id="adminAccountList"></div>
                 <nav class="pagination" id="adminAccountPagination" aria-label="账号列表翻页"></nav>
               </section>
@@ -464,6 +480,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260909-team-ai-scope"></script>
+    <script src="/assets/admin/app.js?v=20260909-account-batch"></script>
   </body>
 </html>

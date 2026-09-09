@@ -34,6 +34,14 @@ const userTeamSchema = z.object({
   teamId: z.string().min(1),
 })
 
+const userBatchSchema = z.object({
+  userIds: z.array(z.string().min(1)).min(1).max(200),
+})
+
+const userBatchTeamSchema = userBatchSchema.extend({
+  teamId: z.string().min(1),
+})
+
 const topicCreateSchema = z.object({
   trainingModule: trainingModuleSchema.default('PRE_CLASS'),
   title: z.string().min(1).max(60),
@@ -568,6 +576,42 @@ export async function updateUserTeam(actor: AuthUser, userId: string, payload: u
   }
 }
 
+export async function updateUsersTeam(actor: AuthUser, payload: unknown) {
+  requireSuperAdmin(actor)
+  const input = userBatchTeamSchema.parse(payload)
+  const userIds = Array.from(new Set(input.userIds))
+  const [users, team] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        role: 'TEACHER',
+        deletedAt: null,
+        isSuperAdmin: false,
+      },
+      select: { id: true },
+    }),
+    prisma.team.findFirst({ where: { id: input.teamId, isActive: true } }),
+  ])
+
+  if (users.length !== userIds.length) {
+    throw new HttpError(404, '部分老师账号不存在或不可调整')
+  }
+  if (!team) {
+    throw new HttpError(400, '所选团队不存在或已停用')
+  }
+
+  const updated = await prisma.user.updateMany({
+    where: { id: { in: userIds } },
+    data: { teamId: team.id },
+  })
+
+  return {
+    updatedCount: updated.count,
+    teamId: team.id,
+    teamName: team.name,
+  }
+}
+
 export async function deleteUser(actor: AuthUser, userId: string) {
   requireTeamAdmin(actor)
   if (userId === actor.id) {
@@ -606,6 +650,60 @@ export async function deleteUser(actor: AuthUser, userId: string) {
   return {
     id: userId,
     preservedTrainingRecords: user.sessions.length,
+  }
+}
+
+export async function deleteUsers(actor: AuthUser, payload: unknown) {
+  requireTeamAdmin(actor)
+  const input = userBatchSchema.parse(payload)
+  const userIds = Array.from(new Set(input.userIds))
+  const users: Array<{
+    id: string
+    username: string
+    displayName: string | null
+    _count: { sessions: number }
+  }> = await prisma.user.findMany({
+    where: {
+      id: { in: userIds },
+      role: 'TEACHER',
+      deletedAt: null,
+      isSuperAdmin: false,
+      ...(actor.isSuperAdmin ? {} : { teamId: actor.teamId! }),
+    },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      _count: { select: { sessions: true } },
+    },
+  })
+
+  if (users.length !== userIds.length) {
+    throw new HttpError(404, '部分老师账号不存在或无权删除')
+  }
+
+  const deletedAt = new Date()
+  await prisma.$transaction([
+    prisma.trainingSession.updateMany({
+      where: { teacherId: { in: userIds }, status: 'ACTIVE' },
+      data: { status: 'ENDED', endedAt: deletedAt },
+    }),
+    ...users.map((user) =>
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          username: `deleted_${user.id}_${deletedAt.getTime()}`,
+          displayName: `（已删除）${user.displayName || user.username}`.slice(0, 191),
+          isActive: false,
+          deletedAt,
+        },
+      })
+    ),
+  ])
+
+  return {
+    deletedCount: users.length,
+    preservedTrainingRecords: users.reduce((sum, user) => sum + user._count.sessions, 0),
   }
 }
 

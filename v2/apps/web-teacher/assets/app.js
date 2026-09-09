@@ -1,7 +1,5 @@
 (function () {
   const storageKey = 'yycl_v2_teacher_token';
-  const internalAccountLoginUrl = 'https://internal-account.codemao.cn/login';
-  const internalAccountInfoUrl = 'https://internal-account-api.codemao.cn/auth/info';
   const scenes = [
     { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
@@ -10,8 +8,9 @@
 
   const state = {
     token: localStorage.getItem(storageKey) || '',
+    csrfToken: '',
+    authMode: '',
     profile: null,
-    internalAccountUser: null,
     internalAccountStatus: 'checking',
     view: 'portal',
     selectedScene: '',
@@ -118,13 +117,34 @@
   }
 
   function setupInternalAccountLogin() {
-    nodes.internalLoginButton.addEventListener('click', () => {
-      if (state.internalAccountStatus === 'logged-out') {
-        window.location.assign(internalAccountLoginUrl);
+    nodes.internalLoginButton.addEventListener('click', async () => {
+      if (state.internalAccountStatus === 'error') {
+        await checkInternalSession();
         return;
       }
-      checkInternalAccount();
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.assign(`/api/auth/internal/start?returnTo=${encodeURIComponent(returnTo)}`);
     });
+  }
+
+  function renderProfileChip() {
+    if (!state.profile) return;
+    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username || '老师'} · ${
+      state.profile.role === 'TRAINER' ? '管理员' : '老师'
+    }`;
+  }
+
+  function showLoggedOut(message) {
+    setToken('');
+    state.csrfToken = '';
+    state.authMode = '';
+    state.profile = null;
+    resetTrainingRuntime();
+    toggleApp(false);
+    setView('portal');
+    state.internalAccountStatus = 'logged-out';
+    renderInternalAccountStatus();
+    nodes.loginStatus.textContent = message || '登录已过期，请重新登录';
   }
 
   function renderInternalAccountStatus() {
@@ -138,7 +158,7 @@
     }
     if (status === 'authenticated') {
       nodes.internalLoginButton.textContent = '已登录';
-      nodes.internalLoginStatus.textContent = `已识别老师：${state.internalAccountUser.fullname}`;
+      nodes.internalLoginStatus.textContent = `已登录老师：${state.profile.displayName || state.profile.username}`;
       return;
     }
     if (status === 'logged-out') {
@@ -151,39 +171,41 @@
     nodes.internalLoginStatus.textContent = '暂时无法确认登录状态，请稍后重试';
   }
 
-  async function checkInternalAccount() {
+  async function checkInternalSession() {
     state.internalAccountStatus = 'checking';
-    state.internalAccountUser = null;
     renderInternalAccountStatus();
-    console.info('Checking internal account login status', { endpoint: internalAccountInfoUrl });
+    const endpoint = '/api/auth/internal/session';
+    console.info('Checking YYCL login session', { endpoint });
 
     try {
-      const response = await fetch(internalAccountInfoUrl, { credentials: 'include' });
-      console.info('Checked internal account login status', { status: response.status });
+      const response = await fetch(endpoint, { credentials: 'include' });
+      console.info('Checked YYCL login session', { status: response.status });
 
       if (response.status === 401) {
         state.internalAccountStatus = 'logged-out';
         renderInternalAccountStatus();
-        return null;
+        return false;
       }
       if (!response.ok) {
-        throw new Error('internal_account_status_failed');
+        throw new Error('session_status_failed');
       }
 
       const payload = await response.json();
-      const fullname = String(payload.fullname || '').trim();
-      if (!fullname) {
-        throw new Error('internal_account_name_missing');
+      if (payload.code !== 0 || !payload.data?.user || !payload.data?.csrfToken) {
+        throw new Error('session_response_invalid');
       }
 
-      state.internalAccountUser = { fullname };
+      state.profile = payload.data.user;
+      state.csrfToken = payload.data.csrfToken;
+      state.authMode = 'SESSION';
       state.internalAccountStatus = 'authenticated';
+      renderProfileChip();
       renderInternalAccountStatus();
-      return state.internalAccountUser;
-    } catch (error) {
+      return true;
+    } catch {
       state.internalAccountStatus = 'error';
       renderInternalAccountStatus();
-      return null;
+      return false;
     }
   }
 
@@ -204,18 +226,25 @@
     if (state.token) {
       headers.Authorization = `Bearer ${state.token}`;
     }
+    if (state.csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(String(request.method || 'GET').toUpperCase())) {
+      headers['X-CSRF-Token'] = state.csrfToken;
+    }
 
     let response;
     try {
       response = await fetch(path, {
         ...request,
         headers,
+        credentials: 'include',
       });
     } catch {
       throw new Error(networkErrorMessage());
     }
 
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401 && !path.endsWith('/auth/login')) {
+      showLoggedOut('登录已过期，请重新登录');
+    }
     if (!response.ok || payload.code !== 0) {
       throw new Error(payload.message || '请求失败，请稍后重试');
     }
@@ -931,9 +960,7 @@
 
   async function loadProfile() {
     state.profile = await api('/api/auth/me');
-    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
-      state.profile.role === 'TRAINER' ? '管理员' : '老师'
-    }`;
+    renderProfileChip();
   }
 
   async function refreshCurrentView() {
@@ -961,6 +988,7 @@
       });
 
       setToken(result.token);
+      state.authMode = 'JWT';
       toggleApp(true);
       await loadProfile();
       renderScenes();
@@ -973,10 +1001,18 @@
 
   async function bootstrap() {
     setupInternalAccountLogin();
-    checkInternalAccount();
     nodes.loginForm.addEventListener('submit', handleLogin);
-    nodes.logoutButton.addEventListener('click', () => {
+    nodes.logoutButton.addEventListener('click', async () => {
+      if (state.authMode === 'SESSION') {
+        try {
+          await api('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+          console.error(error);
+        }
+      }
       setToken('');
+      state.csrfToken = '';
+      state.authMode = '';
       state.profile = null;
       state.objections = [];
       state.selectedScene = '';
@@ -984,6 +1020,8 @@
       resetTrainingRuntime();
       toggleApp(false);
       setView('portal');
+      state.internalAccountStatus = 'logged-out';
+      renderInternalAccountStatus();
     });
     nodes.refreshButton.addEventListener('click', refreshCurrentView);
     nodes.backButton.addEventListener('click', () => {
@@ -1030,23 +1068,31 @@
       });
     });
 
-    if (!state.token) {
-      toggleApp(false);
+    if (state.token) {
+      try {
+        state.authMode = 'JWT';
+        toggleApp(true);
+        await loadProfile();
+        renderScenes();
+        setView('portal');
+        return;
+      } catch (error) {
+        console.error(error);
+        setToken('');
+        state.authMode = '';
+      }
+    }
+
+    const hasSession = await checkInternalSession();
+    if (hasSession) {
+      toggleApp(true);
+      renderScenes();
       setView('portal');
       return;
     }
 
-    try {
-      toggleApp(true);
-      await loadProfile();
-      renderScenes();
-      setView('portal');
-    } catch (error) {
-      console.error(error);
-      setToken('');
-      toggleApp(false);
-      setView('portal');
-    }
+    toggleApp(false);
+    setView('portal');
   }
 
   bootstrap();

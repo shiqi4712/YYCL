@@ -11,4 +11,7 @@ export interface AuthUser {
 
 export interface AuthedRequest extends Request {
   user?: AuthUser
+  authMethod?: 'JWT' | 'SESSION'
+  authSessionId?: string
+  csrfToken?: string
 }

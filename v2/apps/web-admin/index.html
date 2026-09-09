@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-system-login" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260908-internal-account" />
   </head>
   <body>
     <div class="admin-shell">
@@ -15,7 +15,16 @@
             <h1>异议处理管理后台</h1>
           </div>
           <form class="auth-card" id="adminLoginForm" autocomplete="off">
-            <h2>管理员登录</h2>
+            <h2>账号登录</h2>
+            <section class="internal-login-panel" aria-labelledby="adminInternalLoginTitle">
+              <div>
+                <strong id="adminInternalLoginTitle">内部账号</strong>
+                <p>请在当前浏览器中完成内部账号登录，登录后回到本页面继续。</p>
+              </div>
+              <button class="secondary-btn" id="adminInternalLoginButton" type="button">内部账号登录</button>
+              <p class="internal-login-status" id="adminInternalLoginStatus" aria-live="polite">当前尚未确认内部账号登录。</p>
+            </section>
+            <div class="auth-divider"><span>系统账号登录</span></div>
             <label>
               <span>账号</span>
               <input name="username" placeholder="请输入管理员账号" autocomplete="off" />
@@ -434,6 +443,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260909-system-login"></script>
+    <script src="/assets/admin/app.js?v=20260908-internal-account"></script>
   </body>
 </html>

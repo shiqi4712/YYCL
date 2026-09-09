@@ -22,6 +22,10 @@
       replyTimer: null,
       replyDueAt: 0,
       replyInFlight: false,
+      messageSending: false,
+      pendingImages: [],
+      uploadingImages: 0,
+      runtimeKey: 0,
       review: null,
       sessions: [],
       selectedHistorySessionId: '',
@@ -65,6 +69,9 @@
     trainingReplyWait: document.getElementById('trainingReplyWait'),
     trainingMessageForm: document.getElementById('trainingMessageForm'),
     trainingMessageInput: document.getElementById('trainingMessageInput'),
+    trainingImageInput: document.getElementById('trainingImageInput'),
+    trainingPendingImageList: document.getElementById('trainingPendingImageList'),
+    trainingAddImageButton: document.getElementById('trainingAddImageButton'),
     trainingForceReplyButton: document.getElementById('trainingForceReplyButton'),
     trainingSubmitButton: document.getElementById('trainingSubmitButton'),
     trainingReviewPanel: document.getElementById('trainingReviewPanel'),
@@ -132,6 +139,17 @@
       throw new Error(payload.message || '请求失败，请稍后重试');
     }
 
+    return payload.data;
+  }
+
+  async function uploadApi(path, formData) {
+    const headers = {};
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    const response = await fetch(path, { method: 'POST', headers, body: formData });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.code !== 0) {
+      throw new Error(payload.message || '图片上传失败，请稍后重试');
+    }
     return payload.data;
   }
 
@@ -419,10 +437,16 @@
     state.training.replyTimer = null;
     state.training.replyDueAt = 0;
     state.training.replyInFlight = false;
+    state.training.messageSending = false;
+    state.training.pendingImages = [];
+    state.training.uploadingImages = 0;
+    state.training.runtimeKey += 1;
     state.training.review = null;
     if (nodes.trainingMessageInput) {
       nodes.trainingMessageInput.value = '';
     }
+    if (nodes.trainingImageInput) nodes.trainingImageInput.value = '';
+    renderPendingTrainingImages();
     nodes.trainingContextPanel.classList.add('mobile-collapsed');
     nodes.trainingContextToggle.textContent = '查看训练信息';
     nodes.trainingContextToggle.setAttribute('aria-expanded', 'false');
@@ -575,7 +599,60 @@
       content: message.content || '',
       stepOrder: message.stepOrder || 1,
       createdAt: message.createdAt || new Date().toISOString(),
+      attachments: Array.isArray(message.attachments) ? message.attachments : [],
     };
+  }
+
+  function renderTrainingAttachments(attachments) {
+    if (!attachments.length) return '';
+    return `
+      <div class="chat-attachments">
+        ${attachments
+          .map((image) =>
+            image.url && !image.isExpired
+              ? `<a class="chat-attachment" href="${escapeHtml(image.url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(
+                  image.url
+                )}" alt="${escapeHtml(image.name || '训练图片')}" loading="lazy" /></a>`
+              : `<div class="chat-attachment expired-chat-image">图片已按保留规则清理</div>`
+          )
+          .join('')}
+      </div>
+    `;
+  }
+
+  function renderPendingTrainingImages() {
+    if (!nodes.trainingPendingImageList) return;
+    const images = state.training.pendingImages;
+    nodes.trainingPendingImageList.classList.toggle('hidden', !images.length && state.training.uploadingImages === 0);
+    nodes.trainingPendingImageList.innerHTML = `
+      ${images
+        .map(
+          (image) => `
+            <article class="pending-image-item">
+              <img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.name || '待发送图片')}" />
+              <small>${escapeHtml(image.name || '图片')}</small>
+              <button type="button" data-remove-pending-image="${escapeHtml(image.id)}" aria-label="移除图片" title="移除图片">&times;</button>
+            </article>
+          `
+        )
+        .join('')}
+      ${state.training.uploadingImages ? `<div class="pending-image-item expired-chat-image">正在上传 ${state.training.uploadingImages} 张...</div>` : ''}
+    `;
+    nodes.trainingPendingImageList.querySelectorAll('[data-remove-pending-image]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const imageId = button.dataset.removePendingImage;
+        if (!imageId || !state.training.sessionId) return;
+        button.disabled = true;
+        try {
+          await api(`/api/training/sessions/${state.training.sessionId}/images/${imageId}`, { method: 'DELETE' });
+          state.training.pendingImages = state.training.pendingImages.filter((image) => image.id !== imageId);
+          renderPendingTrainingImages();
+        } catch (error) {
+          alert(error.message);
+          button.disabled = false;
+        }
+      });
+    });
   }
 
   function renderTrainingMessages() {
@@ -589,7 +666,8 @@
         (message) => `
           <article class="chat-bubble ${message.role === 'teacher' ? 'teacher-bubble' : 'parent-bubble'}">
             <span>${message.role === 'teacher' ? '老师' : '家长'}</span>
-            <p>${escapeHtml(message.content).replace(/\n/g, '<br />')}</p>
+            ${message.content ? `<p>${escapeHtml(message.content).replace(/\n/g, '<br />')}</p>` : ''}
+            ${renderTrainingAttachments(message.attachments || [])}
           </article>
         `
       )
@@ -607,21 +685,21 @@
     nodes.trainingReplyWait.textContent = message;
   }
 
-  function calculateReplyDelay(content) {
+  function calculateReplyDelay(content, imageCount = 0) {
     const text = String(content || '');
     const base = 6000;
     const lengthDelay = Math.ceil(text.length / 50) * 2000;
-    const materialDelay = /\+(物料|案例|图片|链接|资料|作品)/.test(text) ? 4000 : 0;
+    const materialDelay = imageCount > 0 || /\+(物料|案例|图片|链接|资料|作品)/.test(text) ? 4000 : 0;
     const consecutiveDelay = Math.max(0, state.training.pendingTeacherCount - 1) * 2000;
     return Math.min(20000, base + lengthDelay + materialDelay + consecutiveDelay);
   }
 
-  function scheduleParentReply(latestTeacherContent) {
+  function scheduleParentReply(latestTeacherContent, imageCount = 0) {
     if (state.training.replyTimer) {
       window.clearTimeout(state.training.replyTimer);
     }
 
-    const delay = calculateReplyDelay(latestTeacherContent);
+    const delay = calculateReplyDelay(latestTeacherContent, imageCount);
     state.training.replyDueAt = Date.now() + delay;
     const seconds = Math.ceil(delay / 1000);
     setReplyWait(`家长正在看消息，约 ${seconds} 秒后回复。你可以继续补充，系统会重新等待。`);
@@ -658,6 +736,8 @@
     nodes.trainingReviewPanel.classList.add('hidden');
     nodes.trainingStatusChip.textContent = '训练中';
     nodes.trainingMessageInput.disabled = false;
+    nodes.trainingImageInput.disabled = false;
+    nodes.trainingAddImageButton.disabled = false;
     nodes.trainingForceReplyButton.disabled = false;
     nodes.trainingSubmitButton.disabled = false;
     renderTrainingContext();
@@ -667,17 +747,81 @@
   async function sendTrainingMessage(event) {
     event?.preventDefault();
     const content = nodes.trainingMessageInput.value.trim();
-    if (!content || !state.training.sessionId || state.training.replyInFlight) return;
+    const images = [...state.training.pendingImages];
+    if ((!content && !images.length) || !state.training.sessionId || state.training.replyInFlight || state.training.messageSending) return;
+    if (state.training.uploadingImages > 0) {
+      alert('图片仍在上传，请上传完成后再发送。');
+      return;
+    }
 
-    nodes.trainingMessageInput.value = '';
-    const result = await api(`/api/training/sessions/${state.training.sessionId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    });
-    state.training.messages.push(normalizeTrainingMessage(result.message));
-    state.training.pendingTeacherCount += 1;
-    renderTrainingMessages();
-    scheduleParentReply(content);
+    state.training.messageSending = true;
+    try {
+      const result = await api(`/api/training/sessions/${state.training.sessionId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, imageIds: images.map((image) => image.id) }),
+      });
+      nodes.trainingMessageInput.value = '';
+      state.training.pendingImages = [];
+      state.training.messages.push(normalizeTrainingMessage(result.message));
+      state.training.pendingTeacherCount += 1;
+      renderPendingTrainingImages();
+      renderTrainingMessages();
+      scheduleParentReply(content, images.length);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      state.training.messageSending = false;
+    }
+  }
+
+  async function uploadTrainingImages(files) {
+    if (!state.training.sessionId || !files.length) return;
+    const sessionId = state.training.sessionId;
+    const runtimeKey = state.training.runtimeKey;
+    state.training.uploadingImages += files.length;
+    nodes.trainingAddImageButton.disabled = true;
+    renderPendingTrainingImages();
+    const uploaded = new Array(files.length);
+    const errors = [];
+    let nextIndex = 0;
+
+    async function uploadNext() {
+      while (
+        nextIndex < files.length &&
+        state.training.runtimeKey === runtimeKey &&
+        state.training.sessionId === sessionId
+      ) {
+        const index = nextIndex;
+        nextIndex += 1;
+        const formData = new FormData();
+        formData.set('image', files[index]);
+        try {
+          uploaded[index] = await uploadApi(`/api/training/sessions/${sessionId}/images`, formData);
+        } catch (error) {
+          errors.push(`${files[index].name}：${error.message}`);
+        } finally {
+          if (state.training.runtimeKey === runtimeKey && state.training.sessionId === sessionId) {
+            state.training.uploadingImages -= 1;
+            renderPendingTrainingImages();
+          }
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(3, files.length) }, () => uploadNext()));
+    if (state.training.runtimeKey !== runtimeKey || state.training.sessionId !== sessionId) {
+      await Promise.allSettled(
+        uploaded
+          .filter(Boolean)
+          .map((image) => api(`/api/training/sessions/${sessionId}/images/${image.id}`, { method: 'DELETE' }))
+      );
+      return;
+    }
+    state.training.pendingImages.push(...uploaded.filter(Boolean));
+    nodes.trainingImageInput.value = '';
+    nodes.trainingAddImageButton.disabled = false;
+    renderPendingTrainingImages();
+    if (errors.length) alert(errors.join('\n'));
   }
 
   async function requestParentReply() {
@@ -703,6 +847,8 @@
       if (result.status === 'COMPLETED') {
         completed = true;
         nodes.trainingMessageInput.disabled = true;
+        nodes.trainingImageInput.disabled = true;
+        nodes.trainingAddImageButton.disabled = true;
         nodes.trainingForceReplyButton.disabled = true;
         nodes.trainingSubmitButton.disabled = false;
       }
@@ -810,6 +956,14 @@
 
   async function endTrainingAndReview() {
     if (!state.training.sessionId || state.training.review) return;
+    if (state.training.uploadingImages > 0) {
+      alert('图片仍在上传，请上传完成后再提交训练。');
+      return;
+    }
+    if (state.training.pendingImages.length > 0) {
+      alert('还有未发送的图片，请先发送或移除后再提交训练。');
+      return;
+    }
     if (state.training.replyTimer) {
       window.clearTimeout(state.training.replyTimer);
       state.training.replyTimer = null;
@@ -820,6 +974,8 @@
     nodes.trainingEndButton.disabled = true;
     nodes.trainingSubmitButton.disabled = true;
     nodes.trainingMessageInput.disabled = true;
+    nodes.trainingImageInput.disabled = true;
+    nodes.trainingAddImageButton.disabled = true;
     nodes.trainingForceReplyButton.disabled = true;
     nodes.trainingStatusChip.textContent = '生成复盘中';
     let reviewCompleted = false;
@@ -914,6 +1070,10 @@
       nodes.trainingContextToggle.setAttribute('aria-expanded', String(!isCollapsed));
     });
     nodes.trainingMessageForm.addEventListener('submit', sendTrainingMessage);
+    nodes.trainingAddImageButton.addEventListener('click', () => nodes.trainingImageInput.click());
+    nodes.trainingImageInput.addEventListener('change', () => {
+      uploadTrainingImages(Array.from(nodes.trainingImageInput.files || []));
+    });
     nodes.trainingForceReplyButton.addEventListener('click', requestParentReply);
     nodes.trainingEndButton.addEventListener('click', endTrainingAndReview);
     nodes.trainingSubmitButton.addEventListener('click', endTrainingAndReview);

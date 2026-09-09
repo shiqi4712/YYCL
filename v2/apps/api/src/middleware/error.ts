@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import multer from 'multer'
 import { ZodError } from 'zod'
 import { HttpError } from '../utils/http-error'
 
@@ -41,6 +42,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   if (err instanceof ZodError) {
     return res.status(400).json({ code: 400, message: formatZodError(err) })
+  }
+
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? '单张图片不能超过 5MB' : err.message
+    return res.status(400).json({ code: 400, message })
   }
 
   if (err instanceof Error) {

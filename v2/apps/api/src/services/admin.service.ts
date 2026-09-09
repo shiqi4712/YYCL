@@ -4,6 +4,7 @@ import { normalizeSopText } from '../lib/document-parser'
 import { prisma } from '../lib/prisma'
 import type { AuthUser } from '../types'
 import { HttpError } from '../utils/http-error'
+import { deleteTrainingImagesForTeachers } from './training-image.service'
 
 const roleSchema = z.enum(['TRAINER', 'TEACHER'])
 const difficultySchema = z.enum(['BASIC', 'STANDARD', 'ADVANCED'])
@@ -647,9 +648,12 @@ export async function deleteUser(actor: AuthUser, userId: string) {
     }),
   ])
 
+  const deletedImageCount = await deleteTrainingImagesForTeachers([userId])
+
   return {
     id: userId,
     preservedTrainingRecords: user.sessions.length,
+    deletedImageCount,
   }
 }
 
@@ -701,9 +705,12 @@ export async function deleteUsers(actor: AuthUser, payload: unknown) {
     ),
   ])
 
+  const deletedImageCount = await deleteTrainingImagesForTeachers(userIds)
+
   return {
     deletedCount: users.length,
     preservedTrainingRecords: users.reduce((sum, user) => sum + user._count.sessions, 0),
+    deletedImageCount,
   }
 }
 

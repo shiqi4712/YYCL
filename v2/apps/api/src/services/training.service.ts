@@ -10,6 +10,7 @@ import { buildMockReply, detectResolved } from '../lib/mock-ai'
 import { prisma } from '../lib/prisma'
 import { getConfiguredConcurrentUserLimit } from './ai-config.service'
 import { getAppSettings } from './app-settings.service'
+import { mapTrainingImage } from './training-image.service'
 import { HttpError } from '../utils/http-error'
 
 const TRAINING_STATUS = {
@@ -25,6 +26,13 @@ const ACTIVE_TRAINING_WINDOW_MS = 30 * 60 * 1000
 
 function mapMessageRole(role: string) {
   return role === 'AI' ? 'ai' : 'teacher'
+}
+
+function messageContentForAi(message: { content: string; attachments?: unknown[] }) {
+  const attachmentEvidence = message.attachments?.length
+    ? `[系统确认已发送 +图片，共 ${message.attachments.length} 张]`
+    : ''
+  return [message.content.trim(), attachmentEvidence].filter(Boolean).join('\n')
 }
 
 function sleep(ms: number) {
@@ -193,6 +201,7 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
       },
       messages: {
         orderBy: { createdAt: 'asc' },
+        include: { attachments: { orderBy: { createdAt: 'asc' } } },
       },
       review: {
         include: {
@@ -386,6 +395,7 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
       content: message.content,
       stepOrder: message.stepOrder,
       createdAt: message.createdAt,
+      attachments: message.attachments.map(mapTrainingImage),
     })),
     review: session.review
       ? {
@@ -414,7 +424,11 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
   }
 }
 
-export async function sendTeacherMessage(sessionId: string, teacherId: string, content: string) {
+export async function sendTeacherMessage(
+  sessionId: string,
+  teacherId: string,
+  input: { content: string; imageIds: string[] }
+) {
   const session = await getOwnedSession(sessionId, teacherId)
 
   if (session.status !== TRAINING_STATUS.ACTIVE) {
@@ -429,20 +443,56 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
     throw new HttpError(500, '训练步骤异常')
   }
 
-  const [teacherMessage] = await prisma.$transaction([
-    prisma.sessionMessage.create({
+  const imageIds = Array.from(new Set(input.imageIds))
+  const images = imageIds.length
+    ? await prisma.trainingImage.findMany({
+        where: {
+          id: { in: imageIds },
+          teacherId,
+          sessionId,
+          messageId: null,
+          fileDeletedAt: null,
+        },
+        select: { id: true },
+      })
+    : []
+  if (images.length !== imageIds.length) {
+    throw new HttpError(400, '部分图片不存在、已过期或已经发送')
+  }
+
+  const teacherMessage = await prisma.$transaction(async (tx: any) => {
+    const message = await tx.sessionMessage.create({
       data: {
         sessionId,
         role: 'TEACHER',
-        content,
+        content: input.content.trim(),
         stepOrder: currentStep.order,
       },
-    }),
-    prisma.trainingSession.update({
+    })
+    if (imageIds.length) {
+      const attached = await tx.trainingImage.updateMany({
+        where: {
+          id: { in: imageIds },
+          teacherId,
+          sessionId,
+          messageId: null,
+          fileDeletedAt: null,
+        },
+        data: { messageId: message.id },
+      })
+      if (attached.count !== imageIds.length) {
+        throw new HttpError(409, '图片状态已经变化，请重新选择')
+      }
+    }
+    await tx.trainingSession.update({
       where: { id: sessionId },
       data: { updatedAt: new Date() },
-    }),
-  ])
+    })
+    return tx.sessionMessage.findUnique({
+      where: { id: message.id },
+      include: { attachments: { orderBy: { createdAt: 'asc' } } },
+    })
+  })
 
   return {
     message: {
@@ -451,6 +501,7 @@ export async function sendTeacherMessage(sessionId: string, teacherId: string, c
       content: teacherMessage.content,
       stepOrder: teacherMessage.stepOrder,
       createdAt: teacherMessage.createdAt,
+      attachments: teacherMessage.attachments.map(mapTrainingImage),
     },
     currentStepOrder: currentStep.order,
     status: session.status,
@@ -488,7 +539,7 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
       .filter((message: (typeof session.messages)[number]) => message.stepOrder === currentStep.order)
       .map((message: (typeof session.messages)[number]) => ({
         role: message.role,
-        content: message.content,
+        content: messageContentForAi(message),
         stepOrder: message.stepOrder,
       })),
   ]
@@ -526,10 +577,10 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
     scenarioDescription: session.scenario.description,
     parentPersona: session.scenario.parentPersona,
     history: [
-      ...session.messages.map((message: (typeof session.messages)[number]) => ({
-        role: message.role,
-        content: message.content,
-      })),
+    ...session.messages.map((message: (typeof session.messages)[number]) => ({
+      role: message.role,
+      content: messageContentForAi(message),
+    })),
     ],
     currentStepTitle: replyStep.title,
     currentObjection: replyStep.objectionText,
@@ -613,7 +664,7 @@ export async function generateReview(sessionId: string, teacherId: string) {
         })),
         messages: session.messages.map((message: (typeof session.messages)[number]) => ({
           role: message.role,
-          content: message.content,
+          content: messageContentForAi(message),
           stepOrder: message.stepOrder,
         })),
       })
@@ -673,10 +724,10 @@ export async function generateReview(sessionId: string, teacherId: string) {
     )
 
     const totalLength = messages.reduce(
-      (sum: number, message: (typeof messages)[number]) => sum + message.content.length,
+      (sum: number, message: (typeof messages)[number]) => sum + messageContentForAi(message).length,
       0
     )
-    const resolved = detectResolved(messages.map((message: (typeof messages)[number]) => message.content))
+    const resolved = detectResolved(messages.map((message: (typeof messages)[number]) => messageContentForAi(message)))
     const score = resolved ? Math.min(92, 72 + Math.round(totalLength / 12)) : 58
 
     return {
@@ -697,7 +748,9 @@ export async function generateReview(sessionId: string, teacherId: string) {
     }
   })
 
-  const dimensions = buildMockDimensions(teacherMessages.map((message: (typeof teacherMessages)[number]) => message.content))
+  const dimensions = buildMockDimensions(
+    teacherMessages.map((message: (typeof teacherMessages)[number]) => messageContentForAi(message))
+  )
   const overallScore = sumDimensions(dimensions)
 
   const resolvedCount = stepReviews.filter((step: (typeof stepReviews)[number]) => step.score >= 70).length

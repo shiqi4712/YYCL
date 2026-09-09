@@ -25,6 +25,7 @@ model User {
   createdScenarios TrainingScenario[] @relation("ScenarioCreator")
   createdObjections ObjectionItem[]    @relation("ObjectionCreator")
   sessions         TrainingSession[]
+  uploadedTrainingImages TrainingImage[]
   team             Team?                @relation(fields: [teamId], references: [id])
 
   @@index([teamId, role])
@@ -162,6 +163,7 @@ model TrainingSession {
   teacher  User             @relation(fields: [teacherId], references: [id])
   scenario TrainingScenario @relation(fields: [scenarioId], references: [id])
   messages SessionMessage[]
+  images   TrainingImage[]
   review   SessionReview?
 
   @@index([teacherId, status])
@@ -178,8 +180,32 @@ model SessionMessage {
   createdAt DateTime @default(now())
 
   session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  attachments TrainingImage[]
 
   @@map("session_messages")
+}
+
+model TrainingImage {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  teacherId     String    @db.VarChar(32)
+  sessionId     String    @db.VarChar(32)
+  messageId     String?   @db.VarChar(32)
+  originalName  String    @db.VarChar(191)
+  fileName      String    @unique @db.VarChar(191)
+  mimeType      String    @db.VarChar(64)
+  sizeBytes     Int
+  url           String    @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  fileDeletedAt DateTime?
+
+  teacher User             @relation(fields: [teacherId], references: [id])
+  session TrainingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  message SessionMessage?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([teacherId, fileDeletedAt])
+  @@index([createdAt, fileDeletedAt])
+  @@index([sessionId, messageId])
+  @@map("training_images")
 }
 
 model SessionReview {

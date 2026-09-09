@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理训练仓</title>
-    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260908-topic-pagination" />
+    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260909-training-images" />
   </head>
   <body>
     <div class="page-shell">
@@ -181,9 +181,12 @@
                   <textarea
                     id="trainingMessageInput"
                     rows="4"
-                    placeholder="输入老师回复。Enter 发送，Shift + Enter 换行；如需发送物料，可写 +物料 / +案例 / +图片 / +链接。"
+                    placeholder="输入老师回复。Enter 发送，Shift + Enter 换行。"
                   ></textarea>
+                  <input class="hidden" id="trainingImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple />
+                  <div class="pending-image-list hidden" id="trainingPendingImageList"></div>
                   <div class="composer-actions">
+                    <button class="secondary-btn" id="trainingAddImageButton" type="button">添加图片</button>
                     <button class="secondary-btn" id="trainingForceReplyButton" type="button">我说完了，让家长回复</button>
                     <button class="primary-btn" type="submit">发送</button>
                   </div>
@@ -209,6 +212,6 @@
       </main>
     </div>
 
-    <script src="/assets/teacher/app.js?v=20260908-topic-pagination"></script>
+    <script src="/assets/teacher/app.js?v=20260909-training-images"></script>
   </body>
 </html>

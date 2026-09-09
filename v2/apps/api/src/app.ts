@@ -11,6 +11,7 @@ import authRoutes from './routes/auth'
 import objectionRoutes from './routes/objections'
 import topicRoutes from './routes/topics'
 import trainingRoutes from './routes/training'
+import { startTrainingImageCleanup } from './services/training-image.service'
 import { ok } from './utils/api'
 
 const app = express()
@@ -54,6 +55,7 @@ app.use(errorHandler)
 
 initializeDatabase()
   .then(() => {
+    startTrainingImageCleanup()
     app.listen(env.port, () => {
       console.log(`${env.appName} listening on http://localhost:${env.port}`)
     })

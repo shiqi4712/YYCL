@@ -560,6 +560,38 @@ select:focus {
   line-height: 1.68;
 }
 
+.chat-attachments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chat-attachment {
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.chat-attachment img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.expired-chat-image {
+  display: grid;
+  min-height: 88px;
+  padding: 12px;
+  place-items: center;
+  color: var(--muted);
+  background: rgba(229, 231, 235, 0.72);
+  font-size: 12px;
+  text-align: center;
+}
+
 .parent-bubble {
   align-self: flex-start;
   background: #fff;
@@ -593,6 +625,55 @@ select:focus {
 .chat-composer textarea {
   min-height: 118px;
   resize: vertical;
+}
+
+.pending-image-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.pending-image-item {
+  position: relative;
+  overflow: hidden;
+  min-height: 92px;
+  border-radius: 12px;
+  background: #eef1f5;
+}
+
+.pending-image-item img {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+}
+
+.pending-image-item button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(17, 24, 39, 0.78);
+  font-size: 18px;
+}
+
+.pending-image-item small {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  overflow: hidden;
+  padding: 3px 5px;
+  border-radius: 6px;
+  color: #fff;
+  background: rgba(17, 24, 39, 0.68);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-actions {

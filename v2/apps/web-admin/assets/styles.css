@@ -42,12 +42,6 @@ p, h1, h2, h3 { margin: 0; }
 .auth-copy h1 { font-size: clamp(44px, 6vw, 76px); font-weight: 720; line-height: 1.02; letter-spacing: -.06em; }
 .auth-card, .form-stack { display: grid; gap: 18px; }
 .auth-card { padding: 28px; border-radius: 24px; background: rgba(255,255,255,.92); box-shadow: 0 22px 44px rgba(15,23,42,.08); }
-.internal-login-panel { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(10,132,255,.14); border-radius: 16px; background: rgba(10,132,255,.06); }
-.internal-login-panel strong { font-size: 16px; }
-.internal-login-panel p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
-.internal-login-panel .internal-login-status { margin: 0; color: var(--blue); }
-.auth-divider { display: flex; gap: 12px; align-items: center; color: var(--faint); font-size: 12px; }
-.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: rgba(17,24,39,.1); content: ''; }
 .auth-card h2, .section-head h2, .hero-card h2 { font-size: 28px; font-weight: 650; letter-spacing: -.04em; }
 label { display: grid; gap: 8px; color: var(--muted); font-size: 14px; }
 input, textarea, select { width: 100%; padding: 14px 16px; border: 1px solid rgba(209,213,219,.72); border-radius: var(--radius-md); color: var(--text); outline: none; background: #fff; transition: all 300ms ease-in-out; }

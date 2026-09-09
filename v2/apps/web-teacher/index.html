@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理训练仓</title>
-    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260908-internal-account" />
+    <link rel="stylesheet" href="/assets/teacher/styles.css?v=20260909-internal-account-user" />
   </head>
   <body>
     <div class="page-shell">
@@ -22,11 +22,11 @@
             <h2>账号登录</h2>
             <section class="internal-login-panel" aria-labelledby="teacherInternalLoginTitle">
               <div>
-                <strong id="teacherInternalLoginTitle">内部账号</strong>
-                <p>请在当前浏览器中完成内部账号登录，登录后回到本页面继续。</p>
+                <strong id="teacherInternalLoginTitle">内部账号登录</strong>
+                <p>内部账号登录后统一使用老师端。</p>
               </div>
-              <button class="secondary-btn" id="teacherInternalLoginButton" type="button">内部账号登录</button>
-              <p class="internal-login-status" id="teacherInternalLoginStatus" aria-live="polite">当前尚未确认内部账号登录。</p>
+              <button class="secondary-btn" id="teacherInternalLoginButton" type="button" disabled>确认中</button>
+              <p class="internal-login-status" id="teacherInternalLoginStatus" aria-live="polite">正在确认内部账号...</p>
             </section>
             <div class="auth-divider"><span>系统账号登录</span></div>
             <label>
@@ -218,6 +218,6 @@
       </main>
     </div>
 
-    <script src="/assets/teacher/app.js?v=20260908-internal-account"></script>
+    <script src="/assets/teacher/app.js?v=20260909-internal-account-user"></script>
   </body>
 </html>

@@ -1,6 +1,5 @@
 (function () {
   const storageKey = 'yycl_v2_admin_token';
-  const internalAccountLoginUrl = 'https://internal-account.codemao.cn/login';
   const scenes = [
     { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
@@ -51,8 +50,6 @@
     workspace: document.getElementById('adminWorkspace'),
     loginForm: document.getElementById('adminLoginForm'),
     loginStatus: document.getElementById('adminLoginStatus'),
-    internalLoginButton: document.getElementById('adminInternalLoginButton'),
-    internalLoginStatus: document.getElementById('adminInternalLoginStatus'),
     profileChip: document.getElementById('adminProfileChip'),
     moduleButtons: Array.from(document.querySelectorAll('[data-module]')),
     contentModule: document.getElementById('contentModule'),
@@ -151,20 +148,6 @@
       totalItems: items.length,
       start,
     };
-  }
-
-  function setupInternalAccountLogin() {
-    let waitingForReturn = false;
-    nodes.internalLoginButton.addEventListener('click', () => {
-      waitingForReturn = true;
-      nodes.internalLoginStatus.textContent = '内部账号登录页已打开，请完成登录后回到本页面。';
-      nodes.internalLoginButton.textContent = '重新打开内部账号登录';
-      window.open(internalAccountLoginUrl, '_blank', 'noopener,noreferrer');
-    });
-    window.addEventListener('focus', () => {
-      if (!waitingForReturn) return;
-      nodes.internalLoginStatus.textContent = '已返回本页面。如登录状态可能过期，可重新打开内部账号登录页。';
-    });
   }
 
   function networkErrorMessage() {
@@ -1238,7 +1221,6 @@
     renderModules();
   }
 
-  setupInternalAccountLogin();
   nodes.loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     nodes.loginStatus.textContent = '正在登录...';

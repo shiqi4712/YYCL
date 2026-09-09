@@ -1,6 +1,7 @@
 (function () {
   const storageKey = 'yycl_v2_teacher_token';
   const internalAccountLoginUrl = 'https://internal-account.codemao.cn/login';
+  const internalAccountInfoUrl = 'https://internal-account-api.codemao.cn/auth/info';
   const scenes = [
     { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
@@ -10,6 +11,8 @@
   const state = {
     token: localStorage.getItem(storageKey) || '',
     profile: null,
+    internalAccountUser: null,
+    internalAccountStatus: 'checking',
     view: 'portal',
     selectedScene: '',
     objections: [],
@@ -115,17 +118,73 @@
   }
 
   function setupInternalAccountLogin() {
-    let waitingForReturn = false;
     nodes.internalLoginButton.addEventListener('click', () => {
-      waitingForReturn = true;
-      nodes.internalLoginStatus.textContent = '内部账号登录页已打开，请完成登录后回到本页面。';
-      nodes.internalLoginButton.textContent = '重新打开内部账号登录';
-      window.open(internalAccountLoginUrl, '_blank', 'noopener,noreferrer');
+      if (state.internalAccountStatus === 'logged-out') {
+        window.location.assign(internalAccountLoginUrl);
+        return;
+      }
+      checkInternalAccount();
     });
-    window.addEventListener('focus', () => {
-      if (!waitingForReturn) return;
-      nodes.internalLoginStatus.textContent = '已返回本页面。如登录状态可能过期，可重新打开内部账号登录页。';
-    });
+  }
+
+  function renderInternalAccountStatus() {
+    const status = state.internalAccountStatus;
+    nodes.internalLoginButton.disabled = status === 'checking' || status === 'authenticated';
+
+    if (status === 'checking') {
+      nodes.internalLoginButton.textContent = '确认中';
+      nodes.internalLoginStatus.textContent = '正在确认内部账号...';
+      return;
+    }
+    if (status === 'authenticated') {
+      nodes.internalLoginButton.textContent = '已登录';
+      nodes.internalLoginStatus.textContent = `已识别老师：${state.internalAccountUser.fullname}`;
+      return;
+    }
+    if (status === 'logged-out') {
+      nodes.internalLoginButton.textContent = '去登录';
+      nodes.internalLoginStatus.textContent = '请先登录后继续';
+      return;
+    }
+
+    nodes.internalLoginButton.textContent = '重试';
+    nodes.internalLoginStatus.textContent = '暂时无法确认登录状态，请稍后重试';
+  }
+
+  async function checkInternalAccount() {
+    state.internalAccountStatus = 'checking';
+    state.internalAccountUser = null;
+    renderInternalAccountStatus();
+    console.info('Checking internal account login status', { endpoint: internalAccountInfoUrl });
+
+    try {
+      const response = await fetch(internalAccountInfoUrl, { credentials: 'include' });
+      console.info('Checked internal account login status', { status: response.status });
+
+      if (response.status === 401) {
+        state.internalAccountStatus = 'logged-out';
+        renderInternalAccountStatus();
+        return null;
+      }
+      if (!response.ok) {
+        throw new Error('internal_account_status_failed');
+      }
+
+      const payload = await response.json();
+      const fullname = String(payload.fullname || '').trim();
+      if (!fullname) {
+        throw new Error('internal_account_name_missing');
+      }
+
+      state.internalAccountUser = { fullname };
+      state.internalAccountStatus = 'authenticated';
+      renderInternalAccountStatus();
+      return state.internalAccountUser;
+    } catch (error) {
+      state.internalAccountStatus = 'error';
+      renderInternalAccountStatus();
+      return null;
+    }
   }
 
   function networkErrorMessage() {
@@ -914,6 +973,7 @@
 
   async function bootstrap() {
     setupInternalAccountLogin();
+    checkInternalAccount();
     nodes.loginForm.addEventListener('submit', handleLogin);
     nodes.logoutButton.addEventListener('click', () => {
       setToken('');

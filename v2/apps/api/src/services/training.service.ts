@@ -19,7 +19,6 @@ const TRAINING_STATUS = {
 } as const
 
 const AI_THINKING_DELAY_MS = 10_000
-const MIN_TEACHER_MESSAGES_TO_ADVANCE = 3
 const STRONG_RESOLUTION_SCORE = 82
 const ACCEPTABLE_RESOLUTION_SCORE = 72
 const ACTIVE_TRAINING_WINDOW_MS = 30 * 60 * 1000
@@ -496,33 +495,22 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
   const currentStepTeacherMessages = currentStepMessages
     .filter((message) => message.role === 'TEACHER')
     .map((message) => message.content)
-  const currentStepTeacherMessageCount = currentStepTeacherMessages.length
-  const evaluation =
-    currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_TO_ADVANCE
-      ? await evaluateObjectionResolved({
-          teamId: session.teacher.teamId,
-          scenarioTitle: session.scenario.title,
-          scenarioDescription: session.scenario.description,
-          sopContent: session.scenario.topic.sopContent,
-          parentPersona: session.scenario.parentPersona,
-          currentStepTitle: currentStep.title,
-          currentObjection: currentStep.objectionText,
-          evaluationFocus: currentStep.evaluationFocus,
-          teacherMessages: currentStepTeacherMessages,
-          messages: currentStepMessages,
-        })
-      : {
-          resolved: false,
-          canAdvance: false,
-          resolutionScore: 40,
-          emotionState: '防备',
-          reason: '当前沟通轮次还不够，家长需要继续围绕同一个顾虑沟通。',
-        }
+  const evaluation = await evaluateObjectionResolved({
+    teamId: session.teacher.teamId,
+    scenarioTitle: session.scenario.title,
+    scenarioDescription: session.scenario.description,
+    sopContent: session.scenario.topic.sopContent,
+    parentPersona: session.scenario.parentPersona,
+    currentStepTitle: currentStep.title,
+    currentObjection: currentStep.objectionText,
+    evaluationFocus: currentStep.evaluationFocus,
+    teacherMessages: currentStepTeacherMessages,
+    messages: currentStepMessages,
+  })
   const canAdvance =
-    currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_TO_ADVANCE &&
-    (evaluation.canAdvance ||
-      evaluation.resolutionScore >= STRONG_RESOLUTION_SCORE ||
-      (evaluation.resolved && evaluation.resolutionScore >= ACCEPTABLE_RESOLUTION_SCORE))
+    evaluation.canAdvance ||
+    evaluation.resolutionScore >= STRONG_RESOLUTION_SCORE ||
+    (evaluation.resolved && evaluation.resolutionScore >= ACCEPTABLE_RESOLUTION_SCORE)
   const nextStep = session.scenario.steps.find(
     (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
   )

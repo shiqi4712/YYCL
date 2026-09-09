@@ -199,6 +199,7 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
     'JSON 字段必须包含：resolved, canAdvance, resolutionScore, emotionState, reason。',
     'resolved 和 canAdvance 必须是 boolean；resolutionScore 为 0-100 整数；emotionState 只能是“防备”“犹豫”“松动”“接受”之一；reason 用一句中文说明判断原因。',
     'resolved=true 代表老师基本处理了当前顾虑；canAdvance=true 代表家长可以自然松动并进入下一个顾虑。',
+    '不要使用固定回合数作为判定条件。每次都根据截至当前的完整沟通内容判断：一次回复足够完整也可以解决，多轮沟通仍未触及根因则不能推进。',
     '判定要严格但不要机械：老师需要承接家长情绪、回应核心担心、给出具体到孩子的方案或证据，并提出合理下一步，才可以高分。',
     '如果老师已经连续多轮补充，内容足够具体，即使表达不完美也可以给 70-85 分；如果只是套话很流畅但没有解决根因，分数要低。',
     '如果老师只是表达理解、泛泛介绍课程价值、简单承诺效果、直接催报名、只反问家长，或者没有针对当前异议的根因，就必须 resolved=false。',

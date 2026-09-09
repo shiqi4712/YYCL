@@ -50,6 +50,7 @@ interface DeepSeekResolutionInput {
   currentStepTitle: string
   currentObjection: string
   evaluationFocus: string
+  isFinalStep: boolean
   teacherMessages: string[]
   messages: Array<{
     role: string
@@ -129,7 +130,7 @@ function buildParentPrompt(input: AiReplyInput) {
     transition:
       '当前对话阶段：自然转入新的顾虑。上一件事已经让你稍微放心，简短承接后，自然说出下方当前顾虑，不要提到步骤、切换或异议是否解决。',
     close:
-      '当前对话阶段：自然收尾。当前顾虑已经缓解，不再制造新问题；像真实家长一样表示理解、确认下一步或结束本次交流。',
+      '当前对话阶段：成交收尾。你已经根据老师的完整沟通决定购买或报名，不再制造新问题。请像真实家长一样明确表达报名或购买决定，并自然询问付款、名额或后续报名安排；不能只说“考虑一下”“之后再看”或含糊地问下一步。',
   }
 
   return [
@@ -196,9 +197,11 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
   return [
     '请判断少儿编程体验课转化训练中，老师是否已经把当前这个家长异议处理到可以自然进入下一个异议。',
     '只输出 JSON，不要 Markdown，不要解释。',
-    'JSON 字段必须包含：resolved, canAdvance, resolutionScore, emotionState, reason。',
-    'resolved 和 canAdvance 必须是 boolean；resolutionScore 为 0-100 整数；emotionState 只能是“防备”“犹豫”“松动”“接受”之一；reason 用一句中文说明判断原因。',
+    'JSON 字段必须包含：resolved, canAdvance, purchaseDecision, resolutionScore, emotionState, reason。',
+    'resolved、canAdvance 和 purchaseDecision 必须是 boolean；resolutionScore 为 0-100 整数；emotionState 只能是“防备”“犹豫”“松动”“接受”之一；reason 用一句中文说明判断原因。',
     'resolved=true 代表老师基本处理了当前顾虑；canAdvance=true 代表家长可以自然松动并进入下一个顾虑。',
+    'purchaseDecision=true 代表家长已经愿意明确报名或购买，而不是只愿意继续了解、体验、考虑或等待。当前不是最后一个异议时，purchaseDecision 必须为 false。',
+    '如果当前是最后一个异议，只有老师已提出明确的报名、购买、付款、锁定名额等成交动作，并且完整沟通足以让家长作出购买决定时，purchaseDecision 和 canAdvance 才能为 true。',
     '不要使用固定回合数作为判定条件。每次都根据截至当前的完整沟通内容判断：一次回复足够完整也可以解决，多轮沟通仍未触及根因则不能推进。',
     '判定要严格但不要机械：老师需要承接家长情绪、回应核心担心、给出具体到孩子的方案或证据，并提出合理下一步，才可以高分。',
     '如果老师已经连续多轮补充，内容足够具体，即使表达不完美也可以给 70-85 分；如果只是套话很流畅但没有解决根因，分数要低。',
@@ -215,6 +218,7 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
     `当前异议标题：${input.currentStepTitle}`,
     `当前异议内容：${input.currentObjection}`,
     `点评关注点：${input.evaluationFocus}`,
+    `是否最后一个异议：${input.isFinalStep ? '是；需要判断家长是否愿意购买' : '否；只判断是否可以进入下一个异议'}`,
     `当前异议下老师全部回复：${JSON.stringify(input.teacherMessages)}`,
     `当前异议完整对话：${JSON.stringify(input.messages)}`,
   ].join('\n')
@@ -274,6 +278,7 @@ export async function evaluateAiResolution(input: DeepSeekResolutionInput) {
   return {
     resolved: parsed.resolved === true,
     canAdvance: parsed.canAdvance === true,
+    purchaseDecision: parsed.purchaseDecision === true,
     resolutionScore: normalizedScore,
     emotionState,
     reason: typeof parsed.reason === 'string' ? parsed.reason : '',

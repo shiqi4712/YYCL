@@ -163,6 +163,7 @@ async function evaluateObjectionResolved(input: {
   currentStepTitle: string
   currentObjection: string
   evaluationFocus: string
+  isFinalStep: boolean
   teacherMessages: string[]
   messages: Array<{
     role: string
@@ -178,10 +179,14 @@ async function evaluateObjectionResolved(input: {
     }
   }
 
+  const teacherText = input.teacherMessages.join('\n')
+  const hasPurchaseClose = /报名|购买|付款|付费|缴费|交费|下单|锁定名额|定下来/.test(teacherText)
   const resolved = detectResolved(input.teacherMessages)
+  const purchaseDecision = input.isFinalStep && resolved && hasPurchaseClose
   return {
     resolved,
-    canAdvance: resolved,
+    canAdvance: input.isFinalStep ? purchaseDecision : resolved,
+    purchaseDecision,
     resolutionScore: resolved ? 82 : 48,
     emotionState: resolved ? '松动' : '犹豫',
     reason: resolved ? '老师已经覆盖核心顾虑、证据和下一步。' : '老师还需要更具体地回应当前顾虑。',
@@ -546,6 +551,9 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
   const currentStepTeacherMessages = currentStepMessages
     .filter((message) => message.role === 'TEACHER')
     .map((message) => message.content)
+  const nextStep = session.scenario.steps.find(
+    (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
+  )
   const evaluation = await evaluateObjectionResolved({
     teamId: session.teacher.teamId,
     scenarioTitle: session.scenario.title,
@@ -555,18 +563,19 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
     currentStepTitle: currentStep.title,
     currentObjection: currentStep.objectionText,
     evaluationFocus: currentStep.evaluationFocus,
+    isFinalStep: !nextStep,
     teacherMessages: currentStepTeacherMessages,
     messages: currentStepMessages,
   })
-  const canAdvance =
+  const resolutionThresholdReached =
     evaluation.canAdvance ||
     evaluation.resolutionScore >= STRONG_RESOLUTION_SCORE ||
     (evaluation.resolved && evaluation.resolutionScore >= ACCEPTABLE_RESOLUTION_SCORE)
-  const nextStep = session.scenario.steps.find(
-    (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
-  )
+  const canAdvance = nextStep
+    ? resolutionThresholdReached
+    : evaluation.purchaseDecision === true && evaluation.canAdvance && evaluation.resolved
 
-  const allObjectionsResolved = canAdvance && !nextStep
+  const purchaseConfirmed = canAdvance && !nextStep
   const nextStepOrder = canAdvance && nextStep ? nextStep.order : currentStep.order
   const replyPhase: ParentReplyPhase = canAdvance ? (nextStep ? 'transition' : 'close') : 'continue'
   const replyStep = canAdvance && nextStep ? nextStep : currentStep
@@ -614,7 +623,8 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
     },
     currentStepOrder: nextStepOrder,
     status: TRAINING_STATUS.ACTIVE,
-    allObjectionsResolved,
+    allObjectionsResolved: purchaseConfirmed,
+    purchaseConfirmed,
   }
 }
 

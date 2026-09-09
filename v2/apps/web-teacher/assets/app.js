@@ -60,6 +60,7 @@
       ],
     },
   ];
+  const DRAFT_IDLE_REPLY_DELAY_MS = 12_000;
 
   const state = {
     token: localStorage.getItem(storageKey) || '',
@@ -78,6 +79,7 @@
       replyDueAt: 0,
       replyInFlight: false,
       messageSending: false,
+      sendQueuedAfterReply: false,
       pendingImages: [],
       uploadingImages: 0,
       runtimeKey: 0,
@@ -128,6 +130,7 @@
     trainingPendingImageList: document.getElementById('trainingPendingImageList'),
     trainingAddImageButton: document.getElementById('trainingAddImageButton'),
     trainingForceReplyButton: document.getElementById('trainingForceReplyButton'),
+    trainingSendButton: document.getElementById('trainingSendButton'),
     trainingSubmitButton: document.getElementById('trainingSubmitButton'),
     trainingReviewPanel: document.getElementById('trainingReviewPanel'),
     trainingReviewScore: document.getElementById('trainingReviewScore'),
@@ -493,6 +496,7 @@
     state.training.replyDueAt = 0;
     state.training.replyInFlight = false;
     state.training.messageSending = false;
+    state.training.sendQueuedAfterReply = false;
     state.training.pendingImages = [];
     state.training.uploadingImages = 0;
     state.training.runtimeKey += 1;
@@ -501,6 +505,10 @@
       nodes.trainingMessageInput.value = '';
     }
     if (nodes.trainingImageInput) nodes.trainingImageInput.value = '';
+    if (nodes.trainingSendButton) {
+      nodes.trainingSendButton.disabled = false;
+      nodes.trainingSendButton.textContent = '发送';
+    }
     renderPendingTrainingImages();
     nodes.trainingContextPanel.classList.add('mobile-collapsed');
     nodes.trainingContextToggle.textContent = '查看训练参考';
@@ -802,6 +810,27 @@
     }, delay);
   }
 
+  function deferParentReplyWhileTyping() {
+    if (
+      !state.training.sessionId ||
+      state.training.pendingTeacherCount === 0 ||
+      state.training.replyInFlight ||
+      state.training.messageSending ||
+      state.training.sendQueuedAfterReply
+    ) {
+      return;
+    }
+
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+    }
+    state.training.replyDueAt = Date.now() + DRAFT_IDLE_REPLY_DELAY_MS;
+    setReplyWait('检测到你还在输入，家长会继续等待。');
+    state.training.replyTimer = window.setTimeout(() => {
+      requestParentReply();
+    }, DRAFT_IDLE_REPLY_DELAY_MS);
+  }
+
   async function startTrainingScenario(scenarioId) {
     const scenario = flattenTrainingScenarios().find((item) => item.id === scenarioId);
     if (!scenario) return;
@@ -842,13 +871,33 @@
     event?.preventDefault();
     const content = nodes.trainingMessageInput.value.trim();
     const images = [...state.training.pendingImages];
-    if ((!content && !images.length) || !state.training.sessionId || state.training.replyInFlight || state.training.messageSending) return;
+    if ((!content && !images.length) || !state.training.sessionId) return;
     if (state.training.uploadingImages > 0) {
       alert('图片仍在上传，请上传完成后再发送。');
       return;
     }
+    if (state.training.replyInFlight) {
+      state.training.sendQueuedAfterReply = true;
+      nodes.trainingSendButton.disabled = true;
+      nodes.trainingSendButton.textContent = '待发送';
+      setReplyWait('家长正在回复，这条消息将在回复后自动发送。');
+      return;
+    }
+    if (state.training.messageSending) {
+      setReplyWait('老师消息正在发送，请稍候。');
+      return;
+    }
+
+    if (state.training.replyTimer) {
+      window.clearTimeout(state.training.replyTimer);
+      state.training.replyTimer = null;
+    }
 
     state.training.messageSending = true;
+    nodes.trainingSendButton.disabled = true;
+    nodes.trainingSendButton.textContent = '发送中';
+    setReplyWait('老师消息正在发送...');
+    let sent = false;
     try {
       const result = await api(`/api/training/sessions/${state.training.sessionId}/messages`, {
         method: 'POST',
@@ -861,10 +910,16 @@
       renderPendingTrainingImages();
       renderTrainingMessages();
       scheduleParentReply(content, images.length);
+      sent = true;
     } catch (error) {
       alert(error.message);
     } finally {
       state.training.messageSending = false;
+      nodes.trainingSendButton.disabled = false;
+      nodes.trainingSendButton.textContent = '发送';
+      if (!sent && state.training.pendingTeacherCount > 0 && !state.training.replyInFlight) {
+        scheduleParentReply('', 0);
+      }
     }
   }
 
@@ -874,6 +929,9 @@
     const runtimeKey = state.training.runtimeKey;
     state.training.uploadingImages += files.length;
     nodes.trainingAddImageButton.disabled = true;
+    if (state.training.pendingTeacherCount > 0 && !state.training.replyInFlight) {
+      scheduleParentReply('', files.length);
+    }
     renderPendingTrainingImages();
     const uploaded = new Array(files.length);
     const errors = [];
@@ -920,6 +978,10 @@
 
   async function requestParentReply() {
     if (!state.training.sessionId || state.training.replyInFlight || state.training.pendingTeacherCount === 0) return;
+    if (state.training.messageSending || state.training.uploadingImages > 0) {
+      scheduleParentReply('', 0);
+      return;
+    }
     if (state.training.replyTimer) {
       window.clearTimeout(state.training.replyTimer);
       state.training.replyTimer = null;
@@ -952,6 +1014,15 @@
       state.training.replyInFlight = false;
       nodes.trainingForceReplyButton.disabled = completed;
       setReplyWait('');
+      const shouldSendQueuedMessage = state.training.sendQueuedAfterReply;
+      state.training.sendQueuedAfterReply = false;
+      nodes.trainingSendButton.disabled = completed;
+      nodes.trainingSendButton.textContent = '发送';
+      if (shouldSendQueuedMessage && !completed) {
+        window.setTimeout(() => sendTrainingMessage(), 0);
+      } else if (shouldSendQueuedMessage) {
+        alert('当前异议已经完成，这条补充内容未发送。你可以提交训练并查看复盘。');
+      }
     }
   }
 
@@ -1177,6 +1248,7 @@
         sendTrainingMessage(event);
       }
     });
+    nodes.trainingMessageInput.addEventListener('input', deferParentReplyWhileTyping);
     nodes.searchInput.addEventListener('input', () => {
       window.clearTimeout(nodes.searchInput.timer);
       nodes.searchInput.timer = window.setTimeout(loadObjections, 220);

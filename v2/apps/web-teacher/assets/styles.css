@@ -910,7 +910,9 @@ select:focus {
 .training-view .training-context {
   position: sticky;
   top: 112px;
+  max-height: calc(100dvh - 132px);
   padding: 20px;
+  overflow-y: auto;
 }
 
 .training-context-actions {
@@ -936,6 +938,120 @@ select:focus {
 
 .training-view .context-card {
   padding: 14px;
+}
+
+.training-criteria {
+  grid-column: 1 / -1;
+  padding-top: 16px;
+  border-top: 1px solid var(--training-line);
+}
+
+.training-criteria-head,
+.training-criterion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.training-criteria-head h3 {
+  margin-top: 3px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.training-criteria-head > strong {
+  flex: 0 0 auto;
+  color: var(--training-accent-dark);
+  font-size: 14px;
+}
+
+.training-criteria-intro {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.training-criteria-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.training-criterion {
+  padding: 13px 0;
+  border-top: 1px solid rgba(228, 232, 239, 0.82);
+}
+
+.training-criterion-head {
+  justify-content: flex-start;
+}
+
+.training-criterion-head > span {
+  color: var(--training-accent-dark);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.training-criterion-head > strong {
+  color: var(--training-ink);
+  font-size: 15px;
+}
+
+.training-criterion-head > small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.training-criterion > p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.training-criterion > .criterion-hard-rule {
+  padding-left: 9px;
+  border-left: 2px solid var(--training-accent);
+  color: var(--training-accent-dark);
+  font-weight: 650;
+}
+
+.criterion-bands {
+  margin-top: 9px;
+}
+
+.criterion-bands summary {
+  width: fit-content;
+  color: var(--training-accent-dark);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.criterion-bands ul {
+  display: grid;
+  gap: 7px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.criterion-bands li {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.criterion-bands li strong {
+  color: var(--training-ink);
 }
 
 .training-view .training-dialog {
@@ -1245,6 +1361,8 @@ select:focus {
 
   .training-view .training-context {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .training-view .context-list {

@@ -5,6 +5,61 @@
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
     { id: 'close', title: '结转促单', desc: '结转报名阶段，重点处理价格、犹豫、对比、决策人和付款节奏。', tone: '给证据，给下一步' },
   ];
+  const trainingScoringCriteria = [
+    {
+      title: '共情',
+      fullMark: '回应家长的具体顾虑，给到情绪价值，并降低家长的压力。',
+      bands: [
+        ['0-5', '没有共情，或直接否定家长。'],
+        ['6-10', '只有泛泛的“理解”“正常”。'],
+        ['11-15', '回应了家长的具体顾虑。'],
+        ['16-20', '给到情绪价值，并有效降低压力。'],
+      ],
+    },
+    {
+      title: '建立标准',
+      fullMark: '给出具体、可观察的判断标准，并连接当前异议和家长决策。',
+      bands: [
+        ['0-5', '没有标准，只强调课程好。'],
+        ['6-10', '提出了标准，但比较模糊。'],
+        ['11-15', '给出了清晰、可观察的标准。'],
+        ['16-20', '标准具体可观察，并连接异议和决策。'],
+      ],
+    },
+    {
+      title: '赋能',
+      fullMark: '解释具体的编程价值，并发送物料、资料、图片、链接或作品。',
+      hardRule: '没有发送相关物料，最高 15 分。',
+      bands: [
+        ['0-5', '没有进行赋能。'],
+        ['6-10', '泛泛讲编程价值，且没有物料。'],
+        ['11-15', '有具体价值解释，但没有物料。'],
+        ['16-20', '解释具体价值，并发送了相关物料。'],
+      ],
+    },
+    {
+      title: '给案例',
+      fullMark: '提供具体案例，并用案例、物料、图片或作品作为证据。',
+      hardRule: '没有发送案例证据，最高 15 分。',
+      bands: [
+        ['0-5', '没有提供案例。'],
+        ['6-10', '只有“很多孩子”一类泛泛表达。'],
+        ['11-15', '有具体的案例结构。'],
+        ['16-20', '案例具体，并发送了相关证据。'],
+      ],
+    },
+    {
+      title: '缔结',
+      fullMark: '低压力但明确地确认报名、约时间、要单或推进付款。',
+      hardRule: '没有清晰的下一步，最高 10 分。',
+      bands: [
+        ['0-5', '没有提出下一步。'],
+        ['6-10', '只有“考虑一下”一类弱提醒。'],
+        ['11-15', '提出了清晰的下一步。'],
+        ['16-20', '低压力且明确地推进成交。'],
+      ],
+    },
+  ];
 
   const state = {
     token: localStorage.getItem(storageKey) || '',
@@ -448,7 +503,7 @@
     if (nodes.trainingImageInput) nodes.trainingImageInput.value = '';
     renderPendingTrainingImages();
     nodes.trainingContextPanel.classList.add('mobile-collapsed');
-    nodes.trainingContextToggle.textContent = '查看训练信息';
+    nodes.trainingContextToggle.textContent = '查看训练参考';
     nodes.trainingContextToggle.setAttribute('aria-expanded', 'false');
   }
 
@@ -589,6 +644,45 @@
         <p class="eyebrow">异议场景</p>
         <p>${escapeHtml(scenario.description || '管理员暂未填写场景说明。')}</p>
       </article>
+      <section class="training-criteria" aria-labelledby="trainingCriteriaTitle">
+        <div class="training-criteria-head">
+          <div>
+            <p class="eyebrow">Scoring Guide</p>
+            <h3 id="trainingCriteriaTitle">训练评分标准</h3>
+          </div>
+          <strong>100 分</strong>
+        </div>
+        <p class="training-criteria-intro">五项各 20 分，按完整对话综合评估。此处仅展示标准，不展示本次训练得分。</p>
+        <ol class="training-criteria-list">
+          ${trainingScoringCriteria
+            .map(
+              (criterion, index) => `
+                <li class="training-criterion">
+                  <div class="training-criterion-head">
+                    <span>${String(index + 1).padStart(2, '0')}</span>
+                    <strong>${escapeHtml(criterion.title)}</strong>
+                    <small>20 分</small>
+                  </div>
+                  <p>${escapeHtml(criterion.fullMark)}</p>
+                  ${criterion.hardRule ? `<p class="criterion-hard-rule">${escapeHtml(criterion.hardRule)}</p>` : ''}
+                  <details class="criterion-bands">
+                    <summary>查看分档标准</summary>
+                    <ul>
+                      ${criterion.bands
+                        .map(
+                          ([range, description]) => `
+                            <li><strong>${escapeHtml(range)}</strong><span>${escapeHtml(description)}</span></li>
+                          `
+                        )
+                        .join('')}
+                    </ul>
+                  </details>
+                </li>
+              `
+            )
+            .join('')}
+        </ol>
+      </section>
     `;
   }
 
@@ -1066,7 +1160,7 @@
     });
     nodes.trainingContextToggle.addEventListener('click', () => {
       const isCollapsed = nodes.trainingContextPanel.classList.toggle('mobile-collapsed');
-      nodes.trainingContextToggle.textContent = isCollapsed ? '查看训练信息' : '收起训练信息';
+      nodes.trainingContextToggle.textContent = isCollapsed ? '查看训练参考' : '收起训练参考';
       nodes.trainingContextToggle.setAttribute('aria-expanded', String(!isCollapsed));
     });
     nodes.trainingMessageForm.addEventListener('submit', sendTrainingMessage);

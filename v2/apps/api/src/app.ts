@@ -18,19 +18,7 @@ const teacherAppDir = path.resolve(__dirname, '../../web-teacher')
 const adminAppDir = path.resolve(__dirname, '../../web-admin')
 const uploadDir = path.resolve(__dirname, '../uploads')
 
-app.set('trust proxy', 1)
-app.use(
-  cors({
-    credentials: true,
-    origin(origin, callback) {
-      if (!origin || env.corsOrigins.includes(origin)) {
-        callback(null, true)
-        return
-      }
-      callback(null, false)
-    },
-  })
-)
+app.use(cors())
 app.use(express.json())
 
 app.get('/health', (_req, res) => {

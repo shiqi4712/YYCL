@@ -9,50 +9,22 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(cuid()) @db.VarChar(32)
-  username          String   @unique @db.VarChar(191)
-  passwordHash      String   @db.VarChar(191)
-  role              String   @db.VarChar(32)
-  displayName       String?  @db.VarChar(191)
-  authProvider      String   @default("LOCAL") @db.VarChar(32)
-  internalAccountId String?  @unique @db.VarChar(64)
-  isActive          Boolean  @default(true)
-  deletedAt         DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id           String   @id @default(cuid()) @db.VarChar(32)
+  username     String   @unique @db.VarChar(191)
+  passwordHash String   @db.VarChar(191)
+  role         String   @db.VarChar(32)
+  displayName  String?  @db.VarChar(191)
+  isActive     Boolean  @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   createdTopics    TrainingTopic[]    @relation("TopicCreator")
   createdScenarios TrainingScenario[] @relation("ScenarioCreator")
   createdObjections ObjectionItem[]    @relation("ObjectionCreator")
   sessions         TrainingSession[]
-  authSessions     AuthSession[]
 
   @@map("users")
-}
-
-model AuthSession {
-  id        String   @id @db.VarChar(64)
-  userId    String   @db.VarChar(32)
-  csrfToken String   @db.VarChar(64)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("auth_sessions")
-}
-
-model InternalLoginAttempt {
-  stateHash String    @id @db.VarChar(64)
-  returnTo  String    @db.VarChar(500)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([expiresAt])
-  @@map("internal_login_attempts")
 }
 
 model AiConfig {

@@ -104,44 +104,6 @@ JWT_SECRET="replace-with-a-strong-secret"
 PORT="3101"
 APP_NAME="YYCL V2 API"
 DATABASE_URL="mysql://yycl_user:强密码@127.0.0.1:3306/yycl?connection_limit=5&pool_timeout=20"
-PUBLIC_URL="https://yycl.bcmty.cn"
-CORS_ORIGINS="https://yycl.bcmty.cn"
-AUTH_SESSION_HOURS="12"
-```
-
-## 内部账号登录
-
-老师端采用“内部账号授权码 -> YYCL 后端确认身份 -> YYCL 本站会话”的流程，管理员继续使用管理后台的系统账号。内部账号首次登录会按稳定用户 ID 自动创建老师档案，后续训练成绩仍归入同一档案；同名老师不会互相覆盖。
-
-请向内部账号服务维护方确认并填写：
-
-```bash
-INTERNAL_ACCOUNT_APP_ID="由内部账号服务提供"
-INTERNAL_ACCOUNT_LOGIN_URL_TEMPLATE="由服务方提供；必须包含 {callbackUrl}、{state}，并支持按需使用 {appId}"
-INTERNAL_ACCOUNT_CALLBACK_URL="https://yycl.bcmty.cn/api/auth/internal/callback"
-INTERNAL_ACCOUNT_CODE_PARAM="回调中的授权码参数名"
-INTERNAL_ACCOUNT_STATE_PARAM="回调中的 state 参数名"
-INTERNAL_ACCOUNT_CREDENTIAL_JSON_PATH="兑换响应中的凭证字段路径，例如 data.token"
-INTERNAL_ACCOUNT_CREDENTIAL_HEADER="请求用户信息时使用的凭证请求头"
-INTERNAL_ACCOUNT_CREDENTIAL_PREFIX="凭证前缀；没有则留空"
-```
-
-同时在内部账号应用后台把 `https://yycl.bcmty.cn/api/auth/internal/callback` 加入回调白名单。上述协议值缺失时，系统账号登录仍可使用，内部账号入口会提示尚未配置。
-
-本站会话保存在 MySQL 的 `auth_sessions` 表，有效期由 `AUTH_SESSION_HOURS` 控制，默认 12 小时且不会无限自动续期。老师端写请求使用 CSRF 校验，内部账号凭证不会保存到浏览器存储。
-
-生产环境建议关闭 Nginx 对登录回调查询参数的访问日志，避免授权码进入访问日志：
-
-```nginx
-location = /api/auth/internal/callback {
-  access_log off;
-  proxy_pass http://127.0.0.1:3101;
-  proxy_http_version 1.1;
-  proxy_set_header Host $host;
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-}
 ```
 
 AI 家长模拟不再通过后端 `.env` 固定配置。部署完成后，请登录管理后台，在“AI 模型配置”中选择 DeepSeek、Kimi、OpenAI、通义千问、智谱 GLM、豆包或其他兼容服务，并保存 API Key、Base URL、模型名称、思考模式和同时训练人数（1-30 人）；未启用模型或接口异常时，系统会自动回退到本地模拟家长，避免训练中断。

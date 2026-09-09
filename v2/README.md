@@ -48,10 +48,6 @@ npm run dev
 ## 已落地的接口
 
 - `POST /api/auth/login`
-- `GET /api/auth/internal/start`
-- `GET /api/auth/internal/callback`
-- `GET /api/auth/internal/session`
-- `POST /api/auth/logout`
 - `GET /api/topics`
 - `POST /api/training/sessions`
 - `GET /api/training/sessions`

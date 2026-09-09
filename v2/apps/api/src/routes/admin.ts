@@ -402,17 +402,17 @@ router.get('/dashboard', requireRole('TRAINER'), async (req: AuthedRequest, res,
   }
 })
 
-router.get('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
+router.get('/ai-config', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await getAiConfigForAdmin(req.query.provider)))
+    res.json(ok(await getAiConfigForAdmin(req.user!, req.query.provider, req.query.teamId)))
   } catch (error) {
     next(error)
   }
 })
 
-router.put('/ai-config', requireRole('TRAINER'), async (req, res, next) => {
+router.put('/ai-config', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await updateAiConfigForAdmin(req.body)))
+    res.json(ok(await updateAiConfigForAdmin(req.user!, req.body)))
   } catch (error) {
     next(error)
   }
@@ -434,9 +434,9 @@ router.put('/app-settings', requireRole('TRAINER'), async (req, res, next) => {
   }
 })
 
-router.post('/ai-config/test', requireRole('TRAINER'), async (req, res, next) => {
+router.post('/ai-config/test', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await testAiConfigForAdmin(req.body?.provider)))
+    res.json(ok(await testAiConfigForAdmin(req.user!, req.body?.provider, req.body?.teamId)))
   } catch (error) {
     next(error)
   }

@@ -101,6 +101,8 @@
     downloadTeacherTemplateButton: document.getElementById('adminDownloadTeacherTemplateButton'),
     aiMetrics: document.getElementById('adminAiMetrics'),
     aiConfigForm: document.getElementById('adminAiConfigForm'),
+    aiTeamField: document.getElementById('adminAiTeamField'),
+    aiTeamSelect: document.getElementById('adminAiTeamSelect'),
     aiConfigStatus: document.getElementById('adminAiConfigStatus'),
     aiConfigSaveStatus: document.getElementById('adminAiConfigSaveStatus'),
     aiConfigTestButton: document.getElementById('adminAiConfigTestButton'),
@@ -525,6 +527,8 @@
   function renderAiConfig() {
     const config = state.aiConfig || {
       provider: 'deepseek',
+      teamId: nodes.aiTeamSelect.value || null,
+      teamName: state.profile?.teamName || null,
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-v4-flash',
       thinking: 'disabled',
@@ -545,7 +549,11 @@
 
     nodes.aiMetrics.innerHTML = [
       ['运行状态', isReady ? '启用中' : '未启用', isReady ? '训练会调用当前 AI 模型' : '训练暂不请求大模型'],
-      ['服务商', aiProviderLabels[config.provider] || '其他兼容接口', config.model || '请填写模型名称'],
+      [
+        '服务商',
+        aiProviderLabels[config.provider] || '其他兼容接口',
+        `${config.teamName || '未选择团队'} · ${config.model || '请填写模型名称'}`,
+      ],
       ['同时训练', `${config.maxConcurrentUsers || 10} 人`, '管理员配置的同时训练人数上限，最多 30 人'],
     ]
       .map(
@@ -557,6 +565,7 @@
 
     nodes.aiConfigForm.elements.isEnabled.checked = Boolean(config.isEnabled);
     nodes.aiConfigForm.elements.provider.value = config.provider || 'deepseek';
+    if (config.teamId) nodes.aiTeamSelect.value = config.teamId;
     nodes.aiConfigForm.elements.apiKey.value = '';
     nodes.aiConfigForm.elements.baseUrl.value = config.baseUrl || '';
     nodes.aiConfigForm.elements.model.value = config.model || '';
@@ -985,6 +994,18 @@
       : '<option value="">请先创建团队</option>';
     nodes.accountTeamSelect.disabled = !isSuperAdmin;
     nodes.accountTeamField.querySelector('span').textContent = isSuperAdmin ? '所属团队' : '当前团队';
+    const previousAiTeamId = nodes.aiTeamSelect.value;
+    nodes.aiTeamSelect.innerHTML = state.teams.length
+      ? state.teams
+          .filter((team) => team.isActive)
+          .map((team) => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`)
+          .join('')
+      : '<option value="">请先创建团队</option>';
+    if (state.teams.some((team) => team.id === previousAiTeamId)) {
+      nodes.aiTeamSelect.value = previousAiTeamId;
+    }
+    nodes.aiTeamSelect.disabled = !isSuperAdmin;
+    nodes.aiTeamField.querySelector('span').textContent = isSuperAdmin ? '配置团队' : '当前团队';
     nodes.teacherImportHelp.textContent = isSuperAdmin
       ? '请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码,团队。团队名称需与已配置团队一致。'
       : `请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码,团队。团队列统一填写“${state.profile?.teamName || ''}”。`;
@@ -1201,7 +1222,11 @@
   }
 
   async function loadAiConfig(provider) {
-    const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
+    const params = new URLSearchParams();
+    if (provider) params.set('provider', provider);
+    const teamId = nodes.aiTeamSelect.value || state.profile?.teamId || '';
+    if (teamId) params.set('teamId', teamId);
+    const query = params.toString() ? `?${params.toString()}` : '';
     state.aiConfig = await api(`/api/admin/ai-config${query}`);
     renderAiConfig();
   }
@@ -1528,6 +1553,7 @@
         method: 'PUT',
         body: JSON.stringify({
           isEnabled: Boolean(formData.get('isEnabled')),
+          teamId: String(formData.get('teamId') || nodes.aiTeamSelect.value || ''),
           provider: String(formData.get('provider') || 'deepseek'),
           apiKey: String(formData.get('apiKey') || '').trim(),
           baseUrl: String(formData.get('baseUrl') || '').trim(),
@@ -1542,7 +1568,7 @@
         nodes.aiConfigSaveStatus.textContent = '配置已保存，正在测试模型连接...';
         const tested = await api('/api/admin/ai-config/test', {
           method: 'POST',
-          body: JSON.stringify({ provider: state.aiConfig.provider }),
+          body: JSON.stringify({ provider: state.aiConfig.provider, teamId: state.aiConfig.teamId }),
         });
         nodes.aiConfigSaveStatus.textContent = `配置已保存，模型连接成功（${tested.latencyMs} ms）`;
       } else {
@@ -1561,7 +1587,7 @@
     try {
       const tested = await api('/api/admin/ai-config/test', {
         method: 'POST',
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, teamId: nodes.aiTeamSelect.value || state.profile?.teamId || '' }),
       });
       nodes.aiConfigSaveStatus.textContent = `模型连接成功（${tested.latencyMs} ms）`;
     } catch (error) {
@@ -1595,6 +1621,15 @@
     nodes.aiConfigSaveStatus.textContent = '正在读取该服务商配置...';
     try {
       await loadAiConfig(provider);
+      nodes.aiConfigSaveStatus.textContent = '';
+    } catch (error) {
+      nodes.aiConfigSaveStatus.textContent = error.message;
+    }
+  });
+  nodes.aiTeamSelect.addEventListener('change', async () => {
+    nodes.aiConfigSaveStatus.textContent = '正在读取该团队的模型配置...';
+    try {
+      await loadAiConfig(nodes.aiConfigForm.elements.provider.value || 'deepseek');
       nodes.aiConfigSaveStatus.textContent = '';
     } catch (error) {
       nodes.aiConfigSaveStatus.textContent = error.message;

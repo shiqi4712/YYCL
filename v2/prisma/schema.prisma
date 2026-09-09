@@ -39,12 +39,14 @@ model Team {
   updatedAt DateTime @updatedAt
 
   users User[]
+  aiConfigs AiConfig[]
 
   @@map("teams")
 }
 
 model AiConfig {
   id                 String   @id @default(cuid()) @db.VarChar(32)
+  teamId             String?  @db.VarChar(32)
   provider           String   @default("deepseek") @db.VarChar(32)
   apiKey             String?  @db.LongText
   baseUrl            String   @default("https://api.deepseek.com") @db.VarChar(191)
@@ -55,7 +57,10 @@ model AiConfig {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  @@unique([provider])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@unique([teamId, provider])
+  @@index([teamId, isEnabled])
   @@map("ai_configs")
 }
 

@@ -135,7 +135,7 @@ function buildMockDimensions(messages: string[]) {
 }
 
 async function buildParentReply(input: AiReplyInput) {
-  if (await isAiModelEnabled()) {
+  if (await isAiModelEnabled(input.teamId)) {
     try {
       return await buildAiReply(input)
     } catch (error) {
@@ -148,6 +148,7 @@ async function buildParentReply(input: AiReplyInput) {
 }
 
 async function evaluateObjectionResolved(input: {
+  teamId: string | null
   scenarioTitle: string
   scenarioDescription: string
   sopContent?: string | null
@@ -162,7 +163,7 @@ async function evaluateObjectionResolved(input: {
     stepOrder: number
   }>
 }) {
-  if (await isAiModelEnabled()) {
+  if (await isAiModelEnabled(input.teamId)) {
     try {
       return await evaluateAiResolution(input)
     } catch (error) {
@@ -184,6 +185,7 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
   const session = await prisma.trainingSession.findUnique({
     where: { id: sessionId },
     include: {
+      teacher: { select: { teamId: true } },
       scenario: {
         include: {
           topic: true,
@@ -209,12 +211,15 @@ async function getOwnedSession(sessionId: string, teacherId: string) {
 }
 
 export async function createSession(teacherId: string, scenarioId: string) {
-  const [scenario, maxConcurrentUsers] = await Promise.all([
+  const [scenario, teacher] = await Promise.all([
     prisma.trainingScenario.findUnique({
       where: { id: scenarioId },
       include: { topic: true, steps: { orderBy: { order: 'asc' } } },
     }),
-    getConfiguredConcurrentUserLimit(),
+    prisma.user.findFirst({
+      where: { id: teacherId, role: 'TEACHER', isActive: true, deletedAt: null },
+      select: { teamId: true },
+    }),
   ])
 
   if (!scenario || scenario.status !== 'ACTIVE') {
@@ -224,6 +229,11 @@ export async function createSession(teacherId: string, scenarioId: string) {
   if (scenario.steps.length === 0) {
     throw new HttpError(400, '当前场景还没有配置异议步骤')
   }
+  if (!teacher) {
+    throw new HttpError(404, '老师账号不存在或已停用')
+  }
+
+  const maxConcurrentUsers = await getConfiguredConcurrentUserLimit(teacher.teamId)
 
   const createSessionWithCapacity = () =>
     prisma.$transaction(
@@ -257,6 +267,7 @@ export async function createSession(teacherId: string, scenarioId: string) {
           where: {
             status: TRAINING_STATUS.ACTIVE,
             updatedAt: { gte: staleBefore },
+            teacher: { teamId: teacher.teamId },
           },
           distinct: ['teacherId'],
           select: { teacherId: true },
@@ -489,6 +500,7 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
   const evaluation =
     currentStepTeacherMessageCount >= MIN_TEACHER_MESSAGES_TO_ADVANCE
       ? await evaluateObjectionResolved({
+          teamId: session.teacher.teamId,
           scenarioTitle: session.scenario.title,
           scenarioDescription: session.scenario.description,
           sopContent: session.scenario.topic.sopContent,
@@ -521,6 +533,7 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
   const replyStep = canAdvance && nextStep ? nextStep : currentStep
 
   const reply = await buildParentReply({
+    teamId: session.teacher.teamId,
     scenarioTitle: session.scenario.title,
     scenarioDescription: session.scenario.description,
     parentPersona: session.scenario.parentPersona,
@@ -596,9 +609,10 @@ export async function generateReview(sessionId: string, teacherId: string) {
     (message: (typeof session.messages)[number]) => message.role === 'TEACHER'
   )
 
-  if (await isAiModelEnabled()) {
+  if (await isAiModelEnabled(session.teacher.teamId)) {
     try {
       const aiReview = await buildAiReview({
+        teamId: session.teacher.teamId,
         scenarioTitle: session.scenario.title,
         scenarioDescription: session.scenario.description,
         sopContent: session.scenario.topic.sopContent,

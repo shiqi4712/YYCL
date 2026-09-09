@@ -3,6 +3,7 @@ import { getActiveAiConfig } from '../services/ai-config.service'
 export type ParentReplyPhase = 'continue' | 'transition' | 'close'
 
 export interface AiReplyInput {
+  teamId: string | null
   scenarioTitle: string
   scenarioDescription: string
   parentPersona: string
@@ -22,6 +23,7 @@ interface DeepSeekChatMessage {
 }
 
 interface DeepSeekReviewInput {
+  teamId: string | null
   scenarioTitle: string
   scenarioDescription: string
   sopContent?: string | null
@@ -40,6 +42,7 @@ interface DeepSeekReviewInput {
 }
 
 interface DeepSeekResolutionInput {
+  teamId: string | null
   scenarioTitle: string
   scenarioDescription: string
   sopContent?: string | null
@@ -55,12 +58,12 @@ interface DeepSeekResolutionInput {
   }>
 }
 
-export async function isAiModelEnabled() {
-  return Boolean(await getActiveAiConfig())
+export async function isAiModelEnabled(teamId?: string | null) {
+  return Boolean(await getActiveAiConfig(teamId))
 }
 
-async function requireAiConfig() {
-  const config = await getActiveAiConfig()
+async function requireAiConfig(teamId?: string | null) {
+  const config = await getActiveAiConfig(teamId)
   if (!config) {
     throw new Error('AI model is not configured')
   }
@@ -150,7 +153,7 @@ function buildParentPrompt(input: AiReplyInput) {
 }
 
 export async function buildAiReply(input: AiReplyInput) {
-  const config = await requireAiConfig()
+  const config = await requireAiConfig(input.teamId)
   const messages: DeepSeekChatMessage[] = [
     {
       role: 'system',
@@ -217,7 +220,7 @@ function buildResolutionPrompt(input: DeepSeekResolutionInput) {
 }
 
 export async function evaluateAiResolution(input: DeepSeekResolutionInput) {
-  const config = await requireAiConfig()
+  const config = await requireAiConfig(input.teamId)
   const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
     method: 'POST',
     headers: {
@@ -304,7 +307,7 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
 }
 
 export async function buildAiReview(input: DeepSeekReviewInput) {
-  const config = await requireAiConfig()
+  const config = await requireAiConfig(input.teamId)
   const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
     method: 'POST',
     headers: {

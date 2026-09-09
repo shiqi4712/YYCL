@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-team-scope" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-team-ai-scope" />
   </head>
   <body>
     <div class="admin-shell">
@@ -379,6 +379,11 @@
                   <span class="tag-warn" id="adminAiConfigStatus">未配置</span>
                 </div>
                 <form class="form-stack" id="adminAiConfigForm">
+                  <label id="adminAiTeamField">
+                    <span>配置团队</span>
+                    <select name="teamId" id="adminAiTeamSelect" required></select>
+                    <small>每个团队独立保存 API Key、模型和同时训练人数。</small>
+                  </label>
                   <label class="switch-row">
                     <span>
                       <strong>启用当前模型</strong>
@@ -450,7 +455,7 @@
                   </div>
                   <div>
                     <span>安全提醒</span>
-                    <p>不同服务商的 Key 分开保存，完整 Key 不会回显；同一时间仅启用一个模型。</p>
+                    <p>每个团队独立保存模型和 Key，完整 Key 不会回显；同一团队同时仅启用一个模型。</p>
                   </div>
                 </div>
               </aside>
@@ -459,6 +464,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260909-team-scope"></script>
+    <script src="/assets/admin/app.js?v=20260909-team-ai-scope"></script>
   </body>
 </html>

@@ -1,10 +1,12 @@
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import type { AuthUser } from '../types'
 import { HttpError } from '../utils/http-error'
 
 const aiProviderSchema = z.enum(['deepseek', 'kimi', 'openai', 'qwen', 'glm', 'doubao', 'custom'])
 const aiConfigSchema = z.object({
   provider: aiProviderSchema.default('deepseek'),
+  teamId: z.string().min(1).optional(),
   isEnabled: z.boolean().default(false),
   apiKey: z.string().trim().max(5000).optional(),
   baseUrl: z.string().trim().url().max(191).default('https://api.deepseek.com'),
@@ -30,10 +32,16 @@ function maskApiKey(apiKey?: string | null) {
   return `${text.slice(0, 4)}****${text.slice(-4)}`
 }
 
-function toAdminConfig(config: any, provider: z.infer<typeof aiProviderSchema>) {
+function toAdminConfig(
+  config: any,
+  provider: z.infer<typeof aiProviderSchema>,
+  team?: { id: string; name: string } | null
+) {
   const defaults = providerDefaults[provider]
   return {
     provider,
+    teamId: team?.id ?? config?.teamId ?? null,
+    teamName: team?.name ?? null,
     baseUrl: config?.baseUrl ?? defaults.baseUrl,
     model: config?.model ?? defaults.model,
     thinking: config?.thinking ?? 'disabled',
@@ -45,20 +53,44 @@ function toAdminConfig(config: any, provider: z.infer<typeof aiProviderSchema>) 
   }
 }
 
-export async function getAiConfigForAdmin(providerValue?: unknown) {
+async function resolveAdminTeam(actor: AuthUser, teamIdValue?: unknown) {
+  const requestedTeamId = typeof teamIdValue === 'string' && teamIdValue.trim() ? teamIdValue.trim() : null
+  const teamId = actor.isSuperAdmin ? requestedTeamId : actor.teamId
+  if (!teamId) return null
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, isActive: true },
+    select: { id: true, name: true },
+  })
+  if (!team || (!actor.isSuperAdmin && team.id !== actor.teamId)) {
+    throw new HttpError(403, '无权访问该团队的 AI 配置')
+  }
+  return team
+}
+
+export async function getAiConfigForAdmin(
+  actor: AuthUser,
+  providerValue?: unknown,
+  teamIdValue?: unknown
+) {
+  const team = await resolveAdminTeam(actor, teamIdValue)
   const requestedProvider = aiProviderSchema.safeParse(providerValue)
+  if (!team) {
+    return toAdminConfig(null, requestedProvider.success ? requestedProvider.data : 'deepseek', null)
+  }
   if (requestedProvider.success) {
-    const config = await prisma.aiConfig.findUnique({
-      where: { provider: requestedProvider.data },
+    const config = await prisma.aiConfig.findFirst({
+      where: { teamId: team.id, provider: requestedProvider.data },
     })
-    return toAdminConfig(config, requestedProvider.data)
+    return toAdminConfig(config, requestedProvider.data, team)
   }
 
   const config = await prisma.aiConfig.findFirst({
+    where: { teamId: team.id },
     orderBy: [{ isEnabled: 'desc' }, { updatedAt: 'desc' }],
   })
   const provider = aiProviderSchema.safeParse(config?.provider)
-  return toAdminConfig(config, provider.success ? provider.data : 'deepseek')
+  return toAdminConfig(config, provider.success ? provider.data : 'deepseek', team)
 }
 
 function buildChatCompletionsUrl(baseUrl: string) {
@@ -111,9 +143,13 @@ function getProviderErrorMessage(
   return `${providerLabel} 服务暂时不可用（HTTP ${status}），请稍后重试`
 }
 
-export async function testAiConfigForAdmin(providerValue: unknown) {
+export async function testAiConfigForAdmin(actor: AuthUser, providerValue: unknown, teamIdValue?: unknown) {
   const provider = aiProviderSchema.parse(providerValue)
-  const config = await prisma.aiConfig.findUnique({ where: { provider } })
+  const team = await resolveAdminTeam(actor, teamIdValue)
+  if (!team) {
+    throw new HttpError(400, '请先选择需要配置的团队')
+  }
+  const config = await prisma.aiConfig.findFirst({ where: { teamId: team.id, provider } })
 
   if (!config?.apiKey) {
     throw new HttpError(400, '请先保存该服务商的 API Key')
@@ -172,10 +208,14 @@ export async function testAiConfigForAdmin(providerValue: unknown) {
   }
 }
 
-export async function updateAiConfigForAdmin(payload: unknown) {
+export async function updateAiConfigForAdmin(actor: AuthUser, payload: unknown) {
   const input = aiConfigSchema.parse(payload)
-  const existing = await prisma.aiConfig.findUnique({
-    where: { provider: input.provider },
+  const team = await resolveAdminTeam(actor, input.teamId)
+  if (!team) {
+    throw new HttpError(400, '请先选择需要配置的团队')
+  }
+  const existing = await prisma.aiConfig.findFirst({
+    where: { teamId: team.id, provider: input.provider },
   })
   const apiKey = input.apiKey?.trim()
   const nextApiKey = apiKey || existing?.apiKey
@@ -185,8 +225,9 @@ export async function updateAiConfigForAdmin(payload: unknown) {
   }
 
   const saveConfig = prisma.aiConfig.upsert({
-    where: { provider: input.provider },
+    where: { teamId_provider: { teamId: team.id, provider: input.provider } },
     create: {
+      teamId: team.id,
       provider: input.provider,
       apiKey: apiKey || null,
       baseUrl: input.baseUrl.replace(/\/$/, ''),
@@ -209,7 +250,7 @@ export async function updateAiConfigForAdmin(payload: unknown) {
   if (input.isEnabled) {
     const [, savedConfig] = await prisma.$transaction([
       prisma.aiConfig.updateMany({
-        where: { provider: { not: input.provider } },
+        where: { teamId: team.id, provider: { not: input.provider } },
         data: { isEnabled: false },
       }),
       saveConfig,
@@ -219,12 +260,13 @@ export async function updateAiConfigForAdmin(payload: unknown) {
     config = await saveConfig
   }
 
-  return toAdminConfig(config, input.provider)
+  return toAdminConfig(config, input.provider, team)
 }
 
-export async function getActiveAiConfig() {
+export async function getActiveAiConfig(teamId?: string | null) {
+  if (!teamId) return null
   const config = await prisma.aiConfig.findFirst({
-    where: { isEnabled: true },
+    where: { teamId, isEnabled: true },
     orderBy: { updatedAt: 'desc' },
   })
 
@@ -241,8 +283,10 @@ export async function getActiveAiConfig() {
   }
 }
 
-export async function getConfiguredConcurrentUserLimit() {
+export async function getConfiguredConcurrentUserLimit(teamId?: string | null) {
+  if (!teamId) return 10
   const config = await prisma.aiConfig.findFirst({
+    where: { teamId },
     orderBy: [{ isEnabled: 'desc' }, { updatedAt: 'desc' }],
   })
   return Math.max(1, Math.min(30, config?.maxConcurrentUsers || 10))

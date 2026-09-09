@@ -88,10 +88,13 @@ function buildGenerationOptions(
 ) {
   const usesOpenAiReasoningParameters =
     config.provider === 'openai' && /^(gpt-5|o\d)/i.test(config.model)
+  const usesKimiK3Parameters = config.provider === 'kimi' && /^kimi-k3$/i.test(config.model)
 
   return {
     ...(usesOpenAiReasoningParameters
       ? { max_completion_tokens: maxTokens }
+      : usesKimiK3Parameters
+        ? { max_tokens: maxTokens }
       : { temperature, max_tokens: maxTokens }),
     ...buildProviderOptions(config),
   }

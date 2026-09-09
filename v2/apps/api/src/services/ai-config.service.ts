@@ -15,7 +15,7 @@ const aiConfigSchema = z.object({
 
 const providerDefaults: Record<z.infer<typeof aiProviderSchema>, { baseUrl: string; model: string }> = {
   deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
-  kimi: { baseUrl: 'https://api.moonshot.cn/v1', model: '' },
+  kimi: { baseUrl: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
   openai: { baseUrl: 'https://api.openai.com/v1', model: '' },
   qwen: { baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
   glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: '' },
@@ -66,6 +66,51 @@ function buildChatCompletionsUrl(baseUrl: string) {
   return normalized.endsWith('/chat/completions') ? normalized : `${normalized}/chat/completions`
 }
 
+const providerLabels: Record<z.infer<typeof aiProviderSchema>, string> = {
+  deepseek: 'DeepSeek',
+  kimi: 'Kimi',
+  openai: 'OpenAI',
+  qwen: '通义千问',
+  glm: '智谱 GLM',
+  doubao: '豆包',
+  custom: '模型服务',
+}
+
+function getProviderErrorMessage(
+  provider: z.infer<typeof aiProviderSchema>,
+  status: number,
+  payload: any
+) {
+  const providerLabel = providerLabels[provider]
+  const errorCode = String(payload?.error?.code || payload?.code || '').toLowerCase()
+  const upstreamMessage = String(payload?.error?.message || payload?.message || '').toLowerCase()
+  const errorText = `${errorCode} ${upstreamMessage}`
+
+  if (/insufficient[ _-]?balance|balance.*insufficient|quota.*exceed|余额不足|欠费|suspend/.test(errorText)) {
+    return `${providerLabel} 账户余额不足或计费账户已暂停，请充值或更换有余额的 API Key 后重试`
+  }
+  if (status === 401 || /invalid.*(api[ _-]?key|authentication)|unauthorized|鉴权|密钥.*无效/.test(errorText)) {
+    return `${providerLabel} API Key 无效或已失效，请重新填写 API Key`
+  }
+  if (/model.*(not found|does not exist|invalid|unsupported)|模型.*(不存在|无效|不支持)/.test(errorText)) {
+    return `模型名称无效或当前账户无权使用，请填写 ${providerLabel} 控制台中显示的模型 ID`
+  }
+  if (status === 429 || /rate[ _-]?limit|too many requests|限流|请求过于频繁/.test(errorText)) {
+    return `${providerLabel} 当前请求过于频繁或额度已用完，请稍后重试并检查账户额度`
+  }
+  if (status === 403) {
+    return `${providerLabel} 拒绝了当前请求，请检查 API Key 权限和模型访问权限`
+  }
+  if (status === 404) {
+    return `未找到模型接口，请检查 Base URL 和模型名称`
+  }
+  if (status === 400) {
+    return `${providerLabel} 拒绝了测试请求，请检查模型名称及该模型支持的参数`
+  }
+
+  return `${providerLabel} 服务暂时不可用（HTTP ${status}），请稍后重试`
+}
+
 export async function testAiConfigForAdmin(providerValue: unknown) {
   const provider = aiProviderSchema.parse(providerValue)
   const config = await prisma.aiConfig.findUnique({ where: { provider } })
@@ -81,6 +126,7 @@ export async function testAiConfigForAdmin(providerValue: unknown) {
   try {
     const usesOpenAiReasoningParameters =
       provider === 'openai' && /^(gpt-5|o\d)/i.test(config.model)
+    const usesKimiK3Parameters = provider === 'kimi' && /^kimi-k3$/i.test(config.model)
     const response = await fetch(buildChatCompletionsUrl(config.baseUrl), {
       method: 'POST',
       headers: {
@@ -92,6 +138,8 @@ export async function testAiConfigForAdmin(providerValue: unknown) {
         messages: [{ role: 'user', content: '这是连通性测试，请只回复“连接成功”。' }],
         ...(usesOpenAiReasoningParameters
           ? { max_completion_tokens: 128 }
+          : usesKimiK3Parameters
+            ? { max_tokens: 128 }
           : { temperature: 0, max_tokens: 128 }),
       }),
       signal: controller.signal,
@@ -99,11 +147,7 @@ export async function testAiConfigForAdmin(providerValue: unknown) {
     const payload = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      const providerMessage = payload?.error?.message
-      throw new HttpError(
-        502,
-        providerMessage ? `模型服务返回错误：${providerMessage}` : `模型服务返回 HTTP ${response.status}`
-      )
+      throw new HttpError(502, getProviderErrorMessage(provider, response.status, payload))
     }
 
     const content = payload?.choices?.[0]?.message?.content

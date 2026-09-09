@@ -1,6 +1,5 @@
 (function () {
   const storageKey = 'yycl_v2_admin_token';
-  const internalAccountLoginUrl = 'https://internal-account.codemao.cn/login';
   const scenes = [
     { id: 'pre', title: '课前进线', desc: '用户刚进线或预约体验前，重点解决信任、时间、孩子适配和到课意愿。', tone: '轻解释，重确认' },
     { id: 'mid', title: '课中推进', desc: '体验课进行中或刚结束，重点推动家长理解孩子表现和课程价值。', tone: '多观察，少催促' },
@@ -51,8 +50,6 @@
     workspace: document.getElementById('adminWorkspace'),
     loginForm: document.getElementById('adminLoginForm'),
     loginStatus: document.getElementById('adminLoginStatus'),
-    internalLoginButton: document.getElementById('adminInternalLoginButton'),
-    internalLoginStatus: document.getElementById('adminInternalLoginStatus'),
     profileChip: document.getElementById('adminProfileChip'),
     moduleButtons: Array.from(document.querySelectorAll('[data-module]')),
     contentModule: document.getElementById('contentModule'),
@@ -151,27 +148,6 @@
       totalItems: items.length,
       start,
     };
-  }
-
-  function setupInternalAccountLogin() {
-    let waitingForReturn = false;
-    nodes.internalLoginButton.addEventListener('click', () => {
-      waitingForReturn = true;
-      nodes.internalLoginStatus.textContent = '内部账号登录页已打开，请完成登录后回到本页面。';
-      nodes.internalLoginButton.textContent = '重新打开内部账号登录';
-      window.open(internalAccountLoginUrl, '_blank', 'noopener,noreferrer');
-    });
-    window.addEventListener('focus', () => {
-      if (!waitingForReturn) return;
-      nodes.internalLoginStatus.textContent = '已返回本页面。如登录状态可能过期，可重新打开内部账号登录页。';
-    });
-  }
-
-  function networkErrorMessage() {
-    const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || window.location.protocol === 'file:';
-    return isLocal
-      ? '本地请求失败。请确认服务已启动；如需访问内部域名，请使用专用调试 Chrome，并确保登录页和本页面使用同一浏览器 Profile。'
-      : '网络请求失败，请检查网络后重试。';
   }
 
   function paginationPages(page, totalPages) {
@@ -583,12 +559,7 @@
     const request = options || {};
     const headers = { 'Content-Type': 'application/json', ...(request.headers || {}) };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    let response;
-    try {
-      response = await fetch(path, { ...request, headers });
-    } catch {
-      throw new Error(networkErrorMessage());
-    }
+    const response = await fetch(path, { ...request, headers });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.code !== 0) throw new Error(payload.message || '请求失败，请稍后重试');
     return payload.data;
@@ -597,12 +568,7 @@
   async function uploadApi(path, formData) {
     const headers = {};
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    let response;
-    try {
-      response = await fetch(path, { method: 'POST', headers, body: formData });
-    } catch {
-      throw new Error(networkErrorMessage());
-    }
+    const response = await fetch(path, { method: 'POST', headers, body: formData });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.code !== 0) throw new Error(payload.message || '上传失败，请稍后重试');
     return payload.data;
@@ -1238,7 +1204,6 @@
     renderModules();
   }
 
-  setupInternalAccountLogin();
   nodes.loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     nodes.loginStatus.textContent = '正在登录...';

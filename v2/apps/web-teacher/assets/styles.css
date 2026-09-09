@@ -152,47 +152,6 @@ h3 {
   box-shadow: 0 22px 44px rgba(15, 23, 42, 0.08);
 }
 
-.internal-login-panel {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid rgba(10, 132, 255, 0.14);
-  border-radius: 16px;
-  background: rgba(10, 132, 255, 0.06);
-}
-
-.internal-login-panel strong {
-  font-size: 16px;
-}
-
-.internal-login-panel p {
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.internal-login-panel .internal-login-status {
-  margin: 0;
-  color: var(--blue);
-}
-
-.auth-divider {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  color: var(--faint);
-  font-size: 12px;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  height: 1px;
-  flex: 1;
-  background: rgba(17, 24, 39, 0.1);
-  content: '';
-}
-
 .auth-card h2,
 .section-head h2 {
   font-size: 28px;

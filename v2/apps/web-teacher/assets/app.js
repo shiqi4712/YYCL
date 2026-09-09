@@ -660,7 +660,7 @@
           </div>
           <strong>100 分</strong>
         </div>
-        <p class="training-criteria-intro">五项各 20 分，按完整对话综合评估。此处仅展示标准，不展示本次训练得分。</p>
+        <p class="training-criteria-intro">五项各 20 分，按完整对话综合评估。最终成交只影响“缔结”项，不主导总分；此处仅展示标准，不展示本次训练得分。</p>
         <ol class="training-criteria-list">
           ${trainingScoringCriteria
             .map(

@@ -292,6 +292,7 @@ function buildReviewPrompt(input: DeepSeekReviewInput) {
     'JSON 字段必须包含：overallScore, summary, strengths, weaknesses, nextAction, tags, dimensions, steps。',
     'dimensions 必须包含 empathy, standard, enablement, caseProof, close 五项，每项包含 score, reason, suggestion。',
     '五项总分各 20 分，overallScore 必须等于五项 score 相加，最高 100 分。',
+    '家长是否最终购买只影响缔结 close 维度和训练收尾判断，不能主导总分。即使最终购买，也不能抬高共情、建立标准、赋能或给案例的分数；即使未购买，也必须保留前四项已经完成动作的应得分数。',
     '共情 empathy：0-5 没有共情或直接否定家长；6-10 只有泛泛“理解/正常”；11-15 回应了具体顾虑；16-20 给到情绪价值、降低家长压力。',
     '建立标准 standard：0-5 没有标准只说课程好；6-10 标准很模糊；11-15 有清晰可观察标准；16-20 标准具体、可观察，并能连接当前异议和家长决策。',
     '赋能 enablement：0-5 没有赋能；6-10 泛泛讲编程价值且没有物料；11-15 有具体价值解释但没有物料；16-20 解释价值并发送 +物料 / +资料 / +图片 / +链接 / +作品。硬规则：没有这些标记最高 15 分。',

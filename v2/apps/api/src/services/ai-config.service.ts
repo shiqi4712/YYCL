@@ -263,6 +263,39 @@ export async function updateAiConfigForAdmin(actor: AuthUser, payload: unknown) 
   return toAdminConfig(config, input.provider, team)
 }
 
+export async function deleteAiConfigKeyForAdmin(
+  actor: AuthUser,
+  providerValue: unknown,
+  teamIdValue?: unknown
+) {
+  if (!actor.isSuperAdmin) {
+    throw new HttpError(403, '仅超级管理员可以删除团队 API Key')
+  }
+
+  const provider = aiProviderSchema.parse(providerValue)
+  const team = await resolveAdminTeam(actor, teamIdValue)
+  if (!team) {
+    throw new HttpError(400, '请先选择需要配置的团队')
+  }
+
+  const existing = await prisma.aiConfig.findFirst({
+    where: { teamId: team.id, provider },
+  })
+  if (!existing?.apiKey) {
+    throw new HttpError(404, '该团队当前未保存此服务商的 API Key')
+  }
+
+  const config = await prisma.aiConfig.update({
+    where: { id: existing.id },
+    data: {
+      apiKey: null,
+      isEnabled: false,
+    },
+  })
+
+  return toAdminConfig(config, provider, team)
+}
+
 export async function getActiveAiConfig(teamId?: string | null) {
   if (!teamId) return null
   const config = await prisma.aiConfig.findFirst({

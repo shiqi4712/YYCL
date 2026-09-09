@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-account-batch" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-ai-key-delete" />
   </head>
   <body>
     <div class="admin-shell">
@@ -447,6 +447,7 @@
                   <div class="ai-config-actions">
                     <button class="primary-btn" type="submit">保存并测试连接</button>
                     <button class="secondary-btn" id="adminAiConfigTestButton" type="button">测试已保存配置</button>
+                    <button class="secondary-btn danger-action hidden" id="adminAiConfigDeleteButton" type="button">删除当前 API Key</button>
                   </div>
                   <p class="status-text" id="adminAiConfigSaveStatus"></p>
                 </form>
@@ -480,6 +481,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260909-account-batch"></script>
+    <script src="/assets/admin/app.js?v=20260909-ai-key-delete"></script>
   </body>
 </html>

@@ -114,6 +114,7 @@
     aiConfigStatus: document.getElementById('adminAiConfigStatus'),
     aiConfigSaveStatus: document.getElementById('adminAiConfigSaveStatus'),
     aiConfigTestButton: document.getElementById('adminAiConfigTestButton'),
+    aiConfigDeleteButton: document.getElementById('adminAiConfigDeleteButton'),
     aiKeyState: document.getElementById('adminAiKeyState'),
     aiKeyPreview: document.getElementById('adminAiKeyPreview'),
     teacherScoreToggle: document.getElementById('adminTeacherScoreToggle'),
@@ -580,6 +581,8 @@
     nodes.aiConfigForm.elements.thinking.value = config.thinking || 'disabled';
     nodes.aiConfigForm.elements.thinking.disabled = config.provider !== 'deepseek';
     nodes.aiConfigForm.elements.maxConcurrentUsers.value = config.maxConcurrentUsers || 10;
+    nodes.aiConfigDeleteButton.classList.toggle('hidden', !state.profile?.isSuperAdmin);
+    nodes.aiConfigDeleteButton.disabled = !state.profile?.isSuperAdmin || !config.teamId || !config.hasApiKey;
   }
 
   function renderAppSettings() {
@@ -1711,6 +1714,30 @@
       nodes.aiConfigSaveStatus.textContent = `连接测试失败：${error.message}`;
     } finally {
       nodes.aiConfigTestButton.disabled = false;
+    }
+  });
+  nodes.aiConfigDeleteButton.addEventListener('click', async () => {
+    if (!state.profile?.isSuperAdmin) return;
+    const provider = nodes.aiConfigForm.elements.provider.value || 'deepseek';
+    const teamId = nodes.aiTeamSelect.value || state.aiConfig?.teamId || '';
+    const teamName = state.aiConfig?.teamName || nodes.aiTeamSelect.selectedOptions[0]?.textContent || '当前团队';
+    const providerName = aiProviderLabels[provider] || '当前服务商';
+    if (!teamId) {
+      nodes.aiConfigSaveStatus.textContent = '请先选择团队。';
+      return;
+    }
+    if (!window.confirm(`确认删除「${teamName}」的 ${providerName} API Key 吗？删除后该模型会立即停用。`)) return;
+
+    nodes.aiConfigDeleteButton.disabled = true;
+    nodes.aiConfigSaveStatus.textContent = '正在删除团队 API Key...';
+    try {
+      const params = new URLSearchParams({ provider, teamId });
+      state.aiConfig = await api(`/api/admin/ai-config?${params.toString()}`, { method: 'DELETE' });
+      renderAiConfig();
+      nodes.aiConfigSaveStatus.textContent = `已删除「${teamName}」的 ${providerName} API Key，当前模型已停用。`;
+    } catch (error) {
+      nodes.aiConfigSaveStatus.textContent = error.message;
+      renderAiConfig();
     }
   });
   nodes.teacherScoreToggle.addEventListener('change', async () => {

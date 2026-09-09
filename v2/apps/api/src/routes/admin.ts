@@ -12,6 +12,7 @@ import { requireRole } from '../middleware/require-role'
 import type { AuthedRequest } from '../types'
 import { HttpError } from '../utils/http-error'
 import {
+  deleteAiConfigKeyForAdmin,
   getAiConfigForAdmin,
   testAiConfigForAdmin,
   updateAiConfigForAdmin,
@@ -415,6 +416,14 @@ router.get('/ai-config', requireRole('TRAINER'), async (req: AuthedRequest, res,
 router.put('/ai-config', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
     res.json(ok(await updateAiConfigForAdmin(req.user!, req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/ai-config', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await deleteAiConfigKeyForAdmin(req.user!, req.query.provider, req.query.teamId)))
   } catch (error) {
     next(error)
   }

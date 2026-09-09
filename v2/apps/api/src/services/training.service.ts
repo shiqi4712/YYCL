@@ -566,7 +566,7 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
     (step: (typeof session.scenario.steps)[number]) => step.order === currentStep.order + 1
   )
 
-  const finalStatus = canAdvance && !nextStep ? TRAINING_STATUS.COMPLETED : TRAINING_STATUS.ACTIVE
+  const allObjectionsResolved = canAdvance && !nextStep
   const nextStepOrder = canAdvance && nextStep ? nextStep.order : currentStep.order
   const replyPhase: ParentReplyPhase = canAdvance ? (nextStep ? 'transition' : 'close') : 'continue'
   const replyStep = canAdvance && nextStep ? nextStep : currentStep
@@ -592,8 +592,6 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
     where: { id: sessionId },
     data: {
       currentStepOrder: nextStepOrder,
-      status: finalStatus,
-      endedAt: finalStatus === TRAINING_STATUS.COMPLETED ? new Date() : null,
     },
   })
 
@@ -615,7 +613,8 @@ export async function generateParentReply(sessionId: string, teacherId: string) 
       createdAt: aiMessage.createdAt,
     },
     currentStepOrder: nextStepOrder,
-    status: finalStatus,
+    status: TRAINING_STATUS.ACTIVE,
+    allObjectionsResolved,
   }
 }
 

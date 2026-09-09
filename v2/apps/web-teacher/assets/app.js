@@ -998,7 +998,11 @@
       });
       state.training.messages.push(normalizeTrainingMessage(result.message));
       state.training.pendingTeacherCount = 0;
-      nodes.trainingStatusChip.textContent = result.status === 'COMPLETED' ? '已完成，可生成复盘' : '训练中';
+      nodes.trainingStatusChip.textContent = result.allObjectionsResolved
+        ? '异议已解决，可提交训练'
+        : result.status === 'COMPLETED'
+          ? '已完成，可生成复盘'
+          : '训练中';
       renderTrainingMessages();
       if (result.status === 'COMPLETED') {
         completed = true;

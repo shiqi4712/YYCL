@@ -68,6 +68,11 @@ async function main() {
   const trainerPassword = await hashPassword('123456')
   const shiqiPassword = await hashPassword('shiqi123')
   const teacherPassword = await hashPassword('123456')
+  const defaultTeam = await prisma.team.upsert({
+    where: { name: '默认团队' },
+    update: { isActive: true },
+    create: { name: '默认团队', isActive: true },
+  })
 
   const trainer = await prisma.user.upsert({
     where: { username: 'trainer01' },
@@ -75,6 +80,7 @@ async function main() {
       passwordHash: trainerPassword,
       displayName: '张诗琪',
       role: 'TRAINER',
+      teamId: defaultTeam.id,
       isActive: true,
     },
     create: {
@@ -82,6 +88,7 @@ async function main() {
       passwordHash: trainerPassword,
       displayName: '张诗琪',
       role: 'TRAINER',
+      teamId: defaultTeam.id,
       isActive: true,
     },
   })
@@ -92,6 +99,7 @@ async function main() {
       passwordHash: shiqiPassword,
       displayName: '诗琪',
       role: 'TRAINER',
+      isSuperAdmin: true,
       isActive: true,
     },
     create: {
@@ -99,6 +107,7 @@ async function main() {
       passwordHash: shiqiPassword,
       displayName: '诗琪',
       role: 'TRAINER',
+      isSuperAdmin: true,
       isActive: true,
     },
   })
@@ -109,6 +118,7 @@ async function main() {
       passwordHash: teacherPassword,
       displayName: '体验课老师A',
       role: 'TEACHER',
+      teamId: defaultTeam.id,
       isActive: true,
     },
     create: {
@@ -116,6 +126,7 @@ async function main() {
       passwordHash: teacherPassword,
       displayName: '体验课老师A',
       role: 'TEACHER',
+      teamId: defaultTeam.id,
       isActive: true,
     },
   })

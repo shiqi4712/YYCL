@@ -14,6 +14,8 @@ model User {
   passwordHash String   @db.VarChar(191)
   role         String   @db.VarChar(32)
   displayName  String?  @db.VarChar(191)
+  teamId       String?  @db.VarChar(32)
+  isSuperAdmin Boolean  @default(false)
   isActive     Boolean  @default(true)
   deletedAt    DateTime?
   createdAt    DateTime @default(now())
@@ -23,8 +25,22 @@ model User {
   createdScenarios TrainingScenario[] @relation("ScenarioCreator")
   createdObjections ObjectionItem[]    @relation("ObjectionCreator")
   sessions         TrainingSession[]
+  team             Team?                @relation(fields: [teamId], references: [id])
 
+  @@index([teamId, role])
   @@map("users")
+}
+
+model Team {
+  id        String   @id @default(cuid()) @db.VarChar(32)
+  name      String   @unique @db.VarChar(191)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("teams")
 }
 
 model AiConfig {

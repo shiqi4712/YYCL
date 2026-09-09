@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>异议处理管理后台</title>
-    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260908-ai-test" />
+    <link rel="stylesheet" href="/assets/admin/styles.css?v=20260909-team-scope" />
   </head>
   <body>
     <div class="admin-shell">
@@ -251,6 +251,30 @@
           </section>
 
           <section class="hidden" id="accountModule">
+            <section class="account-layout hidden" id="adminTeamManagement">
+              <section class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Teams</p>
+                    <h2>团队配置</h2>
+                  </div>
+                </div>
+                <form class="form-stack" id="adminTeamForm">
+                  <label><span>团队名称</span><input name="name" placeholder="例如：北京一组" required /></label>
+                  <button class="primary-btn" type="submit">新增团队</button>
+                  <p class="status-text" id="adminTeamStatus"></p>
+                </form>
+              </section>
+              <aside class="shell-card section-card">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Team List</p>
+                    <h2>已配置团队</h2>
+                  </div>
+                </div>
+                <div class="account-list" id="adminTeamList"></div>
+              </aside>
+            </section>
             <section class="metric-grid" id="adminAccountMetrics"></section>
             <section class="account-layout">
               <section class="shell-card section-card">
@@ -265,7 +289,7 @@
                   <select id="adminRoleFilter">
                     <option value="all">全部角色</option>
                     <option value="TEACHER">老师</option>
-                    <option value="TRAINER">管理员</option>
+                    <option value="TRAINER">团队管理员</option>
                   </select>
                 </div>
                 <div class="account-list" id="adminAccountList"></div>
@@ -281,12 +305,16 @@
                 <form class="form-stack" id="adminAccountForm">
                   <label><span>登录账号</span><input name="username" placeholder="teacher01" /></label>
                   <label><span>姓名</span><input name="displayName" placeholder="张诗琪" /></label>
-                  <label>
+                  <label id="adminAccountRoleField">
                     <span>角色</span>
                     <select name="role">
                       <option value="TEACHER">老师</option>
-                      <option value="TRAINER">管理员</option>
+                      <option value="TRAINER">团队管理员</option>
                     </select>
+                  </label>
+                  <label id="adminAccountTeamField">
+                    <span>所属团队</span>
+                    <select name="teamId" id="adminAccountTeamSelect" required></select>
                   </label>
                   <label><span>初始密码</span><input name="password" type="password" placeholder="至少 6 位" /></label>
                   <button class="primary-btn" type="submit">创建账号</button>
@@ -308,19 +336,16 @@
                     <span>上传老师账号表格</span>
                     <input name="usersFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" />
                   </label>
-                  <p class="helper-text">请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码。工号将作为老师登录账号。</p>
-                  <label>
-                    <span>账号清单</span>
-                    <textarea name="users" placeholder="每行一个老师：账号,姓名,初始密码&#10;teacher02,李老师,123456&#10;teacher03,王老师,123456"></textarea>
-                  </label>
-                  <button class="primary-btn" type="submit">批量创建老师账号</button>
+                  <p class="helper-text" id="adminTeacherImportHelp">请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码,团队。工号将作为老师登录账号。</p>
+                  <button class="primary-btn" type="submit">上传表格并导入</button>
+                  <button class="secondary-btn" id="adminDownloadTeacherTemplateButton" type="button">下载老师账号模板</button>
                   <p class="status-text" id="adminTeacherImportStatus"></p>
                 </form>
               </aside>
               <section class="shell-card section-card">
                 <p class="eyebrow">Import Format</p>
                 <h2>账号导入说明</h2>
-                <p class="helper-text">仅用于老师账号批量创建。每行格式为：登录账号,老师姓名,初始密码。已存在账号会自动跳过，避免覆盖正在使用的账号。</p>
+                <p class="helper-text">仅用于老师账号批量创建。团队名称必须先由超级管理员创建，并与表格中的“团队”内容完全一致；已存在账号会自动跳过。</p>
               </section>
             </section>
           </section>
@@ -434,6 +459,6 @@
         </section>
       </main>
     </div>
-    <script src="/assets/admin/app.js?v=20260908-topic-pagination"></script>
+    <script src="/assets/admin/app.js?v=20260909-team-scope"></script>
   </body>
 </html>

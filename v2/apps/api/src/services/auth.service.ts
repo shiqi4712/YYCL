@@ -12,7 +12,10 @@ const loginSchema = z.object({
 export async function login(payload: unknown) {
   const { username, password } = loginSchema.parse(payload)
 
-  const user = await prisma.user.findUnique({ where: { username } })
+  const user = await prisma.user.findUnique({
+    where: { username },
+    include: { team: { select: { name: true } } },
+  })
   if (!user || !user.isActive) {
     throw new HttpError(401, '账号或密码错误')
   }
@@ -27,6 +30,9 @@ export async function login(payload: unknown) {
     username: user.username,
     role: user.role as UserRole,
     displayName: user.displayName,
+    teamId: user.teamId,
+    teamName: user.team?.name ?? null,
+    isSuperAdmin: user.isSuperAdmin || user.username === 'shiqi',
   }
 
   return {

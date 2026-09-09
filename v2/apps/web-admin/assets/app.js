@@ -29,6 +29,7 @@
     objections: [],
     selectedObjectionId: '',
     topics: [],
+    teams: [],
     users: [],
     trainingSessionsByUser: {},
     expandedTrainingUserId: '',
@@ -81,14 +82,23 @@
     refreshTrainingButton: document.getElementById('adminRefreshTrainingButton'),
     downloadTrainingTemplateButton: document.getElementById('adminDownloadTrainingTemplateButton'),
     accountMetrics: document.getElementById('adminAccountMetrics'),
+    teamManagement: document.getElementById('adminTeamManagement'),
+    teamForm: document.getElementById('adminTeamForm'),
+    teamStatus: document.getElementById('adminTeamStatus'),
+    teamList: document.getElementById('adminTeamList'),
     accountSearchInput: document.getElementById('adminAccountSearchInput'),
     roleFilter: document.getElementById('adminRoleFilter'),
     accountList: document.getElementById('adminAccountList'),
     accountPagination: document.getElementById('adminAccountPagination'),
     accountForm: document.getElementById('adminAccountForm'),
+    accountRoleField: document.getElementById('adminAccountRoleField'),
+    accountTeamField: document.getElementById('adminAccountTeamField'),
+    accountTeamSelect: document.getElementById('adminAccountTeamSelect'),
     accountStatus: document.getElementById('adminAccountStatus'),
     teacherImportForm: document.getElementById('adminTeacherImportForm'),
     teacherImportStatus: document.getElementById('adminTeacherImportStatus'),
+    teacherImportHelp: document.getElementById('adminTeacherImportHelp'),
+    downloadTeacherTemplateButton: document.getElementById('adminDownloadTeacherTemplateButton'),
     aiMetrics: document.getElementById('adminAiMetrics'),
     aiConfigForm: document.getElementById('adminAiConfigForm'),
     aiConfigStatus: document.getElementById('adminAiConfigStatus'),
@@ -126,8 +136,9 @@
     return scenes.find((scene) => scene.id === sceneId)?.title || sceneId;
   }
 
-  function roleLabel(role) {
-    return role === 'TRAINER' ? '管理员' : '老师';
+  function roleLabel(role, isSuperAdmin) {
+    if (isSuperAdmin) return '超级管理员';
+    return role === 'TRAINER' ? '团队管理员' : '老师';
   }
 
   function formatDateTime(value) {
@@ -209,81 +220,6 @@
     if (value >= 70) return '达标';
     if (value >= 60) return '需提升';
     return '重点辅导';
-  }
-
-  function parseCommaLine(line) {
-    const cells = [];
-    let current = '';
-    let inQuotes = false;
-    for (let index = 0; index < line.length; index += 1) {
-      const char = line[index];
-      const next = line[index + 1];
-      if (char === '"' && inQuotes && next === '"') {
-        current += '"';
-        index += 1;
-        continue;
-      }
-      if (char === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-      if ((char === ',' || char === '，') && !inQuotes) {
-        cells.push(current.trim());
-        current = '';
-        continue;
-      }
-      current += char;
-    }
-    cells.push(current.trim());
-    return cells;
-  }
-
-  function parseTeacherImportText(text) {
-    return text
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .filter((line) => !/^账号[,，]/.test(line) && !/^username[,，]/i.test(line))
-      .map((line, index) => {
-        const [username, displayName, password] = parseCommaLine(line);
-        if (!username || !displayName || !password) {
-          throw new Error(`第 ${index + 1} 行格式不正确，请使用：账号,姓名,初始密码`);
-        }
-        return { username, displayName, password };
-      });
-  }
-
-  function parseTeacherImportText(text) {
-    const rows = String(text || '')
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (rows.length < 2) {
-      throw new Error('请上传包含表头和账号数据的 CSV 表格');
-    }
-
-    const headers = parseCommaLine(rows[0]).map((header) => header.replace(/^\uFEFF/, '').trim().toLowerCase());
-    const usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header));
-    const displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header));
-    const passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header));
-    if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0) {
-      throw new Error('表头必须包含：工号,姓名,密码');
-    }
-
-    return rows.slice(1).map((line, index) => {
-      const cells = parseCommaLine(line);
-      const username = (cells[usernameIndex] || '').trim();
-      const displayName = (cells[displayNameIndex] || '').trim();
-      const password = (cells[passwordIndex] || '').trim();
-      if (!username || !displayName || !password) {
-        throw new Error(`第 ${index + 2} 行缺少工号、姓名或密码`);
-      }
-      return { username, displayName, password };
-    });
   }
 
   function parseScriptsText(text) {
@@ -1033,6 +969,46 @@
     `;
   }
 
+  function renderTeamAccess() {
+    const isSuperAdmin = Boolean(state.profile?.isSuperAdmin);
+    nodes.teamManagement.classList.toggle('hidden', !isSuperAdmin);
+    nodes.accountRoleField.classList.toggle('hidden', !isSuperAdmin);
+    nodes.accountForm.elements.role.value = isSuperAdmin ? nodes.accountForm.elements.role.value : 'TEACHER';
+    nodes.roleFilter.querySelector('option[value="TRAINER"]').hidden = !isSuperAdmin;
+    if (!isSuperAdmin && nodes.roleFilter.value === 'TRAINER') nodes.roleFilter.value = 'TEACHER';
+
+    nodes.accountTeamSelect.innerHTML = state.teams.length
+      ? state.teams
+          .filter((team) => team.isActive)
+          .map((team) => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`)
+          .join('')
+      : '<option value="">请先创建团队</option>';
+    nodes.accountTeamSelect.disabled = !isSuperAdmin;
+    nodes.accountTeamField.querySelector('span').textContent = isSuperAdmin ? '所属团队' : '当前团队';
+    nodes.teacherImportHelp.textContent = isSuperAdmin
+      ? '请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码,团队。团队名称需与已配置团队一致。'
+      : `请上传 Excel 或 CSV 表格，第一行为表头：工号,姓名,密码,团队。团队列统一填写“${state.profile?.teamName || ''}”。`;
+  }
+
+  function renderTeams() {
+    nodes.teamList.innerHTML = state.teams.length
+      ? state.teams
+          .map(
+            (team) => `
+              <article class="account-card">
+                <div>
+                  <p class="eyebrow">${team.isActive ? '启用中' : '已停用'}</p>
+                  <h3>${escapeHtml(team.name)}</h3>
+                  <p>${escapeHtml(team.teacherCount || 0)} 位老师 · ${escapeHtml(team.adminCount || 0)} 位团队管理员</p>
+                </div>
+              </article>
+            `
+          )
+          .join('')
+      : '<div class="empty-state compact-empty">尚未创建团队。</div>';
+    renderTeamAccess();
+  }
+
   function renderAccounts() {
     const keyword = nodes.accountSearchInput.value.trim().toLowerCase();
     const role = nodes.roleFilter.value;
@@ -1046,12 +1022,15 @@
     const users = state.users.filter((user) => {
       if (role !== 'all' && user.role !== role) return false;
       if (!keyword) return true;
-      return [user.username, user.displayName, roleLabel(user.role)].join(' ').toLowerCase().includes(keyword);
+      return [user.username, user.displayName, roleLabel(user.role, user.isSuperAdmin), user.teamName]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword);
     });
     const pageData = paginate(users, state.pages.users, pageSizes.users);
     state.pages.users = pageData.page;
     nodes.accountMetrics.innerHTML = [
-      ['账号总数', state.users.length, '系统内老师和管理员账号'],
+      ['账号总数', state.users.length, state.profile?.isSuperAdmin ? '系统内老师和管理员账号' : `${state.profile?.teamName || '本团队'}老师账号`],
       ['训练总次数', totalSessions, '所有老师累计进入训练次数'],
       ['团队平均分', teamAverageScore === null ? '暂无' : `${teamAverageScore}`, `已评分训练 ${totalScoredSessions} 次`],
     ]
@@ -1067,9 +1046,10 @@
             (user) => `
               <article class="account-card">
                 <div>
-                  <p class="eyebrow">${escapeHtml(roleLabel(user.role))}</p>
+                  <p class="eyebrow">${escapeHtml(roleLabel(user.role, user.isSuperAdmin))}</p>
                   <h3>${escapeHtml(user.displayName || user.username)}</h3>
                   <p>账号：${escapeHtml(user.username)}</p>
+                  <p>团队：${escapeHtml(user.teamName || '未分配')}</p>
                   ${
                     user.role === 'TEACHER'
                       ? `
@@ -1094,14 +1074,31 @@
                 </div>
                 <div class="account-actions">
                   ${
+                    state.profile?.isSuperAdmin && !user.isSuperAdmin
+                      ? `<select class="compact-select" data-user-team-select="${escapeHtml(user.id)}" aria-label="调整所属团队">
+                          ${state.teams
+                            .filter((team) => team.isActive)
+                            .map(
+                              (team) => `<option value="${escapeHtml(team.id)}" ${team.id === user.teamId ? 'selected' : ''}>${escapeHtml(team.name)}</option>`
+                            )
+                            .join('')}
+                         </select>
+                         <button class="secondary-btn compact-btn" type="button" data-assign-team="${escapeHtml(user.id)}">调整团队</button>`
+                      : ''
+                  }
+                  ${
                     user.role === 'TEACHER'
                       ? `<button class="secondary-btn compact-btn" type="button" data-view-training-sessions="${escapeHtml(user.id)}">${
                           state.expandedTrainingUserId === user.id ? '收起记录' : '查看训练记录'
                         }</button>`
                       : ''
                   }
-                  <button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
-                  <button class="secondary-btn compact-btn danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.displayName || user.username)}">删除</button>
+                  ${
+                    user.isSuperAdmin
+                      ? ''
+                      : `<button class="secondary-btn compact-btn" type="button" data-toggle-user="${escapeHtml(user.id)}" data-next="${user.isActive ? 'false' : 'true'}">${user.isActive ? '停用' : '启用'}</button>
+                         <button class="secondary-btn compact-btn danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.displayName || user.username)}">删除</button>`
+                  }
                 </div>
               </article>
             `
@@ -1155,6 +1152,22 @@
         await loadUsers();
       });
     });
+    nodes.accountList.querySelectorAll('[data-assign-team]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const userId = button.dataset.assignTeam;
+        const select = nodes.accountList.querySelector(`[data-user-team-select="${userId}"]`);
+        if (!userId || !select?.value) return;
+        try {
+          await api(`/api/admin/users/${userId}/team`, {
+            method: 'PATCH',
+            body: JSON.stringify({ teamId: select.value }),
+          });
+          await Promise.all([loadUsers(), loadTeams()]);
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+    });
     nodes.accountList.querySelectorAll('[data-delete-user]').forEach((button) => {
       button.addEventListener('click', async () => {
         const userName = button.dataset.userName || '该账号';
@@ -1181,6 +1194,12 @@
     renderAccounts();
   }
 
+  async function loadTeams() {
+    state.teams = await api('/api/admin/teams');
+    renderTeams();
+    if (state.users.length) renderAccounts();
+  }
+
   async function loadAiConfig(provider) {
     const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
     state.aiConfig = await api(`/api/admin/ai-config${query}`);
@@ -1194,13 +1213,16 @@
 
   async function loadProfile() {
     state.profile = await api('/api/admin/me');
-    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${
-      state.profile.role === 'TRAINER' ? '管理员' : '老师'
-    }`;
+    const identity = state.profile.isSuperAdmin
+      ? '超级管理员'
+      : `${state.profile.teamName || '未配置团队'} · ${state.profile.role === 'TRAINER' ? '团队管理员' : '老师'}`;
+    nodes.profileChip.textContent = `${state.profile.displayName || state.profile.username} · ${identity}`;
   }
 
   async function refreshAll() {
-    await Promise.all([loadProfile(), loadObjections(), loadTrainingTopics(), loadUsers(), loadAiConfig(), loadAppSettings()]);
+    await loadProfile();
+    await loadTeams();
+    await Promise.all([loadObjections(), loadTrainingTopics(), loadUsers(), loadAiConfig(), loadAppSettings()]);
     renderModules();
   }
 
@@ -1427,6 +1449,22 @@
       ],
     ]);
   });
+  nodes.teamForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(nodes.teamForm);
+    nodes.teamStatus.textContent = '正在创建团队...';
+    try {
+      await api('/api/admin/teams', {
+        method: 'POST',
+        body: JSON.stringify({ name: String(formData.get('name') || '').trim() }),
+      });
+      nodes.teamForm.reset();
+      nodes.teamStatus.textContent = '团队已创建，现在可以为该团队添加管理员和老师。';
+      await loadTeams();
+    } catch (error) {
+      nodes.teamStatus.textContent = error.message;
+    }
+  });
   nodes.accountForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(nodes.accountForm);
@@ -1439,12 +1477,14 @@
           displayName: String(formData.get('displayName') || ''),
           password: String(formData.get('password') || ''),
           role: String(formData.get('role') || 'TEACHER'),
+          teamId: String(formData.get('teamId') || nodes.accountTeamSelect.value || ''),
         }),
       });
       nodes.accountForm.reset();
       nodes.accountStatus.textContent = '账号已创建';
       state.pages.users = 1;
       await loadUsers();
+      await loadTeams();
     } catch (error) {
       nodes.accountStatus.textContent = error.message;
     }
@@ -1456,16 +1496,27 @@
     try {
       const file = formData.get('usersFile');
       if (!(file instanceof File) || !file.size) {
-        throw new Error('请先选择老师账号 CSV 表格');
+        throw new Error('请先选择老师账号 Excel 或 CSV 表格');
       }
       const result = await uploadApi('/api/admin/users/import/document', formData);
       nodes.teacherImportStatus.textContent = `导入完成：创建 ${result.created} 个，跳过 ${result.skipped} 个`;
       nodes.teacherImportForm.reset();
       state.pages.users = 1;
       await loadUsers();
+      await loadTeams();
     } catch (error) {
       nodes.teacherImportStatus.textContent = error.message;
     }
+  });
+  nodes.downloadTeacherTemplateButton.addEventListener('click', () => {
+    const sampleTeamName = state.profile?.isSuperAdmin
+      ? state.teams.find((team) => team.isActive)?.name || '示例团队'
+      : state.profile?.teamName || '本团队';
+    downloadCsv('老师账号导入模板.csv', [
+      ['工号', '姓名', '密码', '团队'],
+      ['teacher001', '张老师', '123456', sampleTeamName],
+      ['teacher002', '李老师', '123456', sampleTeamName],
+    ]);
   });
   nodes.aiConfigForm.addEventListener('submit', async (event) => {
     event.preventDefault();

@@ -7,6 +7,9 @@ export interface AuthUser {
   username: string
   role: UserRole
   displayName: string | null
+  teamId: string | null
+  teamName: string | null
+  isSuperAdmin: boolean
 }
 
 export interface AuthedRequest extends Request {

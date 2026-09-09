@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { hashPassword } from '../lib/auth'
 import { normalizeSopText } from '../lib/document-parser'
 import { prisma } from '../lib/prisma'
+import type { AuthUser } from '../types'
 import { HttpError } from '../utils/http-error'
 
 const roleSchema = z.enum(['TRAINER', 'TEACHER'])
@@ -14,10 +15,23 @@ const userCreateSchema = z.object({
   password: z.string().min(6).max(64),
   displayName: z.string().min(1).max(40),
   role: roleSchema.default('TEACHER'),
+  teamId: z.string().min(1).optional(),
 })
 
 const teacherBulkImportSchema = z.object({
-  users: z.array(userCreateSchema.omit({ role: true })).min(1).max(200),
+  users: z.array(
+    userCreateSchema.omit({ role: true, teamId: true }).extend({
+      teamName: z.string().min(1).max(191),
+    })
+  ).min(1).max(200),
+})
+
+const teamCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+})
+
+const userTeamSchema = z.object({
+  teamId: z.string().min(1),
 })
 
 const topicCreateSchema = z.object({
@@ -79,6 +93,26 @@ function parseReviewMeta(tagsJson: string) {
   } catch {
     return fallback
   }
+}
+
+function requireSuperAdmin(actor: AuthUser) {
+  if (!actor.isSuperAdmin) {
+    throw new HttpError(403, '仅超级管理员可以执行该操作')
+  }
+}
+
+function requireTeamAdmin(actor: AuthUser) {
+  if (!actor.isSuperAdmin && !actor.teamId) {
+    throw new HttpError(403, '当前管理员尚未配置所属团队，请联系超级管理员')
+  }
+}
+
+function canManageUser(
+  actor: AuthUser,
+  user: { username?: string; role: string; teamId: string | null; isSuperAdmin: boolean }
+) {
+  if (actor.isSuperAdmin) return !user.isSuperAdmin && user.username !== 'shiqi'
+  return user.role === 'TEACHER' && Boolean(actor.teamId) && user.teamId === actor.teamId
 }
 
 function mapTopic(topic: {
@@ -150,8 +184,11 @@ export async function getCurrentUserProfile(userId: string) {
       username: true,
       role: true,
       displayName: true,
+      teamId: true,
+      isSuperAdmin: true,
       isActive: true,
       createdAt: true,
+      team: { select: { name: true } },
     },
   })
 
@@ -159,21 +196,66 @@ export async function getCurrentUserProfile(userId: string) {
     throw new HttpError(404, 'User not found')
   }
 
-  return user
+  return {
+    ...user,
+    teamName: user.team?.name ?? null,
+    isSuperAdmin: user.isSuperAdmin || user.username === 'shiqi',
+  }
 }
 
-export async function listUsers(role?: string) {
+export async function listTeams(actor: AuthUser) {
+  requireTeamAdmin(actor)
+  const teams = await prisma.team.findMany({
+    where: actor.isSuperAdmin ? undefined : { id: actor.teamId! },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      users: {
+        where: { deletedAt: null },
+        select: { role: true },
+      },
+    },
+  })
+
+  return teams.map((team: (typeof teams)[number]) => ({
+    id: team.id,
+    name: team.name,
+    isActive: team.isActive,
+    teacherCount: team.users.filter((user: (typeof team.users)[number]) => user.role === 'TEACHER').length,
+    adminCount: team.users.filter((user: (typeof team.users)[number]) => user.role === 'TRAINER').length,
+    createdAt: team.createdAt,
+  }))
+}
+
+export async function createTeam(actor: AuthUser, payload: unknown) {
+  requireSuperAdmin(actor)
+  const input = teamCreateSchema.parse(payload)
+  const existing = await prisma.team.findUnique({ where: { name: input.name } })
+  if (existing) {
+    throw new HttpError(409, '团队名称已存在')
+  }
+
+  return prisma.team.create({
+    data: { name: input.name },
+    select: { id: true, name: true, isActive: true, createdAt: true },
+  })
+}
+
+export async function listUsers(actor: AuthUser, role?: string) {
+  requireTeamAdmin(actor)
   if (role) {
     roleSchema.parse(role)
   }
 
+  const effectiveRole = actor.isSuperAdmin ? role : 'TEACHER'
   const users = await prisma.user.findMany({
     where: {
       deletedAt: null,
-      ...(role ? { role } : {}),
+      ...(effectiveRole ? { role: effectiveRole } : {}),
+      ...(actor.isSuperAdmin ? {} : { teamId: actor.teamId! }),
     },
     orderBy: { createdAt: 'desc' },
     include: {
+      team: { select: { id: true, name: true } },
       sessions: {
         select: { id: true, status: true, totalScore: true, startedAt: true },
       },
@@ -205,6 +287,9 @@ export async function listUsers(role?: string) {
       username: user.username,
       role: user.role,
       displayName: user.displayName,
+      teamId: user.teamId,
+      teamName: user.team?.name ?? null,
+      isSuperAdmin: user.isSuperAdmin || user.username === 'shiqi',
       isActive: user.isActive,
       createdAt: user.createdAt,
       sessionCount: user.sessions.length,
@@ -216,13 +301,14 @@ export async function listUsers(role?: string) {
   })
 }
 
-export async function listTeacherTrainingSessions(teacherId: string) {
+export async function listTeacherTrainingSessions(actor: AuthUser, teacherId: string) {
+  requireTeamAdmin(actor)
   const teacher = await prisma.user.findUnique({
     where: { id: teacherId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, teamId: true, isSuperAdmin: true },
   })
 
-  if (!teacher || teacher.role !== 'TEACHER') {
+  if (!teacher || teacher.role !== 'TEACHER' || !canManageUser(actor, teacher)) {
     throw new HttpError(404, 'Teacher not found')
   }
 
@@ -291,8 +377,23 @@ export async function listTeacherTrainingSessions(teacherId: string) {
   })
 }
 
-export async function createUser(payload: unknown) {
+export async function createUser(actor: AuthUser, payload: unknown) {
+  requireTeamAdmin(actor)
   const input = userCreateSchema.parse(payload)
+  const role = actor.isSuperAdmin ? input.role : 'TEACHER'
+  const teamId = actor.isSuperAdmin ? input.teamId : actor.teamId
+
+  if (!teamId) {
+    throw new HttpError(400, '请选择账号所属团队')
+  }
+  if (!actor.isSuperAdmin && input.role === 'TRAINER') {
+    throw new HttpError(403, '仅超级管理员可以创建团队管理员')
+  }
+
+  const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
+  if (!team) {
+    throw new HttpError(400, '所选团队不存在或已停用')
+  }
   const existing = await prisma.user.findUnique({ where: { username: input.username } })
 
   if (existing) {
@@ -305,8 +406,9 @@ export async function createUser(payload: unknown) {
     data: {
       username: input.username,
       passwordHash,
-      role: input.role,
+      role,
       displayName: input.displayName,
+      teamId,
       isActive: true,
     },
   })
@@ -316,13 +418,36 @@ export async function createUser(payload: unknown) {
     username: user.username,
     role: user.role,
     displayName: user.displayName,
+    teamId: user.teamId,
+    teamName: team.name,
+    isSuperAdmin: false,
     isActive: user.isActive,
     createdAt: user.createdAt,
   }
 }
 
-export async function importTeacherUsers(payload: unknown) {
+export async function importTeacherUsers(actor: AuthUser, payload: unknown) {
+  requireTeamAdmin(actor)
   const input = teacherBulkImportSchema.parse(payload)
+  const requestedTeamNames = Array.from(new Set(input.users.map((user) => user.teamName.trim())))
+  const teams: Array<{ id: string; name: string }> = await prisma.team.findMany({
+    where: { name: { in: requestedTeamNames }, isActive: true },
+    select: { id: true, name: true },
+  })
+  const teamsByName = new Map<string, { id: string; name: string }>(
+    teams.map((team) => [team.name.toLowerCase(), team])
+  )
+  const unknownTeams = requestedTeamNames.filter((name) => !teamsByName.has(name.toLowerCase()))
+  if (unknownTeams.length) {
+    throw new HttpError(400, `以下团队不存在或已停用：${unknownTeams.join('、')}`)
+  }
+  if (!actor.isSuperAdmin) {
+    const actorTeamName = actor.teamName?.trim().toLowerCase()
+    const mismatchedTeam = requestedTeamNames.find((name) => name.toLowerCase() !== actorTeamName)
+    if (mismatchedTeam) {
+      throw new HttpError(403, `只能导入所属团队“${actor.teamName}”的老师账号`)
+    }
+  }
   const seenUsernames = new Set<string>()
   const existingUsers = await prisma.user.findMany({
     where: {
@@ -338,6 +463,7 @@ export async function importTeacherUsers(payload: unknown) {
   const results: Array<{
     username: string
     displayName: string
+    teamName: string
     status: 'CREATED' | 'SKIPPED'
     reason?: string
   }> = []
@@ -347,6 +473,7 @@ export async function importTeacherUsers(payload: unknown) {
       results.push({
         username: user.username,
         displayName: user.displayName,
+        teamName: user.teamName,
         status: 'SKIPPED',
         reason: '导入内容中账号重复',
       })
@@ -359,6 +486,7 @@ export async function importTeacherUsers(payload: unknown) {
       results.push({
         username: user.username,
         displayName: user.displayName,
+        teamName: user.teamName,
         status: 'SKIPPED',
         reason: '账号已存在',
       })
@@ -366,12 +494,14 @@ export async function importTeacherUsers(payload: unknown) {
     }
 
     const passwordHash = await hashPassword(user.password)
+    const team = teamsByName.get(user.teamName.trim().toLowerCase())!
     await prisma.user.create({
       data: {
         username: user.username,
         passwordHash,
         role: 'TEACHER',
         displayName: user.displayName,
+        teamId: team.id,
         isActive: true,
       },
     })
@@ -379,6 +509,7 @@ export async function importTeacherUsers(payload: unknown) {
     results.push({
       username: user.username,
       displayName: user.displayName,
+      teamName: team.name,
       status: 'CREATED',
     })
   }
@@ -391,9 +522,10 @@ export async function importTeacherUsers(payload: unknown) {
   }
 }
 
-export async function updateUserStatus(userId: string, isActive: boolean) {
+export async function updateUserStatus(actor: AuthUser, userId: string, isActive: boolean) {
+  requireTeamAdmin(actor)
   const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null } })
-  if (!user) {
+  if (!user || !canManageUser(actor, user)) {
     throw new HttpError(404, 'User not found')
   }
 
@@ -411,8 +543,34 @@ export async function updateUserStatus(userId: string, isActive: boolean) {
   }
 }
 
-export async function deleteUser(userId: string, currentUserId: string) {
-  if (userId === currentUserId) {
+export async function updateUserTeam(actor: AuthUser, userId: string, payload: unknown) {
+  requireSuperAdmin(actor)
+  const input = userTeamSchema.parse(payload)
+  const [user, team] = await Promise.all([
+    prisma.user.findFirst({ where: { id: userId, deletedAt: null } }),
+    prisma.team.findFirst({ where: { id: input.teamId, isActive: true } }),
+  ])
+  if (!user || !canManageUser(actor, user)) {
+    throw new HttpError(404, 'User not found')
+  }
+  if (!team) {
+    throw new HttpError(400, '所选团队不存在或已停用')
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { teamId: team.id },
+  })
+  return {
+    id: updated.id,
+    teamId: team.id,
+    teamName: team.name,
+  }
+}
+
+export async function deleteUser(actor: AuthUser, userId: string) {
+  requireTeamAdmin(actor)
+  if (userId === actor.id) {
     throw new HttpError(400, '不能删除当前登录账号')
   }
 
@@ -423,7 +581,7 @@ export async function deleteUser(userId: string, currentUserId: string) {
     },
   })
 
-  if (!user || user.deletedAt) {
+  if (!user || user.deletedAt || !canManageUser(actor, user)) {
     throw new HttpError(404, 'User not found')
   }
 
@@ -828,14 +986,21 @@ export async function deleteScenarios(payload: unknown) {
   }
 }
 
-export async function getDashboardSummary() {
+export async function getDashboardSummary(actor: AuthUser) {
+  requireTeamAdmin(actor)
+  const teacherWhere = {
+    role: 'TEACHER',
+    deletedAt: null,
+    ...(actor.isSuperAdmin ? {} : { teamId: actor.teamId! }),
+  }
+  const sessionWhere = actor.isSuperAdmin ? {} : { teacher: { teamId: actor.teamId! } }
   const [totalTeachers, totalTopics, totalScenarios, totalSessions, teacherUsers] = await Promise.all([
-    prisma.user.count({ where: { role: 'TEACHER', deletedAt: null } }),
+    prisma.user.count({ where: teacherWhere }),
     prisma.trainingTopic.count(),
     prisma.trainingScenario.count(),
-    prisma.trainingSession.count(),
+    prisma.trainingSession.count({ where: sessionWhere }),
     prisma.user.findMany({
-      where: { role: 'TEACHER' },
+      where: teacherWhere,
       orderBy: { createdAt: 'desc' },
       include: {
         sessions: {
@@ -858,6 +1023,7 @@ export async function getDashboardSummary() {
   const activeTeachers = await prisma.trainingSession.groupBy({
     by: ['teacherId'],
     where: {
+      ...sessionWhere,
       startedAt: {
         gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
       },

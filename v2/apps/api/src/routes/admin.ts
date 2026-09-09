@@ -18,6 +18,7 @@ import {
 } from '../services/ai-config.service'
 import {
   createScenario,
+  createTeam,
   createTopic,
   createUser,
   deleteUser,
@@ -29,11 +30,13 @@ import {
   importTeacherUsers,
   importScenarios,
   listTeacherTrainingSessions,
+  listTeams,
   listTopicsForAdmin,
   listUsers,
   updateScenario,
   updateTopic,
   updateTopicSop,
+  updateUserTeam,
   updateUserStatus,
 } from '../services/admin.service'
 import { ok } from '../utils/api'
@@ -137,14 +140,16 @@ function parseTeacherUsersRows(rows: string[][]) {
   let usernameIndex = headers.findIndex((header) => ['工号', '账号', '登录账号', 'username'].includes(header))
   let displayNameIndex = headers.findIndex((header) => ['姓名', '老师姓名', 'displayname', 'name'].includes(header))
   let passwordIndex = headers.findIndex((header) => ['密码', '初始密码', 'password'].includes(header))
+  let teamNameIndex = headers.findIndex((header) => ['团队', '所属团队', '团队名称', 'team'].includes(header))
 
-  if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0) {
-    if (headers.length >= 3) {
+  if (usernameIndex < 0 || displayNameIndex < 0 || passwordIndex < 0 || teamNameIndex < 0) {
+    if (headers.length >= 4) {
       usernameIndex = 0
       displayNameIndex = 1
       passwordIndex = 2
+      teamNameIndex = 3
     } else {
-      throw new HttpError(400, '表头必须包含：工号,姓名,密码')
+      throw new HttpError(400, '表头必须包含：工号,姓名,密码,团队')
     }
   }
 
@@ -152,12 +157,13 @@ function parseTeacherUsersRows(rows: string[][]) {
     const username = (row[usernameIndex] || '').trim()
     const displayName = (row[displayNameIndex] || '').trim()
     const password = (row[passwordIndex] || '').trim()
+    const teamName = (row[teamNameIndex] || '').trim()
 
-    if (!username || !displayName || !password) {
-      throw new HttpError(400, `第 ${index + 2} 行缺少工号、姓名或密码`)
+    if (!username || !displayName || !password || !teamName) {
+      throw new HttpError(400, `第 ${index + 2} 行缺少工号、姓名、密码或团队`)
     }
 
-    return { username, displayName, password }
+    return { username, displayName, password, teamName }
   })
 }
 
@@ -388,9 +394,9 @@ router.get('/me', async (req: AuthedRequest, res, next) => {
   }
 })
 
-router.get('/dashboard', requireRole('TRAINER'), async (_req, res, next) => {
+router.get('/dashboard', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await getDashboardSummary()))
+    res.json(ok(await getDashboardSummary(req.user!)))
   } catch (error) {
     next(error)
   }
@@ -436,18 +442,34 @@ router.post('/ai-config/test', requireRole('TRAINER'), async (req, res, next) =>
   }
 })
 
-router.get('/users', requireRole('TRAINER'), async (req, res, next) => {
+router.get('/teams', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    const role = typeof req.query.role === 'string' ? req.query.role : undefined
-    res.json(ok(await listUsers(role)))
+    res.json(ok(await listTeams(req.user!)))
   } catch (error) {
     next(error)
   }
 })
 
-router.get('/users/:userId/training-sessions', requireRole('TRAINER'), async (req, res, next) => {
+router.post('/teams', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await listTeacherTrainingSessions(req.params.userId)))
+    res.json(ok(await createTeam(req.user!, req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    const role = typeof req.query.role === 'string' ? req.query.role : undefined
+    res.json(ok(await listUsers(req.user!, role)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users/:userId/training-sessions', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await listTeacherTrainingSessions(req.user!, req.params.userId)))
   } catch (error) {
     next(error)
   }
@@ -455,37 +477,45 @@ router.get('/users/:userId/training-sessions', requireRole('TRAINER'), async (re
 
 router.post('/users', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await createUser(req.body)))
+    res.json(ok(await createUser(req.user!, req.body)))
   } catch (error) {
     next(error)
   }
 })
 
-router.post('/users/import', requireRole('TRAINER'), async (req, res, next) => {
+router.post('/users/import', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await importTeacherUsers(req.body)))
+    res.json(ok(await importTeacherUsers(req.user!, req.body)))
   } catch (error) {
     next(error)
   }
 })
 
-router.post('/users/import/document', requireRole('TRAINER'), upload.single('usersFile'), async (req, res, next) => {
+router.post('/users/import/document', requireRole('TRAINER'), upload.single('usersFile'), async (req: AuthedRequest, res, next) => {
   try {
     if (!req.file) {
-      throw new HttpError(400, '请上传老师账号 CSV 表格')
+      throw new HttpError(400, '请上传老师账号 Excel 或 CSV 表格')
     }
 
     const users = parseTeacherUsersFile(req.file)
-    res.json(ok(await importTeacherUsers({ users })))
+    res.json(ok(await importTeacherUsers(req.user!, { users })))
   } catch (error) {
     next(error)
   }
 })
 
-router.patch('/users/:userId/status', requireRole('TRAINER'), async (req, res, next) => {
+router.patch('/users/:userId/status', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
     const payload = statusSchema.parse(req.body)
-    res.json(ok(await updateUserStatus(req.params.userId, payload.isActive)))
+    res.json(ok(await updateUserStatus(req.user!, req.params.userId, payload.isActive)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.patch('/users/:userId/team', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
+  try {
+    res.json(ok(await updateUserTeam(req.user!, req.params.userId, req.body)))
   } catch (error) {
     next(error)
   }
@@ -493,7 +523,7 @@ router.patch('/users/:userId/status', requireRole('TRAINER'), async (req, res, n
 
 router.delete('/users/:userId', requireRole('TRAINER'), async (req: AuthedRequest, res, next) => {
   try {
-    res.json(ok(await deleteUser(req.params.userId, req.user!.id)))
+    res.json(ok(await deleteUser(req.user!, req.params.userId)))
   } catch (error) {
     next(error)
   }

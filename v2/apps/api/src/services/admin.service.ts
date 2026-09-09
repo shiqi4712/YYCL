@@ -429,9 +429,6 @@ export async function deleteUser(userId: string, currentUserId: string) {
 
   const deletedAt = new Date()
   const originalDisplayName = user.displayName || user.username
-  const deletedUsername = user.username.startsWith('internal_')
-    ? user.username
-    : `deleted_${user.id}_${deletedAt.getTime()}`
   await prisma.$transaction([
     prisma.trainingSession.updateMany({
       where: { teacherId: userId, status: 'ACTIVE' },
@@ -440,7 +437,7 @@ export async function deleteUser(userId: string, currentUserId: string) {
     prisma.user.update({
       where: { id: userId },
       data: {
-        username: deletedUsername,
+        username: `deleted_${user.id}_${deletedAt.getTime()}`,
         displayName: `（已删除）${originalDisplayName}`.slice(0, 191),
         isActive: false,
         deletedAt,

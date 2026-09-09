@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authenticate } from '../middleware/auth'
 import type { AuthedRequest } from '../types'
-import { login } from '../services/auth.service'
+import { login, loginWithInternalAccount } from '../services/auth.service'
 import { getCurrentUserProfile } from '../services/admin.service'
 import { ok } from '../utils/api'
 
@@ -10,6 +10,14 @@ const router = Router()
 router.post('/login', async (req, res, next) => {
   try {
     res.json(ok(await login(req.body)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/internal-login', async (req, res, next) => {
+  try {
+    res.json(ok(await loginWithInternalAccount(req.body)))
   } catch (error) {
     next(error)
   }

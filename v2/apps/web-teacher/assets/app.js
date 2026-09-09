@@ -118,18 +118,22 @@
   }
 
   function setupInternalAccountLogin() {
-    nodes.internalLoginButton.addEventListener('click', () => {
+    nodes.internalLoginButton.addEventListener('click', async () => {
       if (state.internalAccountStatus === 'logged-out') {
         window.location.assign(internalAccountLoginUrl);
         return;
       }
-      checkInternalAccount();
+      if (state.internalAccountStatus === 'authenticated') {
+        await enterWithInternalAccount();
+        return;
+      }
+      await checkInternalAccount(true);
     });
   }
 
   function renderInternalAccountStatus() {
     const status = state.internalAccountStatus;
-    nodes.internalLoginButton.disabled = status === 'checking' || status === 'authenticated';
+    nodes.internalLoginButton.disabled = status === 'checking' || status === 'authorizing';
 
     if (status === 'checking') {
       nodes.internalLoginButton.textContent = '确认中';
@@ -137,8 +141,13 @@
       return;
     }
     if (status === 'authenticated') {
-      nodes.internalLoginButton.textContent = '已登录';
+      nodes.internalLoginButton.textContent = '进入老师端';
       nodes.internalLoginStatus.textContent = `已识别老师：${state.internalAccountUser.fullname}`;
+      return;
+    }
+    if (status === 'authorizing') {
+      nodes.internalLoginButton.textContent = '进入中';
+      nodes.internalLoginStatus.textContent = '正在进入老师端...';
       return;
     }
     if (status === 'logged-out') {
@@ -151,7 +160,7 @@
     nodes.internalLoginStatus.textContent = '暂时无法确认登录状态，请稍后重试';
   }
 
-  async function checkInternalAccount() {
+  async function checkInternalAccount(autoEnter) {
     state.internalAccountStatus = 'checking';
     state.internalAccountUser = null;
     renderInternalAccountStatus();
@@ -171,19 +180,48 @@
       }
 
       const payload = await response.json();
+      const id = Number(payload.id);
       const fullname = String(payload.fullname || '').trim();
-      if (!fullname) {
+      if (!Number.isSafeInteger(id) || id <= 0 || !fullname) {
         throw new Error('internal_account_name_missing');
       }
 
-      state.internalAccountUser = { fullname };
+      state.internalAccountUser = { id, fullname };
       state.internalAccountStatus = 'authenticated';
       renderInternalAccountStatus();
+      if (autoEnter) {
+        await enterWithInternalAccount();
+      }
       return state.internalAccountUser;
     } catch (error) {
       state.internalAccountStatus = 'error';
       renderInternalAccountStatus();
       return null;
+    }
+  }
+
+  async function enterWithInternalAccount() {
+    if (!state.internalAccountUser) return;
+
+    state.internalAccountStatus = 'authorizing';
+    renderInternalAccountStatus();
+
+    try {
+      const result = await api('/api/auth/internal-login', {
+        method: 'POST',
+        body: JSON.stringify(state.internalAccountUser),
+      });
+      setToken(result.token);
+      toggleApp(true);
+      await loadProfile();
+      renderScenes();
+      setView('portal');
+      state.internalAccountStatus = 'authenticated';
+      renderInternalAccountStatus();
+    } catch (error) {
+      state.internalAccountStatus = 'error';
+      renderInternalAccountStatus();
+      nodes.internalLoginStatus.textContent = error.message;
     }
   }
 
@@ -973,7 +1011,6 @@
 
   async function bootstrap() {
     setupInternalAccountLogin();
-    checkInternalAccount();
     nodes.loginForm.addEventListener('submit', handleLogin);
     nodes.logoutButton.addEventListener('click', () => {
       setToken('');
@@ -1033,6 +1070,7 @@
     if (!state.token) {
       toggleApp(false);
       setView('portal');
+      await checkInternalAccount(true);
       return;
     }
 
@@ -1041,11 +1079,13 @@
       await loadProfile();
       renderScenes();
       setView('portal');
+      checkInternalAccount(false);
     } catch (error) {
       console.error(error);
       setToken('');
       toggleApp(false);
       setView('portal');
+      await checkInternalAccount(true);
     }
   }
 
